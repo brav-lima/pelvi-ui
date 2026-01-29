@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ──────────────────────────────────────────────
+// Organization (Clínica / Tenant)
+// ──────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  cnpj      String?  @unique
+  settings  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users            OrganizationUser[]
+  patients         Patient[]
+  procedures       Procedure[]
+  appointments     Appointment[]
+  anamneses        Anamnesis[]
+  evolutions       Evolution[]
+  financialRecords FinancialRecord[]
+
+  @@map("organizations")
+}
+
+// ──────────────────────────────────────────────
+// Person (global user, identified by CPF)
+// ──────────────────────────────────────────────
+
+model Person {
+  id           String   @id @default(uuid())
+  cpf          String   @unique
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String   @map("password_hash")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  organizationUsers OrganizationUser[]
+
+  @@map("persons")
+}
+
+// ──────────────────────────────────────────────
+// OrganizationUser (Person ↔ Organization link)
+// ──────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  PROFESSIONAL
+  RECEPTIONIST
+}
+
+model OrganizationUser {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  personId       String   @map("person_id")
+  role           Role     @default(PROFESSIONAL)
+  permissions    Json?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  person       Person       @relation(fields: [personId], references: [id])
+
+  appointments Appointment[]
+  anamneses    Anamnesis[]
+  evolutions   Evolution[]
+
+  @@unique([organizationId, personId])
+  @@map("organization_users")
+}
+
+// ──────────────────────────────────────────────
+// Patient
+// ──────────────────────────────────────────────
+
+model Patient {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  name           String
+  cpf            String?
+  birthDate      DateTime? @map("birth_date")
+  email          String?
+  phone          String?
+  gender         String?
+  address        String?
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  appointments     Appointment[]
+  anamneses        Anamnesis[]
+  evolutions       Evolution[]
+  financialRecords FinancialRecord[]
+
+  @@map("patients")
+}
+
+// ──────────────────────────────────────────────
+// Procedure
+// ──────────────────────────────────────────────
+
+model Procedure {
+  id              String   @id @default(uuid())
+  organizationId  String   @map("organization_id")
+  name            String
+  durationMinutes Int      @map("duration_minutes")
+  price           Decimal  @db.Decimal(10, 2)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  appointments Appointment[]
+
+  @@map("procedures")
+}
+
+// ──────────────────────────────────────────────
+// Appointment (Agenda)
+// ──────────────────────────────────────────────
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CANCELED
+  DONE
+}
+
+model Appointment {
+  id             String            @id @default(uuid())
+  organizationId String            @map("organization_id")
+  patientId      String            @map("patient_id")
+  professionalId String            @map("professional_id")
+  procedureId    String            @map("procedure_id")
+  startAt        DateTime          @map("start_at")
+  endAt          DateTime          @map("end_at")
+  status         AppointmentStatus @default(SCHEDULED)
+  notes          String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  patient          Patient           @relation(fields: [patientId], references: [id])
+  professional     OrganizationUser  @relation(fields: [professionalId], references: [id])
+  procedure        Procedure         @relation(fields: [procedureId], references: [id])
+  evolutions       Evolution[]
+  financialRecords FinancialRecord[]
+
+  @@map("appointments")
+}
+
+// ──────────────────────────────────────────────
+// Anamnesis
+// ──────────────────────────────────────────────
+
+model Anamnesis {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  patientId      String   @map("patient_id")
+  professionalId String   @map("professional_id")
+  data           Json
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  patient      Patient          @relation(fields: [patientId], references: [id])
+  professional OrganizationUser @relation(fields: [professionalId], references: [id])
+
+  @@map("anamneses")
+}
+
+// ──────────────────────────────────────────────
+// Evolution
+// ──────────────────────────────────────────────
+
+model Evolution {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  patientId      String   @map("patient_id")
+  professionalId String   @map("professional_id")
+  appointmentId  String?  @map("appointment_id")
+  description    String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  patient      Patient          @relation(fields: [patientId], references: [id])
+  professional OrganizationUser @relation(fields: [professionalId], references: [id])
+  appointment  Appointment?     @relation(fields: [appointmentId], references: [id])
+
+  @@map("evolutions")
+}
+
+// ──────────────────────────────────────────────
+// FinancialRecord
+// ──────────────────────────────────────────────
+
+enum FinancialType {
+  INCOME
+  EXPENSE
+}
+
+enum FinancialStatus {
+  PENDING
+  PAID
+}
+
+model FinancialRecord {
+  id             String          @id @default(uuid())
+  organizationId String          @map("organization_id")
+  patientId      String          @map("patient_id")
+  appointmentId  String?         @map("appointment_id")
+  amount         Decimal         @db.Decimal(10, 2)
+  type           FinancialType
+  status         FinancialStatus @default(PENDING)
+  paymentMethod  String?         @map("payment_method")
+  description    String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  patient      Patient      @relation(fields: [patientId], references: [id])
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("financial_records")
+}
