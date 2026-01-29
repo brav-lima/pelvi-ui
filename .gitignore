@@ -28,3 +28,5 @@ server/generated
 *.njsproj
 *.sln
 *.sw?
+
+docs/*
