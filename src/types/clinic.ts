@@ -49,17 +49,20 @@ export interface ProfileResponse {
   role: User['role'];
 }
 
+// Backend returns OrganizationUser + Person join
 export interface Professional {
   id: string;
-  name: string;
-  specialty: string;
-  email: string;
-  phone: string;
+  organizationId: string;
+  personId: string;
   role: 'ADMIN' | 'PROFESSIONAL' | 'RECEPTIONIST';
-  workingDays: string[];
-  workingHours: { start: string; end: string };
-  avatar?: string;
   active: boolean;
+  person: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    cpf: string;
+  };
 }
 
 export interface Patient {
@@ -95,67 +98,78 @@ export interface CreatePatientData {
 export interface Procedure {
   id: string;
   name: string;
-  duration: number; // in minutes
+  durationMinutes: number;
   price: number;
-  description?: string;
   active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
+
+export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'CANCELED' | 'DONE';
 
 export interface Appointment {
   id: string;
+  organizationId: string;
   patientId: string;
-  patientName: string;
   professionalId: string;
-  professionalName: string;
   procedureId: string;
-  procedureName: string;
-  date: string;
-  time: string;
-  duration: number;
-  status: 'scheduled' | 'confirmed' | 'canceled' | 'done';
+  startAt: string;
+  endAt: string;
+  status: AppointmentStatus;
   notes?: string;
-  price: number;
+  createdAt: string;
+  updatedAt: string;
+  patient?: { id: string; name: string };
+  professional?: { id: string; person: { name: string } };
+  procedure?: { id: string; name: string; durationMinutes: number; price: number };
 }
 
 export interface Anamnesis {
   id: string;
+  organizationId: string;
   patientId: string;
+  professionalId: string;
+  data: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-  sections: AnamnesisSection[];
-}
-
-export interface AnamnesisSection {
-  title: string;
-  fields: AnamnesisField[];
-}
-
-export interface AnamnesisField {
-  label: string;
-  value: string;
-  type: 'text' | 'textarea' | 'boolean' | 'select';
+  patient?: { id: string; name: string };
+  professional?: { id: string; person: { name: string } };
 }
 
 export interface Evolution {
   id: string;
+  organizationId: string;
   patientId: string;
   professionalId: string;
-  professionalName: string;
-  date: string;
+  appointmentId?: string;
   description: string;
-  attachments?: string[];
+  createdAt: string;
+  updatedAt: string;
+  patient?: { id: string; name: string };
+  professional?: { id: string; person: { name: string } };
 }
+
+export type FinancialType = 'INCOME' | 'EXPENSE';
+export type FinancialStatus = 'PENDING' | 'PAID';
 
 export interface FinancialRecord {
   id: string;
+  organizationId: string;
   patientId: string;
-  patientName: string;
   appointmentId?: string;
-  date: string;
   amount: number;
-  status: 'paid' | 'pending' | 'canceled';
-  description: string;
+  type: FinancialType;
+  status: FinancialStatus;
+  paymentMethod?: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  patient?: { id: string; name: string };
 }
 
-export type AppointmentStatus = Appointment['status'];
-export type FinancialStatus = FinancialRecord['status'];
+export interface FinancialSummary {
+  totalReceived: number;
+  totalPending: number;
+  totalExpenses: number;
+  balance: number;
+}

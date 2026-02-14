@@ -77,7 +77,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
       if (isEditing) {
         await patientsApi.update(patient.id, payload);
       } else {
-        await patientsApi.create(payload as PatientFormData);
+        await patientsApi.create({ ...payload, name: data.name });
       }
       onSuccess();
       onOpenChange(false);

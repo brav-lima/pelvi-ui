@@ -1,16 +1,11 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { 
-  Plus, 
-  Clock,
-  DollarSign,
-  Edit,
-  Trash2
-} from 'lucide-react';
-import { mockProcedures } from '@/data/mockData';
+import { Plus, Clock, DollarSign, Edit, Trash2, Loader2 } from 'lucide-react';
+import { proceduresApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -25,19 +20,37 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function Procedures() {
-  const [procedures, setProcedures] = useState(mockProcedures);
+  const queryClient = useQueryClient();
 
-  const toggleActive = (id: string) => {
-    setProcedures((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, active: !p.active } : p))
+  const { data: procedures = [], isLoading } = useQuery({
+    queryKey: ['procedures'],
+    queryFn: proceduresApi.list,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      proceduresApi.update(id, { active }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['procedures'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => proceduresApi.remove(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['procedures'] }),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Procedimentos"
-        description="Gerencie os procedimentos oferecidos pela clínica"
+        description="Gerencie os procedimentos oferecidos pela clinica"
         actions={
           <Button>
             <Plus className="w-4 h-4 mr-2" />
@@ -50,35 +63,29 @@ export default function Procedures() {
         {procedures.map((procedure) => (
           <Card
             key={procedure.id}
-            className={cn(
-              'transition-all',
-              !procedure.active && 'opacity-60'
-            )}
+            className={cn('transition-all', !procedure.active && 'opacity-60')}
           >
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="font-semibold text-foreground">{procedure.name}</h3>
-                  {procedure.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {procedure.description}
-                    </p>
-                  )}
                 </div>
                 <Switch
                   checked={procedure.active}
-                  onCheckedChange={() => toggleActive(procedure.id)}
+                  onCheckedChange={() =>
+                    toggleMutation.mutate({ id: procedure.id, active: !procedure.active })
+                  }
                 />
               </div>
 
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Clock className="w-4 h-4" />
-                  <span>{procedure.duration} min</span>
+                  <span>{procedure.durationMinutes} min</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-foreground font-medium">
                   <DollarSign className="w-4 h-4" />
-                  <span>R$ {procedure.price.toLocaleString('pt-BR')}</span>
+                  <span>R$ {Number(procedure.price).toLocaleString('pt-BR')}</span>
                 </div>
               </div>
 
@@ -97,13 +104,16 @@ export default function Procedures() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Excluir Procedimento</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Tem certeza que deseja excluir o procedimento "{procedure.name}"? 
-                        Esta ação não pode ser desfeita.
+                        Tem certeza que deseja excluir o procedimento "{procedure.name}"?
+                        Esta acao nao pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => deleteMutation.mutate(procedure.id)}
+                      >
                         Excluir
                       </AlertDialogAction>
                     </AlertDialogFooter>

@@ -1,35 +1,36 @@
 import { cn } from '@/lib/utils';
-import { AppointmentStatus, FinancialStatus } from '@/types/clinic';
 
 interface StatusBadgeProps {
-  status: AppointmentStatus | FinancialStatus;
+  status: string;
   className?: string;
 }
 
-const statusLabels: Record<AppointmentStatus | FinancialStatus, string> = {
-  scheduled: 'Agendado',
-  confirmed: 'Confirmado',
-  canceled: 'Cancelado',
-  done: 'Concluído',
-  paid: 'Pago',
-  pending: 'Pendente',
+const statusConfig: Record<string, { label: string; style: string }> = {
+  // Appointment statuses (uppercase from backend)
+  SCHEDULED: { label: 'Agendado', style: 'status-scheduled' },
+  CONFIRMED: { label: 'Confirmado', style: 'status-confirmed' },
+  CANCELED: { label: 'Cancelado', style: 'status-canceled' },
+  DONE: { label: 'Concluido', style: 'status-done' },
+  // Financial statuses
+  PENDING: { label: 'Pendente', style: 'status-pending' },
+  PAID: { label: 'Pago', style: 'status-confirmed' },
+  // Financial types
+  INCOME: { label: 'Receita', style: 'status-confirmed' },
+  EXPENSE: { label: 'Despesa', style: 'status-canceled' },
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  const config = statusConfig[status] || { label: status, style: '' };
+
   return (
     <span
       className={cn(
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-        status === 'scheduled' && 'status-scheduled',
-        status === 'confirmed' && 'status-confirmed',
-        status === 'canceled' && 'status-canceled',
-        status === 'done' && 'status-done',
-        status === 'paid' && 'status-confirmed',
-        status === 'pending' && 'status-pending',
-        className
+        config.style,
+        className,
       )}
     >
-      {statusLabels[status]}
+      {config.label}
     </span>
   );
 }

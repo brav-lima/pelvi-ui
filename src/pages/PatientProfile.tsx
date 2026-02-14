@@ -19,9 +19,8 @@ import {
   Clock,
   Loader2,
 } from 'lucide-react';
-import { patientsApi } from '@/lib/api';
-import { mockAppointments, mockAnamnesis, mockEvolutions } from '@/data/mockData';
-import { format } from 'date-fns';
+import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi } from '@/lib/api';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 
@@ -36,9 +35,25 @@ export default function PatientProfile() {
     enabled: !!id,
   });
 
-  // Still using mock for related data (will integrate later)
-  const patientAppointments = mockAppointments.filter((a) => a.patientId === id);
-  const patientEvolutions = mockEvolutions.filter((e) => e.patientId === id);
+  // Fetch all appointments for patient (wide range)
+  const { data: appointments = [] } = useQuery({
+    queryKey: ['patient-appointments', id],
+    queryFn: () => appointmentsApi.list({ startDate: '2020-01-01', endDate: '2030-12-31' }),
+    enabled: !!id,
+    select: (data) => data.filter((a) => a.patientId === id),
+  });
+
+  const { data: anamneses = [] } = useQuery({
+    queryKey: ['patient-anamneses', id],
+    queryFn: () => anamnesisApi.list(id!),
+    enabled: !!id,
+  });
+
+  const { data: evolutions = [] } = useQuery({
+    queryKey: ['patient-evolutions', id],
+    queryFn: () => evolutionsApi.list(id!),
+    enabled: !!id,
+  });
 
   if (isLoading) {
     return (
@@ -196,29 +211,32 @@ export default function PatientProfile() {
                   <CardTitle className="text-lg">Historico de Consultas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {patientAppointments.length === 0 ? (
+                  {appointments.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">
                       Nenhuma consulta registrada
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {patientAppointments.map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
-                        >
-                          <div className="flex items-center justify-center w-10 h-10 rounded-md bg-background border border-border">
-                            <Clock className="w-4 h-4 text-muted-foreground" />
+                      {appointments.map((apt) => {
+                        const start = parseISO(apt.startAt);
+                        return (
+                          <div
+                            key={apt.id}
+                            className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
+                          >
+                            <div className="flex items-center justify-center w-10 h-10 rounded-md bg-background border border-border">
+                              <Clock className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium">{apt.procedure?.name ?? '-'}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {format(start, 'dd/MM/yyyy')} as {format(start, 'HH:mm')} • {apt.professional?.person?.name ?? ''}
+                              </p>
+                            </div>
+                            <StatusBadge status={apt.status} />
                           </div>
-                          <div className="flex-1">
-                            <p className="font-medium">{apt.procedureName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {format(new Date(apt.date), 'dd/MM/yyyy')} as {apt.time} • {apt.professionalName}
-                            </p>
-                          </div>
-                          <StatusBadge status={apt.status} />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -231,19 +249,32 @@ export default function PatientProfile() {
                   <CardTitle className="text-lg">Anamnese</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {mockAnamnesis.sections.map((section, idx) => (
-                    <div key={idx} className="mb-6 last:mb-0">
-                      <h4 className="font-semibold text-foreground mb-3">{section.title}</h4>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {section.fields.map((field, fieldIdx) => (
-                          <div key={fieldIdx} className="p-3 rounded-lg bg-muted/50">
-                            <p className="text-sm text-muted-foreground">{field.label}</p>
-                            <p className="text-sm font-medium mt-1">{field.value}</p>
+                  {anamneses.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Nenhuma anamnese registrada
+                    </p>
+                  ) : (
+                    <div className="space-y-6">
+                      {anamneses.map((anamnesis) => (
+                        <div key={anamnesis.id} className="border border-border rounded-lg p-4">
+                          <p className="text-sm text-muted-foreground mb-3">
+                            {format(new Date(anamnesis.createdAt), 'dd/MM/yyyy')}
+                            {anamnesis.professional?.person?.name && ` • ${anamnesis.professional.person.name}`}
+                          </p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {Object.entries(anamnesis.data).map(([key, value]) => (
+                              <div key={key} className="p-3 rounded-lg bg-muted/50">
+                                <p className="text-sm text-muted-foreground">{key}</p>
+                                <p className="text-sm font-medium mt-1">
+                                  {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '-')}
+                                </p>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -254,29 +285,37 @@ export default function PatientProfile() {
                   <CardTitle className="text-lg">Evolucoes Clinicas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="relative">
-                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                    <div className="space-y-6">
-                      {patientEvolutions.map((evolution) => (
-                        <div key={evolution.id} className="relative pl-10">
-                          <div className="absolute left-2.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
-                          <div className="p-4 rounded-lg bg-muted/50">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-sm font-semibold text-foreground">
-                                {format(new Date(evolution.date), 'dd/MM/yyyy')}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                • {evolution.professionalName}
-                              </span>
+                  {evolutions.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Nenhuma evolucao registrada
+                    </p>
+                  ) : (
+                    <div className="relative">
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                      <div className="space-y-6">
+                        {evolutions.map((evolution) => (
+                          <div key={evolution.id} className="relative pl-10">
+                            <div className="absolute left-2.5 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+                            <div className="p-4 rounded-lg bg-muted/50">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {format(new Date(evolution.createdAt), 'dd/MM/yyyy')}
+                                </span>
+                                {evolution.professional?.person?.name && (
+                                  <span className="text-sm text-muted-foreground">
+                                    • {evolution.professional.person.name}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-foreground leading-relaxed">
+                                {evolution.description}
+                              </p>
                             </div>
-                            <p className="text-sm text-foreground leading-relaxed">
-                              {evolution.description}
-                            </p>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

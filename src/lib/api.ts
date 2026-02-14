@@ -5,6 +5,14 @@ import type {
   Patient,
   PaginatedResponse,
   CreatePatientData,
+  Procedure,
+  Professional,
+  Appointment,
+  AppointmentStatus,
+  Anamnesis,
+  Evolution,
+  FinancialRecord,
+  FinancialSummary,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -90,4 +98,63 @@ export const patientsApi = {
   update: (id: string, data: Partial<CreatePatientData>) =>
     api.patch<Patient>(`/patients/${id}`, data),
   remove: (id: string) => api.delete<void>(`/patients/${id}`),
+};
+
+export const proceduresApi = {
+  list: () => api.get<Procedure[]>('/procedures'),
+  getById: (id: string) => api.get<Procedure>(`/procedures/${id}`),
+  create: (data: { name: string; durationMinutes: number; price: number }) =>
+    api.post<Procedure>('/procedures', data),
+  update: (id: string, data: Partial<{ name: string; durationMinutes: number; price: number; active: boolean }>) =>
+    api.patch<Procedure>(`/procedures/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/procedures/${id}`),
+};
+
+export const professionalsApi = {
+  list: () => api.get<Professional[]>('/professionals'),
+  getById: (id: string) => api.get<Professional>(`/professionals/${id}`),
+  update: (id: string, data: { role?: string; active?: boolean }) =>
+    api.patch<Professional>(`/professionals/${id}`, data),
+};
+
+export const appointmentsApi = {
+  list: (params: { startDate: string; endDate: string; professionalId?: string }) =>
+    api.get<Appointment[]>(`/appointments?${queryString(params)}`),
+  getById: (id: string) => api.get<Appointment>(`/appointments/${id}`),
+  create: (data: { patientId: string; professionalId: string; procedureId: string; startAt: string; notes?: string }) =>
+    api.post<Appointment>('/appointments', data),
+  update: (id: string, data: Record<string, unknown>) =>
+    api.patch<Appointment>(`/appointments/${id}`, data),
+  updateStatus: (id: string, status: AppointmentStatus) =>
+    api.patch<Appointment>(`/appointments/${id}/status`, { status }),
+  remove: (id: string) => api.delete<void>(`/appointments/${id}`),
+};
+
+export const anamnesisApi = {
+  list: (patientId: string) => api.get<Anamnesis[]>(`/anamneses?patientId=${patientId}`),
+  getById: (id: string) => api.get<Anamnesis>(`/anamneses/${id}`),
+  create: (data: { patientId: string; data: Record<string, unknown> }) =>
+    api.post<Anamnesis>('/anamneses', data),
+  update: (id: string, data: { data: Record<string, unknown> }) =>
+    api.patch<Anamnesis>(`/anamneses/${id}`, data),
+};
+
+export const evolutionsApi = {
+  list: (patientId: string) => api.get<Evolution[]>(`/evolutions?patientId=${patientId}`),
+  getById: (id: string) => api.get<Evolution>(`/evolutions/${id}`),
+  create: (data: { patientId: string; description: string; appointmentId?: string }) =>
+    api.post<Evolution>('/evolutions', data),
+};
+
+export const financialApi = {
+  list: (params: { month: number; year: number }) =>
+    api.get<FinancialRecord[]>(`/financial?${queryString(params)}`),
+  summary: (params: { month: number; year: number }) =>
+    api.get<FinancialSummary>(`/financial/summary?${queryString(params)}`),
+  getById: (id: string) => api.get<FinancialRecord>(`/financial/${id}`),
+  create: (data: { patientId: string; amount: number; type: string; description?: string; paymentMethod?: string; appointmentId?: string }) =>
+    api.post<FinancialRecord>('/financial', data),
+  update: (id: string, data: Record<string, unknown>) =>
+    api.patch<FinancialRecord>(`/financial/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/financial/${id}`),
 };
