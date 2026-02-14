@@ -1,4 +1,11 @@
-import type { LoginResponse, SelectOrgResponse, ProfileResponse } from '@/types/clinic';
+import type {
+  LoginResponse,
+  SelectOrgResponse,
+  ProfileResponse,
+  Patient,
+  PaginatedResponse,
+  CreatePatientData,
+} from '@/types/clinic';
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -67,4 +74,20 @@ export const authApi = {
     api.post<SelectOrgResponse>('/auth/select-organization', { personId, organizationId }),
 
   me: () => api.get<ProfileResponse>('/auth/me'),
+};
+
+function queryString(params?: Record<string, unknown>): string {
+  if (!params) return '';
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
+  return new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+}
+
+export const patientsApi = {
+  list: (params?: { search?: string; page?: number; limit?: number }) =>
+    api.get<PaginatedResponse<Patient>>(`/patients?${queryString(params)}`),
+  getById: (id: string) => api.get<Patient>(`/patients/${id}`),
+  create: (data: CreatePatientData) => api.post<Patient>('/patients', data),
+  update: (id: string, data: Partial<CreatePatientData>) =>
+    api.patch<Patient>(`/patients/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/patients/${id}`),
 };

@@ -65,15 +65,31 @@ export interface Professional {
 export interface Patient {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  cpf: string;
-  birthDate: string;
-  gender: 'male' | 'female' | 'other';
-  address: string;
+  cpf?: string;
+  birthDate?: string;
+  email?: string;
+  phone?: string;
+  gender?: string;
+  address?: string;
   notes?: string;
   createdAt: string;
-  avatar?: string;
+  updatedAt: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export interface CreatePatientData {
+  name: string;
+  cpf?: string;
+  birthDate?: string;
+  email?: string;
+  phone?: string;
+  gender?: string;
+  address?: string;
+  notes?: string;
 }
 
 export interface Procedure {

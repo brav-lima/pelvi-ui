@@ -1,38 +1,57 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { 
-  ArrowLeft, 
-  Edit, 
-  Phone, 
-  Mail, 
+import {
+  ArrowLeft,
+  Edit,
+  Phone,
+  Mail,
   MapPin,
   Calendar,
-  User,
   FileText,
   TrendingUp,
-  Clock
+  Clock,
+  Loader2,
 } from 'lucide-react';
-import { mockPatients, mockAppointments, mockAnamnesis, mockEvolutions } from '@/data/mockData';
+import { patientsApi } from '@/lib/api';
+import { mockAppointments, mockAnamnesis, mockEvolutions } from '@/data/mockData';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 
 export default function PatientProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const patient = mockPatients.find((p) => p.id === id);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const { data: patient, isLoading, refetch } = useQuery({
+    queryKey: ['patient', id],
+    queryFn: () => patientsApi.getById(id!),
+    enabled: !!id,
+  });
+
+  // Still using mock for related data (will integrate later)
   const patientAppointments = mockAppointments.filter((a) => a.patientId === id);
   const patientEvolutions = mockEvolutions.filter((e) => e.patientId === id);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!patient) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Paciente não encontrado</p>
+        <p className="text-muted-foreground">Paciente nao encontrado</p>
       </div>
     );
   }
@@ -57,6 +76,13 @@ export default function PatientProfile() {
     return age;
   };
 
+  const genderLabel = (g?: string) => {
+    if (g === 'M') return 'Masculino';
+    if (g === 'F') return 'Feminino';
+    if (g === 'O') return 'Outro';
+    return g || '';
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
@@ -65,9 +91,9 @@ export default function PatientProfile() {
         </Button>
         <PageHeader
           title={patient.name}
-          description={`CPF: ${patient.cpf}`}
+          description={patient.cpf ? `CPF: ${patient.cpf}` : undefined}
           actions={
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Edit className="w-4 h-4 mr-2" />
               Editar
             </Button>
@@ -86,50 +112,62 @@ export default function PatientProfile() {
                 </AvatarFallback>
               </Avatar>
               <h2 className="text-xl font-semibold">{patient.name}</h2>
-              <p className="text-muted-foreground">
-                {calculateAge(patient.birthDate)} anos • {patient.gender === 'male' ? 'Masculino' : 'Feminino'}
-              </p>
+              {(patient.birthDate || patient.gender) && (
+                <p className="text-muted-foreground">
+                  {patient.birthDate && `${calculateAge(patient.birthDate)} anos`}
+                  {patient.birthDate && patient.gender && ' • '}
+                  {patient.gender && genderLabel(patient.gender)}
+                </p>
+              )}
             </div>
 
             <div className="mt-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
+              {patient.phone && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+                    <Phone className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Telefone</p>
+                    <p className="text-sm font-medium">{patient.phone}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Telefone</p>
-                  <p className="text-sm font-medium">{patient.phone}</p>
+              )}
+              {patient.email && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="text-sm font-medium">{patient.email}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
-                  <Mail className="w-4 h-4 text-muted-foreground" />
+              )}
+              {patient.birthDate && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Data de Nascimento</p>
+                    <p className="text-sm font-medium">
+                      {format(new Date(patient.birthDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="text-sm font-medium">{patient.email}</p>
+              )}
+              {patient.address && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Endereco</p>
+                    <p className="text-sm font-medium">{patient.address}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Data de Nascimento</p>
-                  <p className="text-sm font-medium">
-                    {format(new Date(patient.birthDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Endereço</p>
-                  <p className="text-sm font-medium">{patient.address}</p>
-                </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -148,14 +186,14 @@ export default function PatientProfile() {
               </TabsTrigger>
               <TabsTrigger value="evolutions" className="gap-2">
                 <TrendingUp className="w-4 h-4" />
-                Evoluções
+                Evolucoes
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="appointments" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Histórico de Consultas</CardTitle>
+                  <CardTitle className="text-lg">Historico de Consultas</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {patientAppointments.length === 0 ? (
@@ -175,7 +213,7 @@ export default function PatientProfile() {
                           <div className="flex-1">
                             <p className="font-medium">{apt.procedureName}</p>
                             <p className="text-sm text-muted-foreground">
-                              {format(new Date(apt.date), "dd/MM/yyyy")} às {apt.time} • {apt.professionalName}
+                              {format(new Date(apt.date), 'dd/MM/yyyy')} as {apt.time} • {apt.professionalName}
                             </p>
                           </div>
                           <StatusBadge status={apt.status} />
@@ -213,7 +251,7 @@ export default function PatientProfile() {
             <TabsContent value="evolutions" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Evoluções Clínicas</CardTitle>
+                  <CardTitle className="text-lg">Evolucoes Clinicas</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="relative">
@@ -225,7 +263,7 @@ export default function PatientProfile() {
                           <div className="p-4 rounded-lg bg-muted/50">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-sm font-semibold text-foreground">
-                                {format(new Date(evolution.date), "dd/MM/yyyy")}
+                                {format(new Date(evolution.date), 'dd/MM/yyyy')}
                               </span>
                               <span className="text-sm text-muted-foreground">
                                 • {evolution.professionalName}
@@ -245,6 +283,13 @@ export default function PatientProfile() {
           </Tabs>
         </div>
       </div>
+
+      <PatientFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSuccess={() => refetch()}
+        patient={patient}
+      />
     </div>
   );
 }
