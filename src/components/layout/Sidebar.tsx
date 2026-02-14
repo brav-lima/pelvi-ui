@@ -15,21 +15,37 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import type { User } from '@/types/clinic';
 
-const navigation = [
+type Role = User['role'];
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  roles?: Role[]; // undefined = all roles
+}
+
+const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Agenda', href: '/agenda', icon: Calendar },
   { name: 'Pacientes', href: '/patients', icon: Users },
-  { name: 'Profissionais', href: '/professionals', icon: UserCog },
-  { name: 'Procedimentos', href: '/procedures', icon: ClipboardList },
-  { name: 'Anamnese', href: '/anamnesis', icon: FileText },
-  { name: 'Evoluções', href: '/evolutions', icon: TrendingUp },
-  { name: 'Financeiro', href: '/financial', icon: DollarSign },
+  { name: 'Profissionais', href: '/professionals', icon: UserCog, roles: ['ADMIN'] },
+  { name: 'Procedimentos', href: '/procedures', icon: ClipboardList, roles: ['ADMIN', 'PROFESSIONAL'] },
+  { name: 'Anamnese', href: '/anamnesis', icon: FileText, roles: ['ADMIN', 'PROFESSIONAL'] },
+  { name: 'Evoluções', href: '/evolutions', icon: TrendingUp, roles: ['ADMIN', 'PROFESSIONAL'] },
+  { name: 'Financeiro', href: '/financial', icon: DollarSign, roles: ['ADMIN'] },
 ];
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { user } = useAuth();
+
+  const visibleNavigation = navigation.filter(
+    (item) => !item.roles || (user && item.roles.includes(user.role)),
+  );
 
   return (
     <aside
@@ -54,7 +70,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
-        {navigation.map((item) => {
+        {visibleNavigation.map((item) => {
           const isActive = location.pathname === item.href || 
             (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
           

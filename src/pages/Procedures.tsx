@@ -20,12 +20,14 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ProcedureFormDialog } from '@/components/procedures/ProcedureFormDialog';
+import { useHasRole } from '@/components/auth/RoleGuard';
 import type { Procedure } from '@/types/clinic';
 
 export default function Procedures() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProcedure, setEditingProcedure] = useState<Procedure | undefined>();
+  const isAdmin = useHasRole('ADMIN');
 
   const { data: procedures = [], isLoading } = useQuery({
     queryKey: ['procedures'],
@@ -75,10 +77,12 @@ export default function Procedures() {
         title="Procedimentos"
         description="Gerencie os procedimentos oferecidos pela clínica"
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Procedimento
-          </Button>
+          isAdmin ? (
+            <Button onClick={openCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Procedimento
+            </Button>
+          ) : undefined
         }
       />
 
@@ -93,12 +97,14 @@ export default function Procedures() {
                 <div>
                   <h3 className="font-semibold text-foreground">{procedure.name}</h3>
                 </div>
-                <Switch
-                  checked={procedure.active}
-                  onCheckedChange={() =>
-                    toggleMutation.mutate({ id: procedure.id, active: !procedure.active })
-                  }
-                />
+                {isAdmin && (
+                  <Switch
+                    checked={procedure.active}
+                    onCheckedChange={() =>
+                      toggleMutation.mutate({ id: procedure.id, active: !procedure.active })
+                    }
+                  />
+                )}
               </div>
 
               <div className="flex items-center gap-4 text-sm">
@@ -112,37 +118,39 @@ export default function Procedures() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
-                <Button variant="ghost" size="sm" className="flex-1" onClick={() => openEdit(procedure)}>
-                  <Edit className="w-4 h-4 mr-1" />
-                  Editar
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Excluir Procedimento</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tem certeza que deseja excluir o procedimento "{procedure.name}"?
-                        Esta ação não pode ser desfeita.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        onClick={() => deleteMutation.mutate(procedure.id)}
-                      >
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+              {isAdmin && (
+                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
+                  <Button variant="ghost" size="sm" className="flex-1" onClick={() => openEdit(procedure)}>
+                    <Edit className="w-4 h-4 mr-1" />
+                    Editar
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir Procedimento</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tem certeza que deseja excluir o procedimento "{procedure.name}"?
+                          Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => deleteMutation.mutate(procedure.id)}
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

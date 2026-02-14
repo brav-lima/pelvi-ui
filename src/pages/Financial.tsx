@@ -21,10 +21,12 @@ import { financialApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
+import { useHasRole } from '@/components/auth/RoleGuard';
 
 export default function Financial() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const isAdmin = useHasRole('ADMIN');
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -71,10 +73,12 @@ export default function Financial() {
         title="Financeiro"
         description="Visão geral das finanças da clínica"
         actions={
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Registro
-          </Button>
+          isAdmin ? (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Registro
+            </Button>
+          ) : undefined
         }
       />
 
@@ -127,7 +131,7 @@ export default function Financial() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Valor</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12" />
+                    {isAdmin && <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -151,33 +155,35 @@ export default function Financial() {
                       <td className="py-3 px-4">
                         <StatusBadge status={record.status} />
                       </td>
-                      <td className="py-3 px-4">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir este registro financeiro?
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                onClick={() => deleteMutation.mutate(record.id)}
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </td>
+                      {isAdmin && (
+                        <td className="py-3 px-4">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir este registro financeiro?
+                                  Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => deleteMutation.mutate(record.id)}
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

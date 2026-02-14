@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { MainLayout } from "@/components/layout/MainLayout";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 import Login from "./pages/Login";
 import SelectClinic from "./pages/SelectClinic";
@@ -39,11 +40,11 @@ const App = () => (
                 <Route path="/agenda" element={<Agenda />} />
                 <Route path="/patients" element={<Patients />} />
                 <Route path="/patients/:id" element={<PatientProfile />} />
-                <Route path="/professionals" element={<Professionals />} />
-                <Route path="/procedures" element={<Procedures />} />
-                <Route path="/anamnesis" element={<Anamnesis />} />
-                <Route path="/evolutions" element={<Evolutions />} />
-                <Route path="/financial" element={<Financial />} />
+                <Route path="/professionals" element={<ProtectedRoute roles={['ADMIN']}><Professionals /></ProtectedRoute>} />
+                <Route path="/procedures" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Procedures /></ProtectedRoute>} />
+                <Route path="/anamnesis" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Anamnesis /></ProtectedRoute>} />
+                <Route path="/evolutions" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Evolutions /></ProtectedRoute>} />
+                <Route path="/financial" element={<ProtectedRoute roles={['ADMIN']}><Financial /></ProtectedRoute>} />
               </Route>
 
               <Route path="/" element={<Navigate to="/login" replace />} />
