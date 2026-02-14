@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,17 +17,31 @@ import {
   FileText,
   TrendingUp,
   Clock,
+  Plus,
   Loader2,
+  CheckCircle,
+  XCircle,
+  CalendarCheck,
 } from 'lucide-react';
 import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi } from '@/lib/api';
+import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
+import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
+import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
+import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
+import type { Anamnesis, AppointmentStatus } from '@/types/clinic';
 
 export default function PatientProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [appointmentOpen, setAppointmentOpen] = useState(false);
+  const [evolutionOpen, setEvolutionOpen] = useState(false);
+  const [anamnesisOpen, setAnamnesisOpen] = useState(false);
+  const [editingAnamnesis, setEditingAnamnesis] = useState<Anamnesis | undefined>();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -35,7 +49,6 @@ export default function PatientProfile() {
     enabled: !!id,
   });
 
-  // Fetch all appointments for patient (wide range)
   const { data: appointments = [] } = useQuery({
     queryKey: ['patient-appointments', id],
     queryFn: () => appointmentsApi.list({ startDate: '2020-01-01', endDate: '2030-12-31' }),
@@ -53,6 +66,21 @@ export default function PatientProfile() {
     queryKey: ['patient-evolutions', id],
     queryFn: () => evolutionsApi.list(id!),
     enabled: !!id,
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ aptId, status }: { aptId: string; status: AppointmentStatus }) =>
+      appointmentsApi.updateStatus(aptId, status),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['patient-appointments', id] });
+      const labels: Record<string, string> = {
+        CONFIRMED: 'Agendamento confirmado',
+        CANCELED: 'Agendamento cancelado',
+        DONE: 'Agendamento finalizado',
+      };
+      toast.success(labels[updated.status] ?? 'Status atualizado');
+    },
+    onError: () => toast.error('Erro ao alterar status'),
   });
 
   if (isLoading) {
@@ -96,6 +124,16 @@ export default function PatientProfile() {
     if (g === 'F') return 'Feminino';
     if (g === 'O') return 'Outro';
     return g || '';
+  };
+
+  const openCreateAnamnesis = () => {
+    setEditingAnamnesis(undefined);
+    setAnamnesisOpen(true);
+  };
+
+  const openEditAnamnesis = (anamnesis: Anamnesis) => {
+    setEditingAnamnesis(anamnesis);
+    setAnamnesisOpen(true);
   };
 
   return (
@@ -201,14 +239,19 @@ export default function PatientProfile() {
               </TabsTrigger>
               <TabsTrigger value="evolutions" className="gap-2">
                 <TrendingUp className="w-4 h-4" />
-                Evolucoes
+                Evoluções
               </TabsTrigger>
             </TabsList>
 
+            {/* === Appointments Tab === */}
             <TabsContent value="appointments" className="mt-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Histórico de Consultas</CardTitle>
+                  <Button size="sm" onClick={() => setAppointmentOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Agendamento
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {appointments.length === 0 ? (
@@ -219,6 +262,7 @@ export default function PatientProfile() {
                     <div className="space-y-3">
                       {appointments.map((apt) => {
                         const start = parseISO(apt.startAt);
+                        const canChangeStatus = apt.status !== 'CANCELED' && apt.status !== 'DONE';
                         return (
                           <div
                             key={apt.id}
@@ -227,13 +271,51 @@ export default function PatientProfile() {
                             <div className="flex items-center justify-center w-10 h-10 rounded-md bg-background border border-border">
                               <Clock className="w-4 h-4 text-muted-foreground" />
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <p className="font-medium">{apt.procedure?.name ?? '-'}</p>
                               <p className="text-sm text-muted-foreground">
-                                {format(start, 'dd/MM/yyyy')} as {format(start, 'HH:mm')} • {apt.professional?.person?.name ?? ''}
+                                {format(start, 'dd/MM/yyyy')} às {format(start, 'HH:mm')} • {apt.professional?.person?.name ?? ''}
                               </p>
                             </div>
-                            <StatusBadge status={apt.status} />
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={apt.status} />
+                              {canChangeStatus && (
+                                <div className="flex gap-1">
+                                  {apt.status === 'SCHEDULED' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-success hover:text-success"
+                                      title="Confirmar"
+                                      disabled={statusMutation.isPending}
+                                      onClick={() => statusMutation.mutate({ aptId: apt.id, status: 'CONFIRMED' })}
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    title="Finalizar"
+                                    disabled={statusMutation.isPending}
+                                    onClick={() => statusMutation.mutate({ aptId: apt.id, status: 'DONE' })}
+                                  >
+                                    <CalendarCheck className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    title="Cancelar"
+                                    disabled={statusMutation.isPending}
+                                    onClick={() => statusMutation.mutate({ aptId: apt.id, status: 'CANCELED' })}
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -243,10 +325,15 @@ export default function PatientProfile() {
               </Card>
             </TabsContent>
 
+            {/* === Anamnesis Tab === */}
             <TabsContent value="anamnesis" className="mt-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Anamnese</CardTitle>
+                  <Button size="sm" onClick={openCreateAnamnesis}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Anamnese
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {anamneses.length === 0 ? (
@@ -257,10 +344,16 @@ export default function PatientProfile() {
                     <div className="space-y-6">
                       {anamneses.map((anamnesis) => (
                         <div key={anamnesis.id} className="border border-border rounded-lg p-4">
-                          <p className="text-sm text-muted-foreground mb-3">
-                            {format(new Date(anamnesis.createdAt), 'dd/MM/yyyy')}
-                            {anamnesis.professional?.person?.name && ` • ${anamnesis.professional.person.name}`}
-                          </p>
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(anamnesis.createdAt), 'dd/MM/yyyy')}
+                              {anamnesis.professional?.person?.name && ` • ${anamnesis.professional.person.name}`}
+                            </p>
+                            <Button variant="ghost" size="sm" onClick={() => openEditAnamnesis(anamnesis)}>
+                              <Edit className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                          </div>
                           <div className="grid gap-3 sm:grid-cols-2">
                             {Object.entries(anamnesis.data).map(([key, value]) => (
                               <div key={key} className="p-3 rounded-lg bg-muted/50">
@@ -279,10 +372,15 @@ export default function PatientProfile() {
               </Card>
             </TabsContent>
 
+            {/* === Evolutions Tab === */}
             <TabsContent value="evolutions" className="mt-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Evoluções Clínicas</CardTitle>
+                  <Button size="sm" onClick={() => setEvolutionOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Evolução
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {evolutions.length === 0 ? (
@@ -323,12 +421,41 @@ export default function PatientProfile() {
         </div>
       </div>
 
+      {/* Edit Patient Dialog */}
       <PatientFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}
         onSuccess={() => refetch()}
         patient={patient}
       />
+
+      {/* Create Appointment Dialog */}
+      <AppointmentFormDialog
+        open={appointmentOpen}
+        onOpenChange={setAppointmentOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-appointments', id] })}
+      />
+
+      {/* Create Evolution Dialog */}
+      {id && (
+        <EvolutionFormDialog
+          open={evolutionOpen}
+          onOpenChange={setEvolutionOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-evolutions', id] })}
+          patientId={id}
+        />
+      )}
+
+      {/* Create/Edit Anamnesis Dialog */}
+      {id && (
+        <AnamnesisFormDialog
+          open={anamnesisOpen}
+          onOpenChange={setAnamnesisOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-anamneses', id] })}
+          patientId={id}
+          anamnesis={editingAnamnesis}
+        />
+      )}
     </div>
   );
 }
