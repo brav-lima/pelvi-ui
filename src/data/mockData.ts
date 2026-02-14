@@ -7,22 +7,18 @@ export const mockUser: User = {
   id: '1',
   name: 'Dr. Maria Silva',
   email: 'maria.silva@clinica.com',
-  cpf: '123.456.789-00',
-  role: 'admin',
+  cpf: '12345678900',
+  role: 'ADMIN',
 };
 
 export const mockClinics: Clinic[] = [
   {
     id: '1',
     name: 'Clínica Saúde & Vida',
-    address: 'Av. Paulista, 1000 - São Paulo, SP',
-    phone: '(11) 3456-7890',
   },
   {
     id: '2',
     name: 'Centro Médico Esperança',
-    address: 'Rua Augusta, 500 - São Paulo, SP',
-    phone: '(11) 2345-6789',
   },
 ];
 
@@ -33,7 +29,7 @@ export const mockProfessionals: Professional[] = [
     specialty: 'Clínica Geral',
     email: 'maria.silva@clinica.com',
     phone: '(11) 99999-0001',
-    role: 'admin',
+    role: 'ADMIN',
     workingDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'],
     workingHours: { start: '08:00', end: '18:00' },
     active: true,
@@ -44,7 +40,7 @@ export const mockProfessionals: Professional[] = [
     specialty: 'Dermatologia',
     email: 'carlos.santos@clinica.com',
     phone: '(11) 99999-0002',
-    role: 'professional',
+    role: 'PROFESSIONAL',
     workingDays: ['Segunda', 'Quarta', 'Sexta'],
     workingHours: { start: '09:00', end: '17:00' },
     active: true,
@@ -55,7 +51,7 @@ export const mockProfessionals: Professional[] = [
     specialty: 'Pediatria',
     email: 'ana.oliveira@clinica.com',
     phone: '(11) 99999-0003',
-    role: 'professional',
+    role: 'PROFESSIONAL',
     workingDays: ['Terça', 'Quinta'],
     workingHours: { start: '08:00', end: '16:00' },
     active: true,
@@ -66,7 +62,7 @@ export const mockProfessionals: Professional[] = [
     specialty: 'Recepção',
     email: 'fernanda.costa@clinica.com',
     phone: '(11) 99999-0004',
-    role: 'receptionist',
+    role: 'RECEPTIONIST',
     workingDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'],
     workingHours: { start: '08:00', end: '18:00' },
     active: true,

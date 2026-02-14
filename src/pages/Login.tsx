@@ -32,11 +32,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const success = await login(cpf, password);
-      if (success) {
-        navigate('/select-clinic');
+      const result = await login(cpf, password);
+      if (result.success) {
+        navigate(result.multiClinic ? '/select-clinic' : '/dashboard');
       } else {
-        setError('CPF ou senha inválidos');
+        setError(result.error || 'CPF ou senha inválidos');
       }
     } catch {
       setError('Erro ao fazer login. Tente novamente.');

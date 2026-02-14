@@ -1,23 +1,26 @@
+import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, MapPin, Phone, ChevronRight, Stethoscope } from 'lucide-react';
+import { Building2, ChevronRight, Stethoscope } from 'lucide-react';
 
 export default function SelectClinic() {
-  const { isAuthenticated, clinics, selectClinic } = useAuth();
+  const { user, clinics, selectClinic } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState<string | null>(null);
 
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const handleSelectClinic = (clinicId: string) => {
-    const clinic = clinics.find((c) => c.id === clinicId);
-    if (clinic) {
-      selectClinic(clinic);
+  const handleSelectClinic = async (organizationId: string) => {
+    setLoading(organizationId);
+    const success = await selectClinic(organizationId);
+    if (success) {
       navigate('/dashboard');
     }
+    setLoading(null);
   };
 
   return (
@@ -33,9 +36,9 @@ export default function SelectClinic() {
 
         <Card className="border-0 shadow-xl">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl">Selecione uma Clínica</CardTitle>
+            <CardTitle className="text-xl">Selecione uma Clinica</CardTitle>
             <CardDescription>
-              Escolha a clínica em que deseja trabalhar hoje
+              Escolha a clinica em que deseja trabalhar hoje
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -45,6 +48,7 @@ export default function SelectClinic() {
                 variant="outline"
                 className="w-full h-auto p-4 justify-start hover:bg-accent hover:border-primary/30 transition-all"
                 onClick={() => handleSelectClinic(clinic.id)}
+                disabled={loading !== null}
               >
                 <div className="flex items-center gap-4 w-full">
                   <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent shrink-0">
@@ -52,14 +56,11 @@ export default function SelectClinic() {
                   </div>
                   <div className="flex-1 text-left">
                     <p className="font-semibold text-foreground">{clinic.name}</p>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                      <MapPin className="w-3 h-3" />
-                      <span className="truncate">{clinic.address}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Phone className="w-3 h-3" />
-                      <span>{clinic.phone}</span>
-                    </div>
+                    {clinic.cnpj && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        CNPJ: {clinic.cnpj}
+                      </p>
+                    )}
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </div>

@@ -1,18 +1,52 @@
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   cpf: string;
-  role: 'admin' | 'professional' | 'receptionist';
-  avatar?: string;
+  role: 'ADMIN' | 'PROFESSIONAL' | 'RECEPTIONIST';
 }
 
 export interface Clinic {
   id: string;
   name: string;
-  address: string;
-  phone: string;
-  logo?: string;
+  cnpj?: string;
+  settings?: Record<string, unknown>;
+}
+
+// Auth API response types
+export interface LoginResponseSingle {
+  accessToken: string;
+  person: { id: string; cpf: string; name: string; email: string | null };
+  organization: Clinic;
+  role: User['role'];
+}
+
+export interface LoginResponseMulti {
+  accessToken: null;
+  person: { id: string; cpf: string; name: string; email: string | null };
+  organizations: Array<{
+    id: string;
+    organizationId: string;
+    personId: string;
+    role: User['role'];
+    active: boolean;
+    organization: Clinic;
+  }>;
+}
+
+export type LoginResponse = LoginResponseSingle | LoginResponseMulti;
+
+export interface SelectOrgResponse {
+  accessToken: string;
+  person: { id: string; cpf: string; name: string; email: string | null };
+  organization: Clinic;
+  role: User['role'];
+}
+
+export interface ProfileResponse {
+  person: { id: string; cpf: string; name: string; email: string | null; phone: string | null };
+  organization: Clinic | null;
+  role: User['role'];
 }
 
 export interface Professional {
@@ -21,7 +55,7 @@ export interface Professional {
   specialty: string;
   email: string;
   phone: string;
-  role: 'admin' | 'professional' | 'receptionist';
+  role: 'ADMIN' | 'PROFESSIONAL' | 'RECEPTIONIST';
   workingDays: string[];
   workingHours: { start: string; end: string };
   avatar?: string;

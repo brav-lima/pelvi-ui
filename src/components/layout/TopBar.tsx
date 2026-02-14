@@ -32,7 +32,9 @@ export function TopBar() {
         </div>
         <div>
           <p className="text-sm font-medium text-foreground">{selectedClinic?.name}</p>
-          <p className="text-xs text-muted-foreground">{selectedClinic?.address}</p>
+          {selectedClinic?.cnpj && (
+            <p className="text-xs text-muted-foreground">CNPJ: {selectedClinic.cnpj}</p>
+          )}
         </div>
       </div>
 
@@ -64,7 +66,7 @@ export function TopBar() {
               </Avatar>
               <div className="text-left hidden sm:block">
                 <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user?.role?.toLowerCase()}</p>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </Button>
