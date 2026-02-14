@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,10 +16,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
+import type { Anamnesis as AnamnesisType } from '@/types/clinic';
 
 export default function Anamnesis() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingAnamnesis, setEditingAnamnesis] = useState<AnamnesisType | undefined>();
 
   const { data: patientsData, isLoading: loadingPatients } = useQuery({
     queryKey: ['patients', search],
@@ -46,10 +51,19 @@ export default function Anamnesis() {
       .toUpperCase();
   };
 
+  const openCreate = () => {
+    setEditingAnamnesis(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (anamnesis: AnamnesisType) => {
+    setEditingAnamnesis(anamnesis);
+    setDialogOpen(true);
+  };
+
   const renderAnamnesisData = (data: Record<string, unknown>) => {
     return Object.entries(data).map(([key, value]) => {
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        // Nested section
         const section = value as Record<string, unknown>;
         return (
           <div key={key} className="border border-border rounded-lg p-4">
@@ -69,7 +83,6 @@ export default function Anamnesis() {
           </div>
         );
       }
-      // Flat field
       return (
         <div key={key} className="border border-border rounded-lg p-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -171,7 +184,7 @@ export default function Anamnesis() {
                 description="Este paciente ainda nao possui anamnese"
                 action={{
                   label: 'Nova Anamnese',
-                  onClick: () => {},
+                  onClick: openCreate,
                 }}
               />
             ) : (
@@ -186,14 +199,28 @@ export default function Anamnesis() {
                 {renderAnamnesisData(latestAnamnesis.data)}
 
                 <div className="flex gap-2 pt-4">
-                  <Button variant="outline" className="flex-1">Editar Anamnese</Button>
-                  <Button className="flex-1">Nova Anamnese</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => openEdit(latestAnamnesis)}>
+                    Editar Anamnese
+                  </Button>
+                  <Button className="flex-1" onClick={openCreate}>
+                    Nova Anamnese
+                  </Button>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {selectedPatient && (
+        <AnamnesisFormDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['anamneses', selectedPatient] })}
+          patientId={selectedPatient}
+          anamnesis={editingAnamnesis}
+        />
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import type { Appointment } from '@/types/clinic';
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -24,6 +25,7 @@ export default function Agenda() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const timeSlots = Array.from({ length: 11 }, (_, i) => `${(i + 8).toString().padStart(2, '0')}:00`);
 
@@ -60,7 +62,7 @@ export default function Agenda() {
         title="Agenda"
         description="Gerencie os agendamentos da clinica"
         actions={
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Novo Agendamento
           </Button>
@@ -228,6 +230,16 @@ export default function Agenda() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Create Appointment Dialog */}
+      <AppointmentFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={() => {
+          // Refetch current week's appointments
+          // React Query will auto-refetch since the queryKey includes dates
+        }}
+      />
     </div>
   );
 }

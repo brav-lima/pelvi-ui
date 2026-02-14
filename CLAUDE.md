@@ -9,6 +9,7 @@ ClinicFlow (careflow-ui) is a **multi-tenant clinic management system** (Clinic 
 - **Frontend** (`/`) — React + TypeScript + Vite SPA (port 8080)
 - **Backend** (`/server`) — NestJS + Prisma + PostgreSQL API (port 3000)
 - **Database**: Neon (serverless PostgreSQL) with branch-based environments
+- **Deployment**: Railway (two services: `careflow-api` + `careflow-web`)
 - **Package manager**: Bun (both frontend and backend)
 
 ### Domain Context
@@ -16,13 +17,13 @@ ClinicFlow (careflow-ui) is a **multi-tenant clinic management system** (Clinic 
 The system targets small/medium clinics (physiotherapy, psychology, medical) with these core modules:
 
 - **Authentication** — Login via CPF + password. One CPF can be linked to multiple clinics (multi-tenant). After login, user selects clinic context (or auto-enters if only one).
-- **Agenda** — Clinic schedule with day/week/month views, per-professional. Statuses: Agendado, Confirmado, Cancelado, Realizado.
-- **Patients** — Per-clinic patient registry with profile containing basic data, appointment history, anamnesis, and evolutions.
-- **Professionals** — Staff management with roles (Admin, Profissional, Recepção) and working hours.
-- **Procedures** — Clinic services with name, duration, price, active/inactive status.
-- **Anamnesis** — Structured initial/periodic patient records.
+- **Agenda** — Clinic schedule with week view grid. Statuses: SCHEDULED, CONFIRMED, CANCELED, DONE.
+- **Patients** — Per-clinic patient registry with profile containing basic data, appointment history, anamnesis, and evolutions. Paginated listing with server-side search.
+- **Professionals** — Staff management with roles (ADMIN, PROFESSIONAL, RECEPTIONIST).
+- **Procedures** — Clinic services with name, durationMinutes, price, active/inactive toggle.
+- **Anamnesis** — Free-form JSON patient records (flexible structure per clinic).
 - **Evolutions** — Continuous clinical evolution notes displayed as a timeline.
-- **Financial** — Simple income/expense tracking linked to patients and appointments. Statuses: Pendente, Pago.
+- **Financial** — Income/expense tracking linked to patients and appointments. Monthly summary with totals. Statuses: PENDING, PAID.
 
 ### Multi-Tenant Model
 
@@ -81,12 +82,16 @@ bunx prisma db seed       # Seed database with fake data
 
 ## Frontend Architecture
 
+### Integration Status
+
+The frontend is **fully integrated** with the real backend API. There is no mock data — all pages fetch from the NestJS API via `src/lib/api.ts` using TanStack React Query.
+
 ### Provider Hierarchy (App.tsx)
 
 ```
 QueryClientProvider (TanStack React Query)
   → ThemeProvider (dark/light mode, persisted to localStorage)
-    → AuthProvider (user + clinic selection, mock auth)
+    → AuthProvider (real JWT auth + multi-tenant clinic selection)
       → TooltipProvider
         → BrowserRouter (React Router v6)
 ```
@@ -107,10 +112,20 @@ Routes are defined in `src/App.tsx`. Two route groups:
 
 ### State Management
 
-- **Auth state**: React Context (`src/contexts/AuthContext.tsx`) — `useAuth()` hook
+- **Auth state**: React Context (`src/contexts/AuthContext.tsx`) — `useAuth()` hook. Real JWT auth via `src/lib/api.ts`. Token persisted in `localStorage`. Session restoration on mount via `GET /api/auth/me`.
 - **Theme state**: React Context (`src/contexts/ThemeContext.tsx`) — light/dark toggle
-- **Server state**: TanStack React Query (configured but not heavily used yet — mock data in place)
+- **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query. Module-specific API clients in `src/lib/api.ts`.
 - **Component state**: local `useState`
+
+### API Client (`src/lib/api.ts`)
+
+Centralized HTTP client with:
+- `getToken()` / `setToken()` / `removeToken()` — JWT persistence in localStorage
+- Generic `request<T>()` — auto-injects Bearer token, handles errors
+- `ApiError` class with status code
+- `api` object with `get`, `post`, `patch`, `delete` methods
+- `queryString()` helper for URL params
+- Module-specific API objects: `authApi`, `patientsApi`, `proceduresApi`, `professionalsApi`, `appointmentsApi`, `anamnesisApi`, `evolutionsApi`, `financialApi`
 
 ### Key Directories
 
@@ -119,11 +134,28 @@ Routes are defined in `src/App.tsx`. Two route groups:
 | `src/pages/` | Route page components (one per route) |
 | `src/components/ui/` | shadcn/ui components + custom UI primitives |
 | `src/components/layout/` | MainLayout, Sidebar, TopBar |
+| `src/components/patients/` | PatientFormDialog (create/edit patient) |
 | `src/contexts/` | AuthContext, ThemeContext |
-| `src/types/clinic.ts` | All domain type definitions |
-| `src/data/mockData.ts` | Mock data used across pages |
+| `src/types/clinic.ts` | All domain type definitions (aligned with backend models) |
+| `src/lib/api.ts` | API client (fetch wrapper + module APIs) |
 | `src/hooks/` | Custom hooks (use-mobile, use-toast) |
 | `src/lib/utils.ts` | `cn()` utility for Tailwind class merging |
+
+### Pages Overview
+
+| Page | File | Data Source | Features |
+|------|------|-------------|----------|
+| Dashboard | `Dashboard.tsx` | `appointmentsApi`, `patientsApi`, `financialApi` | Stats cards, today's schedule, upcoming appointments |
+| Agenda | `Agenda.tsx` | `appointmentsApi` | Week grid view, time slots, appointment detail modal |
+| Pacientes | `Patients.tsx` | `patientsApi` | Paginated list, server-side search (debounced), create dialog |
+| Perfil Paciente | `PatientProfile.tsx` | `patientsApi`, `appointmentsApi`, `anamnesisApi`, `evolutionsApi` | Patient info card, tabs (Consultas, Anamnese, Evolucoes), edit dialog |
+| Profissionais | `Professionals.tsx` | `professionalsApi` | Card grid with avatar, role badge, contact info |
+| Procedimentos | `Procedures.tsx` | `proceduresApi` | Card grid with active toggle, delete with confirmation |
+| Anamnese | `Anamnesis.tsx` | `patientsApi`, `anamnesisApi` | Patient list + anamnesis viewer (flexible JSON rendering) |
+| Evolucoes | `Evolutions.tsx` | `patientsApi`, `evolutionsApi` | Patient list + evolution timeline |
+| Financeiro | `Financial.tsx` | `financialApi` | Stats cards (summary), records table with type/status badges |
+| Login | `Login.tsx` | `authApi` | CPF + password, handles single/multi-clinic responses |
+| Selecionar Clinica | `SelectClinic.tsx` | `authApi` | Clinic selection for multi-tenant users |
 
 ### UI Components
 
@@ -158,7 +190,23 @@ Loose mode: `noImplicitAny: false`, `strictNullChecks: false`. See `tsconfig.jso
 
 ### Domain Model (Frontend)
 
-Types in `src/types/clinic.ts`: User, Clinic, Professional, Patient, Procedure, Appointment, Anamnesis (with sections/fields), Evolution, FinancialRecord. All IDs are strings. Dates stored as strings (`yyyy-MM-dd` for dates, `HH:mm` for times).
+Types in `src/types/clinic.ts`, aligned with backend Prisma models:
+
+- **Auth types**: `LoginResponseSingle`, `LoginResponseMulti`, `SelectOrgResponse`, `ProfileResponse`
+- **User** — `{ id, name, email, cpf, role }` (roles: ADMIN, PROFESSIONAL, RECEPTIONIST)
+- **Clinic** — `{ id, name, cnpj?, settings? }`
+- **Professional** — `{ id, organizationId, personId, role, active, person: { id, name, email, phone, cpf } }` (OrganizationUser + Person join)
+- **Patient** — `{ id, name, cpf?, birthDate?, email?, phone?, gender?, address?, notes?, createdAt, updatedAt }`
+- **PaginatedResponse<T>** — `{ data: T[], meta: { total, page, limit, totalPages } }`
+- **Procedure** — `{ id, name, durationMinutes, price, active, createdAt, updatedAt }`
+- **Appointment** — `{ id, patientId, professionalId, procedureId, startAt, endAt, status, notes?, patient?, professional?, procedure? }`
+- **AppointmentStatus** — `'SCHEDULED' | 'CONFIRMED' | 'CANCELED' | 'DONE'`
+- **Anamnesis** — `{ id, patientId, professionalId, data: Record<string, unknown>, createdAt, updatedAt, patient?, professional? }`
+- **Evolution** — `{ id, patientId, professionalId, appointmentId?, description, createdAt, updatedAt, patient?, professional? }`
+- **FinancialRecord** — `{ id, patientId, appointmentId?, amount, type, status, paymentMethod?, description?, createdAt, updatedAt, patient? }`
+- **FinancialType** — `'INCOME' | 'EXPENSE'`; **FinancialStatus** — `'PENDING' | 'PAID'`
+
+All IDs are strings. Dates are ISO datetime strings from the backend.
 
 ---
 
@@ -283,7 +331,7 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 ### Key Config
 
 - Global prefix: `/api`
-- CORS: allows `http://localhost:8080` (frontend dev server)
+- CORS: configurable via `CORS_ORIGIN` env var (comma-separated origins), defaults to `http://localhost:8080`
 - `ValidationPipe` enabled globally (class-validator, whitelist + transform)
 - `AllExceptionsFilter` enabled globally — standardized error responses: `{ statusCode, message, timestamp, path }`
 - `JwtAuthGuard` + `RolesGuard` enabled globally via `APP_GUARD`
@@ -301,7 +349,41 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
   - `appointment.service.spec.ts` — conflict detection, endAt calculation, status changes
 - Run: `bun run test` (from /server) or `bun run server:test` (from root)
 
-### Database (Neon)
+---
+
+## Deployment (Railway)
+
+Two services deployed from the same monorepo on Railway:
+
+### Backend (`careflow-api`)
+- **Root directory**: `server`
+- **Builder**: Railpack (auto-detects NestJS)
+- **Config**: `server/railway.toml` — build command: `bun install && bunx prisma generate && bun run build`, start: `node dist/main`
+- **Env vars**: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`
+
+### Frontend (`careflow-web`)
+- **Root directory**: `/` (repo root)
+- **Builder**: Dockerfile (`Dockerfile` at root)
+- **Stack**: Multi-stage build → Nginx serving static SPA
+- **Config**: `railway.toml` + `Dockerfile` + `nginx.conf`
+- **Build arg**: `VITE_API_URL` — backend API URL injected at build time
+- **Nginx**: SPA routing (`try_files $uri $uri/ /index.html`), gzip, cache headers for static assets
+
+### Key Deployment Files
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Frontend multi-stage (bun build → nginx) |
+| `nginx.conf` | Nginx config for SPA routing + caching |
+| `railway.toml` | Frontend Railway config (Dockerfile builder) |
+| `server/Dockerfile` | Backend multi-stage (bun build → node dist/main) |
+| `server/railway.toml` | Backend Railway config (Railpack builder) |
+| `.dockerignore` | Root Docker ignore |
+| `server/.dockerignore` | Backend Docker ignore |
+
+---
+
+## Database (Neon)
 
 - **Provider**: Neon (serverless PostgreSQL)
 - **Branching**: Uses Neon branches to mirror environments (`dev`, `prod`)
@@ -312,18 +394,23 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 ### Seed Data
 
 Run `bunx prisma db seed` from `/server` to populate with test data:
-- 2 clinics (Clínica Bem Estar, Centro de Fisioterapia Saúde)
-- 4 users: Admin (multi-clinic), Fisioterapeuta, Psicólogo, Recepcionista
+- 2 clinics (Clinica Bem Estar, Centro de Fisioterapia Saude)
+- 4 users: Admin (multi-clinic), Fisioterapeuta, Psicologo, Recepcionista
 - 3 procedures, 5 patients, 7 appointments, 5 financial records, 2 anamneses, 2 evolutions
 
 Test credentials (all use password `123456`):
 - `11111111111` — Admin (linked to both clinics — triggers multi-clinic flow)
 - `22222222222` — Fisioterapeuta
-- `33333333333` — Psicólogo
+- `33333333333` — Psicologo
 - `44444444444` — Recepcionista
 
 ### Environment Variables
 
-Env files per environment (`server/.env.dev`, `server/.env.prod`):
+Backend env vars (`server/.env.dev`, `server/.env.prod`, Railway):
 - `DATABASE_URL` — Neon PostgreSQL connection string (use direct URL, not pooled, for migrations)
 - `JWT_SECRET` — JWT signing secret
+- `CORS_ORIGIN` — Comma-separated allowed origins (e.g., `https://careflow-web.up.railway.app,http://localhost:8080`)
+- `PORT` — Server port (Railway sets this automatically)
+
+Frontend env vars (build-time only):
+- `VITE_API_URL` — Backend API base URL (e.g., `https://careflow-api.up.railway.app`). Defaults to `http://localhost:3000`.

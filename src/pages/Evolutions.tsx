@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,10 +16,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 
 export default function Evolutions() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: patientsData, isLoading: loadingPatients } = useQuery({
     queryKey: ['patients', search],
@@ -107,7 +110,7 @@ export default function Evolutions() {
               {patient ? `Evolucoes - ${patient.name}` : 'Selecione um Paciente'}
             </CardTitle>
             {patient && (
-              <Button size="sm">
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova Evolucao
               </Button>
@@ -131,7 +134,7 @@ export default function Evolutions() {
                 description="Adicione a primeira evolucao clinica deste paciente"
                 action={{
                   label: 'Nova Evolucao',
-                  onClick: () => {},
+                  onClick: () => setDialogOpen(true),
                 }}
               />
             ) : (
@@ -155,9 +158,6 @@ export default function Evolutions() {
                         <p className="text-sm text-foreground leading-relaxed">
                           {evolution.description}
                         </p>
-                        <div className="flex gap-2 mt-4">
-                          <Button variant="ghost" size="sm">Editar</Button>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -167,6 +167,15 @@ export default function Evolutions() {
           </CardContent>
         </Card>
       </div>
+
+      {selectedPatient && (
+        <EvolutionFormDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['evolutions', selectedPatient] })}
+          patientId={selectedPatient}
+        />
+      )}
     </div>
   );
 }

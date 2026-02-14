@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,9 +18,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ProcedureFormDialog } from '@/components/procedures/ProcedureFormDialog';
+import type { Procedure } from '@/types/clinic';
 
 export default function Procedures() {
   const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProcedure, setEditingProcedure] = useState<Procedure | undefined>();
 
   const { data: procedures = [], isLoading } = useQuery({
     queryKey: ['procedures'],
@@ -38,6 +42,16 @@ export default function Procedures() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['procedures'] }),
   });
 
+  const openCreate = () => {
+    setEditingProcedure(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (procedure: Procedure) => {
+    setEditingProcedure(procedure);
+    setDialogOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -52,7 +66,7 @@ export default function Procedures() {
         title="Procedimentos"
         description="Gerencie os procedimentos oferecidos pela clinica"
         actions={
-          <Button>
+          <Button onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />
             Novo Procedimento
           </Button>
@@ -90,7 +104,7 @@ export default function Procedures() {
               </div>
 
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
-                <Button variant="ghost" size="sm" className="flex-1">
+                <Button variant="ghost" size="sm" className="flex-1" onClick={() => openEdit(procedure)}>
                   <Edit className="w-4 h-4 mr-1" />
                   Editar
                 </Button>
@@ -124,6 +138,13 @@ export default function Procedures() {
           </Card>
         ))}
       </div>
+
+      <ProcedureFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['procedures'] })}
+        procedure={editingProcedure}
+      />
     </div>
   );
 }

@@ -1,13 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatCard } from '@/components/ui/stat-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, TrendingUp, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Loader2 } from 'lucide-react';
 import { financialApi } from '@/lib/api';
 import { format } from 'date-fns';
+import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
 
 export default function Financial() {
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
@@ -32,9 +38,23 @@ export default function Financial() {
 
   const paidCount = records.filter((r) => r.status === 'PAID').length;
 
+  const handleSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['financial'] });
+    queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title="Financeiro" description="Visao geral das financas da clinica" />
+      <PageHeader
+        title="Financeiro"
+        description="Visao geral das financas da clinica"
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Registro
+          </Button>
+        }
+      />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -116,6 +136,12 @@ export default function Financial() {
           )}
         </CardContent>
       </Card>
+
+      <FinancialFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }
