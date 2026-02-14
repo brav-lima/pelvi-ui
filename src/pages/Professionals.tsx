@@ -26,7 +26,7 @@ export default function Professionals() {
     const roleMap: Record<string, { label: string; className: string }> = {
       ADMIN: { label: 'Admin', className: 'bg-primary/10 text-primary border-primary/20' },
       PROFESSIONAL: { label: 'Profissional', className: 'bg-info/10 text-info border-info/20' },
-      RECEPTIONIST: { label: 'Recepcao', className: 'bg-warning/10 text-warning border-warning/20' },
+      RECEPTIONIST: { label: 'Recepção', className: 'bg-warning/10 text-warning border-warning/20' },
     };
     return roleMap[role] || { label: role, className: '' };
   };
@@ -43,7 +43,7 @@ export default function Professionals() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Profissionais"
-        description="Equipe da clinica"
+        description="Equipe da clínica"
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

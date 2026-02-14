@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { evolutionsApi } from '@/lib/api';
 
 const evolutionSchema = z.object({
-  description: z.string().min(10, 'Descricao deve ter pelo menos 10 caracteres'),
+  description: z.string().min(10, 'Descrição deve ter pelo menos 10 caracteres'),
 });
 
 type EvolutionFormData = z.infer<typeof evolutionSchema>;
@@ -50,13 +50,13 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId }
         patientId,
         description: data.description,
       });
-      toast.success('Evolucao registrada com sucesso');
+      toast.success('Evolução registrada com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
-      toast.error('Erro ao salvar evolucao');
-      setError('Erro ao salvar evolucao. Tente novamente.');
+      toast.error('Erro ao salvar evolução');
+      setError('Erro ao salvar evolução. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -66,19 +66,19 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>Nova Evolucao</DialogTitle>
+          <DialogTitle>Nova Evolução</DialogTitle>
           <DialogDescription>
-            Registre a evolucao clinica do paciente.
+            Registre a evolução clínica do paciente.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="description">Descricao *</Label>
+            <Label htmlFor="description">Descrição *</Label>
             <Textarea
               id="description"
               rows={8}
-              placeholder="Descreva a evolucao clinica do paciente..."
+              placeholder="Descreva a evolução clínica do paciente..."
               {...form.register('description')}
             />
             {form.formState.errors.description && (

@@ -46,7 +46,7 @@ export default function Procedures() {
     mutationFn: (id: string) => proceduresApi.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['procedures'] });
-      toast.success('Procedimento excluido com sucesso');
+      toast.success('Procedimento excluído com sucesso');
     },
     onError: () => toast.error('Erro ao excluir procedimento'),
   });
@@ -73,7 +73,7 @@ export default function Procedures() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Procedimentos"
-        description="Gerencie os procedimentos oferecidos pela clinica"
+        description="Gerencie os procedimentos oferecidos pela clínica"
         actions={
           <Button onClick={openCreate}>
             <Plus className="w-4 h-4 mr-2" />
@@ -128,7 +128,7 @@ export default function Procedures() {
                       <AlertDialogTitle>Excluir Procedimento</AlertDialogTitle>
                       <AlertDialogDescription>
                         Tem certeza que deseja excluir o procedimento "{procedure.name}"?
-                        Esta acao nao pode ser desfeita.
+                        Esta ação não pode ser desfeita.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

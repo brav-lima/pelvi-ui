@@ -60,7 +60,7 @@ export default function Agenda() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Agenda"
-        description="Gerencie os agendamentos da clinica"
+        description="Gerencie os agendamentos da clínica"
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -177,7 +177,7 @@ export default function Agenda() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalhes do Agendamento</DialogTitle>
-            <DialogDescription>Informacoes completas da consulta</DialogDescription>
+            <DialogDescription>Informações completas da consulta</DialogDescription>
           </DialogHeader>
           {selectedAppointment && (
             <div className="space-y-4">
@@ -204,7 +204,7 @@ export default function Agenda() {
                     <p className="font-medium">{format(parseISO(selectedAppointment.startAt), 'dd/MM/yyyy')}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Horario</p>
+                    <p className="text-sm text-muted-foreground">Horário</p>
                     <p className="font-medium flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {format(parseISO(selectedAppointment.startAt), 'HH:mm')}
@@ -212,7 +212,7 @@ export default function Agenda() {
                   </div>
                   {selectedAppointment.procedure?.durationMinutes && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Duracao</p>
+                      <p className="text-sm text-muted-foreground">Duração</p>
                       <p className="font-medium">{selectedAppointment.procedure.durationMinutes} min</p>
                     </div>
                   )}

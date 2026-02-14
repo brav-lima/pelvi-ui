@@ -102,7 +102,7 @@ export default function Anamnesis() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Anamnese"
-        description="Formularios de anamnese dos pacientes"
+        description="Formulários de anamnese dos pacientes"
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -181,7 +181,7 @@ export default function Anamnesis() {
               <EmptyState
                 icon={FileText}
                 title="Nenhuma anamnese registrada"
-                description="Este paciente ainda nao possui anamnese"
+                description="Este paciente ainda não possui anamnese"
                 action={{
                   label: 'Nova Anamnese',
                   onClick: openCreate,
@@ -192,7 +192,7 @@ export default function Anamnesis() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="w-4 h-4" />
                   <span>
-                    Ultima atualizacao: {format(new Date(latestAnamnesis.updatedAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    Última atualização: {format(new Date(latestAnamnesis.updatedAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </span>
                 </div>
 

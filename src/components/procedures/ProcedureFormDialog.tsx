@@ -27,8 +27,8 @@ import type { Procedure } from '@/types/clinic';
 
 const procedureSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  durationMinutes: z.string().min(1, 'Selecione a duracao'),
-  price: z.string().min(1, 'Informe o preco'),
+  durationMinutes: z.string().min(1, 'Selecione a duração'),
+  price: z.string().min(1, 'Informe o preço'),
 });
 
 type ProcedureFormData = z.infer<typeof procedureSchema>;
@@ -105,7 +105,7 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Duracao *</Label>
+              <Label>Duração *</Label>
               <Select
                 value={form.watch('durationMinutes') || ''}
                 onValueChange={(v) => form.setValue('durationMinutes', v, { shouldValidate: true })}
@@ -128,7 +128,7 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="price">Preco (R$) *</Label>
+              <Label htmlFor="price">Preço (R$) *</Label>
               <Input
                 id="price"
                 type="number"

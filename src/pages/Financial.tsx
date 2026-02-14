@@ -45,7 +45,7 @@ export default function Financial() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['financial'] });
       queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
-      toast.success('Registro excluido com sucesso');
+      toast.success('Registro excluído com sucesso');
     },
     onError: () => toast.error('Erro ao excluir registro'),
   });
@@ -69,7 +69,7 @@ export default function Financial() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Financeiro"
-        description="Visao geral das financas da clinica"
+        description="Visão geral das finanças da clínica"
         actions={
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -83,7 +83,7 @@ export default function Financial() {
         <StatCard
           title="Receita Total"
           value={`R$ ${(summary?.totalReceived ?? 0).toLocaleString('pt-BR')}`}
-          description="Este mes"
+          description="Este mês"
           icon={DollarSign}
         />
         <StatCard
@@ -95,7 +95,7 @@ export default function Financial() {
         <StatCard
           title="Despesas"
           value={`R$ ${(summary?.totalExpenses ?? 0).toLocaleString('pt-BR')}`}
-          description="Este mes"
+          description="Este mês"
           icon={TrendingUp}
         />
         <StatCard
@@ -114,7 +114,7 @@ export default function Financial() {
         <CardContent>
           {records.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              Nenhum registro financeiro neste mes.
+              Nenhum registro financeiro neste mês.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -163,7 +163,7 @@ export default function Financial() {
                               <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
                               <AlertDialogDescription>
                                 Tem certeza que deseja excluir este registro financeiro?
-                                Esta acao nao pode ser desfeita.
+                                Esta ação não pode ser desfeita.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

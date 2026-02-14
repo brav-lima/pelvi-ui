@@ -37,7 +37,7 @@ const appointmentSchema = z.object({
   professionalId: z.string().min(1, 'Selecione um profissional'),
   procedureId: z.string().min(1, 'Selecione um procedimento'),
   date: z.string().min(1, 'Selecione a data'),
-  time: z.string().min(1, 'Selecione o horario'),
+  time: z.string().min(1, 'Selecione o horário'),
   notes: z.string().optional(),
 });
 
@@ -107,7 +107,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
       form.reset();
     } catch {
       toast.error('Erro ao criar agendamento');
-      setError('Erro ao criar agendamento. Verifique se nao ha conflito de horario.');
+      setError('Erro ao criar agendamento. Verifique se não há conflito de horário.');
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
             </div>
 
             <div className="space-y-2">
-              <Label>Horario *</Label>
+              <Label>Horário *</Label>
               <Select
                 value={form.watch('time') || ''}
                 onValueChange={(v) => form.setValue('time', v, { shouldValidate: true })}
@@ -217,8 +217,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Observacoes</Label>
-            <Textarea id="notes" rows={3} placeholder="Observacoes sobre a consulta..." {...form.register('notes')} />
+            <Label htmlFor="notes">Observações</Label>
+            <Textarea id="notes" rows={3} placeholder="Observações sobre a consulta..." {...form.register('notes')} />
           </div>
 
           {error && <p className="text-sm text-destructive text-center">{error}</p>}

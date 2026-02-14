@@ -52,7 +52,7 @@ export default function Evolutions() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Evolucoes"
-        description="Historico de evolucoes clinicas dos pacientes"
+        description="Histórico de evoluções clínicas dos pacientes"
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -107,12 +107,12 @@ export default function Evolutions() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">
-              {patient ? `Evolucoes - ${patient.name}` : 'Selecione um Paciente'}
+              {patient ? `Evoluções - ${patient.name}` : 'Selecione um Paciente'}
             </CardTitle>
             {patient && (
               <Button size="sm" onClick={() => setDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Nova Evolucao
+                Nova Evolução
               </Button>
             )}
           </CardHeader>
@@ -121,7 +121,7 @@ export default function Evolutions() {
               <EmptyState
                 icon={Users}
                 title="Nenhum paciente selecionado"
-                description="Selecione um paciente na lista ao lado para visualizar suas evolucoes"
+                description="Selecione um paciente na lista ao lado para visualizar suas evoluções"
               />
             ) : loadingEvolutions ? (
               <div className="flex justify-center py-8">
@@ -130,10 +130,10 @@ export default function Evolutions() {
             ) : evolutions.length === 0 ? (
               <EmptyState
                 icon={TrendingUp}
-                title="Nenhuma evolucao registrada"
-                description="Adicione a primeira evolucao clinica deste paciente"
+                title="Nenhuma evolução registrada"
+                description="Adicione a primeira evolução clínica deste paciente"
                 action={{
-                  label: 'Nova Evolucao',
+                  label: 'Nova Evolução',
                   onClick: () => setDialogOpen(true),
                 }}
               />

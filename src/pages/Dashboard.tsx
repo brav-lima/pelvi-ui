@@ -88,9 +88,9 @@ export default function Dashboard() {
           icon={Calendar}
         />
         <StatCard
-          title="Proximas Consultas"
+          title="Próximas Consultas"
           value={upcomingAppointments.length}
-          description="Nos proximos 7 dias"
+          description="Nos próximos 7 dias"
           icon={Clock}
         />
         <StatCard
@@ -102,7 +102,7 @@ export default function Dashboard() {
         <StatCard
           title="Receita Mensal"
           value={`R$ ${(summary?.totalReceived ?? 0).toLocaleString('pt-BR')}`}
-          description="Este mes"
+          description="Este mês"
           icon={DollarSign}
         />
       </div>

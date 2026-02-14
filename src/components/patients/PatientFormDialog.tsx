@@ -29,7 +29,7 @@ import type { Patient } from '@/types/clinic';
 const patientSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   cpf: z.string().optional(),
-  email: z.string().email('Email invalido').optional().or(z.literal('')),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   phone: z.string().optional(),
   birthDate: z.string().optional(),
   gender: z.string().optional(),
@@ -139,7 +139,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gender">Genero</Label>
+            <Label htmlFor="gender">Gênero</Label>
             <Select
               value={form.watch('gender') || ''}
               onValueChange={(v) => form.setValue('gender', v)}
@@ -156,12 +156,12 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="address">Endereco</Label>
+            <Label htmlFor="address">Endereço</Label>
             <Input id="address" {...form.register('address')} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Observacoes</Label>
+            <Label htmlFor="notes">Observações</Label>
             <Textarea id="notes" rows={3} {...form.register('notes')} />
           </div>
 
