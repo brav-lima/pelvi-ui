@@ -38,7 +38,14 @@ const navigation: NavItem[] = [
   { name: 'Financeiro', href: '/financial', icon: DollarSign, roles: ['ADMIN'] },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  /** When true, renders for mobile (no collapse button, always expanded) */
+  mobile?: boolean;
+  /** Called when a nav item is clicked (used to close the mobile sheet) */
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ mobile, onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
@@ -47,11 +54,15 @@ export function Sidebar() {
     (item) => !item.roles || (user && item.roles.includes(user.role)),
   );
 
+  // In mobile mode, sidebar is always expanded (no collapse)
+  const isCollapsed = mobile ? false : collapsed;
+
   return (
     <aside
       className={cn(
-        'flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300',
-        collapsed ? 'w-16' : 'w-64'
+        'flex flex-col bg-sidebar transition-all duration-300 h-full',
+        !mobile && 'border-r border-sidebar-border',
+        isCollapsed ? 'w-16' : 'w-64',
       )}
     >
       {/* Logo */}
@@ -60,7 +71,7 @@ export function Sidebar() {
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
             <Stethoscope className="w-5 h-5 text-primary-foreground" />
           </div>
-          {!collapsed && (
+          {!isCollapsed && (
             <span className="font-semibold text-sidebar-foreground text-lg">
               ClinicFlow
             </span>
@@ -71,13 +82,14 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
         {visibleNavigation.map((item) => {
-          const isActive = location.pathname === item.href || 
+          const isActive = location.pathname === item.href ||
             (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
-          
+
           return (
             <NavLink
               key={item.name}
               to={item.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
@@ -86,33 +98,35 @@ export function Sidebar() {
               )}
             >
               <item.icon className={cn('w-5 h-5 shrink-0', isActive && 'text-primary')} />
-              {!collapsed && <span>{item.name}</span>}
+              {!isCollapsed && <span>{item.name}</span>}
             </NavLink>
           );
         })}
       </nav>
 
-      {/* Collapse Button */}
-      <div className="p-3 border-t border-sidebar-border">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setCollapsed(!collapsed)}
-          className={cn(
-            'w-full justify-center text-sidebar-foreground hover:bg-sidebar-accent',
-            !collapsed && 'justify-start'
-          )}
-        >
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <>
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              <span>Recolher</span>
-            </>
-          )}
-        </Button>
-      </div>
+      {/* Collapse Button (desktop only) */}
+      {!mobile && (
+        <div className="p-3 border-t border-sidebar-border">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCollapsed(!collapsed)}
+            className={cn(
+              'w-full justify-center text-sidebar-foreground hover:bg-sidebar-accent',
+              !collapsed && 'justify-start'
+            )}
+          >
+            {collapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <>
+                <ChevronLeft className="w-4 h-4 mr-2" />
+                <span>Recolher</span>
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </aside>
   );
 }

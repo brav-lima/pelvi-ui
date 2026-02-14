@@ -10,9 +10,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell } from 'lucide-react';
+import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu } from 'lucide-react';
 
-export function TopBar() {
+interface TopBarProps {
+  /** Called when the hamburger menu is clicked (mobile only). Undefined = no menu button. */
+  onMenuClick?: () => void;
+}
+
+export function TopBar({ onMenuClick }: TopBarProps) {
   const { user, selectedClinic, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
@@ -24,22 +29,34 @@ export function TopBar() {
     .toUpperCase() || 'U';
 
   return (
-    <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
-      {/* Clinic Info */}
+    <header className="flex items-center justify-between h-16 px-4 md:px-6 bg-card border-b border-border">
+      {/* Left side */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-8 h-8 rounded-md bg-accent">
-          <Building2 className="w-4 h-4 text-accent-foreground" />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">{selectedClinic?.name}</p>
-          {selectedClinic?.cnpj && (
-            <p className="text-xs text-muted-foreground">CNPJ: {selectedClinic.cnpj}</p>
-          )}
+        {/* Hamburger (mobile) */}
+        {onMenuClick && (
+          <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0">
+            <Menu className="w-5 h-5" />
+          </Button>
+        )}
+
+        {/* Clinic Info */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md bg-accent">
+            <Building2 className="w-4 h-4 text-accent-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground truncate max-w-[150px] sm:max-w-none">
+              {selectedClinic?.name}
+            </p>
+            {selectedClinic?.cnpj && (
+              <p className="text-xs text-muted-foreground hidden sm:block">CNPJ: {selectedClinic.cnpj}</p>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Right Side */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5 text-muted-foreground" />
@@ -68,7 +85,7 @@ export function TopBar() {
                 <p className="text-sm font-medium">{user?.name}</p>
                 <p className="text-xs text-muted-foreground capitalize">{user?.role?.toLowerCase()}</p>
               </div>
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
