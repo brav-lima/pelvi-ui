@@ -68,10 +68,13 @@ bun run server:test   # Run tests
 bun run start:dev         # NestJS watch mode
 bun run build             # Compile to dist/
 bun run start:prod        # Run compiled build
+bun run test              # Run unit tests (jest)
+bun run test:e2e          # Run e2e tests
 bunx prisma validate      # Validate schema
 bunx prisma migrate dev --name <name>   # Create/apply migrations (dev)
 NODE_ENV=prod bunx prisma migrate deploy  # Apply migrations (prod)
 bunx prisma generate      # Regenerate Prisma Client
+bunx prisma db seed       # Seed database with fake data
 ```
 
 ---
@@ -165,19 +168,20 @@ NestJS + Prisma + PostgreSQL. Strict TypeScript (`noImplicitAny: true`, `strictN
 
 ### Module Structure
 
-Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts`, `{name}.service.ts`:
+Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts`, `{name}.service.ts`, `dto/*.dto.ts`:
 
 | Module | Route prefix | Purpose |
 |--------|-------------|---------|
-| `auth` | `/api/auth` | Authentication (JWT + passport) |
-| `organization` | `/api/organizations` | Tenant/clinic management |
-| `patient` | `/api/patients` | Patient registry |
-| `professional` | `/api/professionals` | Staff management |
-| `procedure` | `/api/procedures` | Clinic services/procedures |
-| `appointment` | `/api/appointments` | Schedule/agenda |
-| `anamnesis` | `/api/anamneses` | Patient anamnesis records |
-| `evolution` | `/api/evolutions` | Clinical evolution notes |
-| `financial` | `/api/financial` | Income/expense tracking |
+| `auth` | `/api/auth` | Login (CPF+password), select-organization, JWT, profile |
+| `organization` | `/api/organizations` | Tenant/clinic CRUD + user linking (OrganizationUser) |
+| `person` | `/api/persons` | Global user CRUD (CPF-identified) |
+| `patient` | `/api/patients` | Per-clinic patient CRUD (paginated, searchable) |
+| `professional` | `/api/professionals` | Staff listing/management (based on OrganizationUser) |
+| `procedure` | `/api/procedures` | Clinic services CRUD (name, duration, price) |
+| `appointment` | `/api/appointments` | Schedule CRUD, conflict detection, status changes |
+| `anamnesis` | `/api/anamneses` | Patient anamnesis (flexible JSON structure) |
+| `evolution` | `/api/evolutions` | Clinical evolution notes (timeline) |
+| `financial` | `/api/financial` | Income/expense CRUD + monthly summary |
 
 ### Key Directories (Backend)
 
@@ -185,26 +189,117 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 |------|---------|
 | `server/src/` | NestJS source code |
 | `server/src/prisma/` | PrismaModule + PrismaService (global) |
+| `server/src/auth/` | Auth module (login, JWT, guards, decorators) |
+| `server/src/auth/guards/` | JwtAuthGuard (global), RolesGuard (global) |
+| `server/src/auth/decorators/` | @Public, @Roles, @CurrentUser, @OrgId |
+| `server/src/auth/strategies/` | JwtStrategy (passport) |
+| `server/src/common/filters/` | AllExceptionsFilter (global error handling) |
 | `server/src/{module}/` | Domain modules (controller, service, module) |
+| `server/src/{module}/dto/` | Request validation DTOs (class-validator) |
 | `server/prisma/schema.prisma` | Database schema (all entities) |
+| `server/prisma/seed.ts` | Database seed with fake data |
 | `server/prisma.config.ts` | Prisma config (loads `.env.{NODE_ENV}`, defaults to `.env.dev`) |
 | `server/dist/` | Compiled output (gitignored) |
+
+### Authentication & Authorization
+
+- **Login flow**: POST `/api/auth/login` { cpf, password } → if 1 clinic: returns JWT; if N clinics: returns list, then POST `/api/auth/select-organization` to choose
+- **JWT payload**: `{ sub: personId, organizationId, role }`
+- **Global guards** (registered via `APP_GUARD` in AuthModule):
+  - `JwtAuthGuard` — validates JWT on every request; skip with `@Public()` decorator
+  - `RolesGuard` — checks `@Roles(Role.ADMIN, ...)` metadata; allows all if no roles specified
+- **Decorators** (in `server/src/auth/decorators/`):
+  - `@Public()` — marks endpoint as unauthenticated (login, select-org)
+  - `@Roles(Role.ADMIN)` — restricts by role
+  - `@CurrentUser()` — extracts full `JwtPayload` from request
+  - `@OrgId()` — extracts `organizationId` string from JWT (convenience)
+- All domain controllers use `@OrgId()` to scope queries by organization — **never trust client-sent organizationId**
+
+### API Routes Reference
+
+**Auth** (public):
+- `POST /api/auth/login` — login via CPF + password
+- `POST /api/auth/select-organization` — choose clinic (multi-tenant)
+- `GET /api/auth/me` — authenticated user profile
+
+**Patients** (JWT required):
+- `POST /api/patients` — create patient
+- `GET /api/patients?search=&page=&limit=` — paginated list with search
+- `GET /api/patients/:id` — get by ID
+- `PATCH /api/patients/:id` — update
+- `DELETE /api/patients/:id` — remove
+
+**Professionals** (JWT required):
+- `GET /api/professionals` — list org users with person data
+- `GET /api/professionals/:id` — get by ID
+- `PATCH /api/professionals/:id` — update role/active
+
+**Procedures** (JWT required):
+- `POST /api/procedures` — create
+- `GET /api/procedures` — list all
+- `GET /api/procedures/:id` — get by ID
+- `PATCH /api/procedures/:id` — update
+- `DELETE /api/procedures/:id` — remove
+
+**Appointments** (JWT required):
+- `POST /api/appointments` — create (auto-calculates endAt, validates conflicts)
+- `GET /api/appointments?startDate=&endDate=&professionalId=` — list by date range
+- `GET /api/appointments/:id` — get by ID
+- `PATCH /api/appointments/:id` — update
+- `PATCH /api/appointments/:id/status` — change status (SCHEDULED/CONFIRMED/CANCELED/DONE)
+- `DELETE /api/appointments/:id` — remove
+
+**Anamneses** (JWT required):
+- `POST /api/anamneses` — create (flexible JSON data)
+- `GET /api/anamneses?patientId=` — list by patient
+- `GET /api/anamneses/:id` — get by ID
+- `PATCH /api/anamneses/:id` — update
+
+**Evolutions** (JWT required):
+- `POST /api/evolutions` — create (optional appointment link)
+- `GET /api/evolutions?patientId=` — list by patient (timeline, desc)
+- `GET /api/evolutions/:id` — get by ID
+
+**Financial** (JWT required):
+- `POST /api/financial` — create record (INCOME/EXPENSE)
+- `GET /api/financial?month=&year=` — list by month
+- `GET /api/financial/summary?month=&year=` — monthly summary (totalReceived, totalPending, totalExpenses, balance)
+- `GET /api/financial/:id` — get by ID
+- `PATCH /api/financial/:id` — update (amount, status, etc.)
+- `DELETE /api/financial/:id` — remove
 
 ### Prisma
 
 - Schema: `server/prisma/schema.prisma` — defines all models with `organizationId` for multi-tenant isolation
+- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, Anamnesis, Evolution, FinancialRecord
+- Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus (SCHEDULED, CONFIRMED, CANCELED, DONE), FinancialType (INCOME, EXPENSE), FinancialStatus (PENDING, PAID)
 - Generator: `prisma-client-js` — generates to `node_modules/@prisma/client`
 - Config: `server/prisma.config.ts` — loads `.env.{NODE_ENV}` (defaults to `.env.dev`)
 - `PrismaModule` is global — inject `PrismaService` in any service without importing the module
 - Database schema reference: `docs/schema.md`
 - Prisma version: 7.x (connection URL configured in `prisma.config.ts`, NOT in `schema.prisma`)
+- Seed: `server/prisma/seed.ts` — run with `bunx prisma db seed`
 
 ### Key Config
 
 - Global prefix: `/api`
 - CORS: allows `http://localhost:8080` (frontend dev server)
 - `ValidationPipe` enabled globally (class-validator, whitelist + transform)
+- `AllExceptionsFilter` enabled globally — standardized error responses: `{ statusCode, message, timestamp, path }`
+- `JwtAuthGuard` + `RolesGuard` enabled globally via `APP_GUARD`
 - `ConfigModule` loaded globally (reads `.env`)
+- Swagger docs at `/docs` with Bearer auth support
+- NestJS Swagger CLI plugin enabled (auto-generates `@ApiProperty` from DTOs)
+
+### Testing (Backend)
+
+- Jest + ts-jest, test files: `server/src/**/*.spec.ts`
+- Unit tests mock PrismaService and test service logic
+- Current test suites:
+  - `auth.service.spec.ts` — login flow, multi-clinic, credential validation
+  - `patient.service.spec.ts` — org isolation, search, pagination
+  - `appointment.service.spec.ts` — conflict detection, endAt calculation, status changes
+- Run: `bun run test` (from /server) or `bun run server:test` (from root)
 
 ### Database (Neon)
 
@@ -213,6 +308,19 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 - **Env files**: `server/.env.dev` and `server/.env.prod` (encrypted via dotenvx)
 - `prisma.config.ts` loads `.env.{NODE_ENV}` — defaults to `.env.dev` when `NODE_ENV` is not set
 - Migrations: run `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod
+
+### Seed Data
+
+Run `bunx prisma db seed` from `/server` to populate with test data:
+- 2 clinics (Clínica Bem Estar, Centro de Fisioterapia Saúde)
+- 4 users: Admin (multi-clinic), Fisioterapeuta, Psicólogo, Recepcionista
+- 3 procedures, 5 patients, 7 appointments, 5 financial records, 2 anamneses, 2 evolutions
+
+Test credentials (all use password `123456`):
+- `11111111111` — Admin (linked to both clinics — triggers multi-clinic flow)
+- `22222222222` — Fisioterapeuta
+- `33333333333` — Psicólogo
+- `44444444444` — Recepcionista
 
 ### Environment Variables
 

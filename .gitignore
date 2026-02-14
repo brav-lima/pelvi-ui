@@ -30,3 +30,5 @@ server/generated
 *.sw?
 
 docs/*
+
+*.keys

@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PersonService } from '../person/person.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
+import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
 export class AuthService {
@@ -104,6 +105,29 @@ export class AuthService {
       person: link.person,
       organization: link.organization,
       role: link.role,
+    };
+  }
+
+  async getProfile(payload: JwtPayload) {
+    const person = await this.prisma.person.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, cpf: true, name: true, email: true, phone: true },
+    });
+
+    const orgUser = await this.prisma.organizationUser.findUnique({
+      where: {
+        organizationId_personId: {
+          organizationId: payload.organizationId,
+          personId: payload.sub,
+        },
+      },
+      include: { organization: true },
+    });
+
+    return {
+      person,
+      organization: orgUser?.organization ?? null,
+      role: payload.role,
     };
   }
 
