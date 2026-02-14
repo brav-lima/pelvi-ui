@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi } from '@/lib/api';
 
 const timeSlots = Array.from({ length: 21 }, (_, i) => {
@@ -100,10 +101,12 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
         startAt,
         notes: data.notes || undefined,
       });
+      toast.success('Agendamento criado com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
+      toast.error('Erro ao criar agendamento');
       setError('Erro ao criar agendamento. Verifique se nao ha conflito de horario.');
     } finally {
       setLoading(false);

@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { patientsApi } from '@/lib/api';
 import type { Patient } from '@/types/clinic';
 
@@ -79,10 +80,12 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
       } else {
         await patientsApi.create({ ...payload, name: data.name });
       }
+      toast.success(isEditing ? 'Paciente atualizado com sucesso' : 'Paciente cadastrado com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
+      toast.error('Erro ao salvar paciente');
       setError('Erro ao salvar paciente. Tente novamente.');
     } finally {
       setLoading(false);

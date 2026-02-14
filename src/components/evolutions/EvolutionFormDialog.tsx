@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { evolutionsApi } from '@/lib/api';
 
 const evolutionSchema = z.object({
@@ -49,10 +50,12 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId }
         patientId,
         description: data.description,
       });
+      toast.success('Evolucao registrada com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
+      toast.error('Erro ao salvar evolucao');
       setError('Erro ao salvar evolucao. Tente novamente.');
     } finally {
       setLoading(false);

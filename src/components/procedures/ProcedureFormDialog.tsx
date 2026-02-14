@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { proceduresApi } from '@/lib/api';
 import type { Procedure } from '@/types/clinic';
 
@@ -69,10 +70,12 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
       } else {
         await proceduresApi.create(payload);
       }
+      toast.success(isEditing ? 'Procedimento atualizado com sucesso' : 'Procedimento cadastrado com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
+      toast.error('Erro ao salvar procedimento');
       setError('Erro ao salvar procedimento. Tente novamente.');
     } finally {
       setLoading(false);

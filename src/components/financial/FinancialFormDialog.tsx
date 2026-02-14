@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { financialApi, patientsApi } from '@/lib/api';
 
 const financialSchema = z.object({
@@ -77,10 +78,12 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
         description: data.description || undefined,
         paymentMethod: data.paymentMethod || undefined,
       });
+      toast.success('Registro financeiro criado com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
+      toast.error('Erro ao salvar registro financeiro');
       setError('Erro ao salvar registro financeiro. Tente novamente.');
     } finally {
       setLoading(false);

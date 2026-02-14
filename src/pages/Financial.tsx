@@ -1,12 +1,24 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatCard } from '@/components/ui/stat-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
 import { financialApi } from '@/lib/api';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
 
@@ -26,6 +38,16 @@ export default function Financial() {
   const { data: summary } = useQuery({
     queryKey: ['financial-summary', month, year],
     queryFn: () => financialApi.summary({ month, year }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => financialApi.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
+      toast.success('Registro excluido com sucesso');
+    },
+    onError: () => toast.error('Erro ao excluir registro'),
   });
 
   if (loadingRecords) {
@@ -105,6 +127,7 @@ export default function Financial() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Valor</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12" />
                   </tr>
                 </thead>
                 <tbody>
@@ -127,6 +150,33 @@ export default function Financial() {
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={record.status} />
+                      </td>
+                      <td className="py-3 px-4">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir este registro financeiro?
+                                Esta acao nao pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => deleteMutation.mutate(record.id)}
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </td>
                     </tr>
                   ))}

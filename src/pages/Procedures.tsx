@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Clock, DollarSign, Edit, Trash2, Loader2 } from 'lucide-react';
 import { proceduresApi } from '@/lib/api';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -34,12 +35,20 @@ export default function Procedures() {
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       proceduresApi.update(id, { active }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['procedures'] }),
+    onSuccess: (_, { active }) => {
+      queryClient.invalidateQueries({ queryKey: ['procedures'] });
+      toast.success(active ? 'Procedimento ativado' : 'Procedimento desativado');
+    },
+    onError: () => toast.error('Erro ao alterar procedimento'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => proceduresApi.remove(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['procedures'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['procedures'] });
+      toast.success('Procedimento excluido com sucesso');
+    },
+    onError: () => toast.error('Erro ao excluir procedimento'),
   });
 
   const openCreate = () => {

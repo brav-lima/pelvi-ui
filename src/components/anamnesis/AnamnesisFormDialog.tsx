@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { anamnesisApi } from '@/lib/api';
 import type { Anamnesis } from '@/types/clinic';
 
@@ -105,10 +106,12 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
       } else {
         await anamnesisApi.create({ patientId, data: payload });
       }
+      toast.success(isEditing ? 'Anamnese atualizada com sucesso' : 'Anamnese registrada com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
+      toast.error('Erro ao salvar anamnese');
       setError('Erro ao salvar anamnese. Tente novamente.');
     } finally {
       setLoading(false);
