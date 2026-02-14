@@ -1,11 +1,19 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { ChevronLeft, ChevronRight, Plus, Clock, Loader2 } from 'lucide-react';
-import { appointmentsApi } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck } from 'lucide-react';
+import { appointmentsApi, professionalsApi } from '@/lib/api';
+import { toast } from 'sonner';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -13,31 +21,67 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
-import type { Appointment } from '@/types/clinic';
+import type { Appointment, AppointmentStatus } from '@/types/clinic';
 
-type ViewMode = 'day' | 'week' | 'month';
+type ViewMode = 'day' | 'week';
 
 export default function Agenda() {
+  const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [professionalFilter, setProfessionalFilter] = useState<string>('all');
 
   const timeSlots = Array.from({ length: 11 }, (_, i) => `${(i + 8).toString().padStart(2, '0')}:00`);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const startDate = format(weekDays[0], 'yyyy-MM-dd');
-  const endDate = format(weekDays[6], 'yyyy-MM-dd');
+  // Date range depends on view mode
+  const startDate = viewMode === 'week'
+    ? format(weekDays[0], 'yyyy-MM-dd')
+    : format(currentDate, 'yyyy-MM-dd');
+  const endDate = viewMode === 'week'
+    ? format(weekDays[6], 'yyyy-MM-dd')
+    : format(currentDate, 'yyyy-MM-dd');
 
   const { data: appointments = [], isLoading } = useQuery({
-    queryKey: ['appointments', startDate, endDate],
-    queryFn: () => appointmentsApi.list({ startDate, endDate }),
+    queryKey: ['appointments', startDate, endDate, professionalFilter],
+    queryFn: () => appointmentsApi.list({
+      startDate,
+      endDate,
+      ...(professionalFilter !== 'all' && { professionalId: professionalFilter }),
+    }),
+  });
+
+  const { data: professionals = [] } = useQuery({
+    queryKey: ['professionals'],
+    queryFn: professionalsApi.list,
+  });
+
+  const activeProfessionals = professionals.filter((p) => p.active);
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) =>
+      appointmentsApi.updateStatus(id, status),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      setSelectedAppointment(updated);
+      const labels: Record<string, string> = {
+        CONFIRMED: 'Agendamento confirmado',
+        CANCELED: 'Agendamento cancelado',
+        DONE: 'Agendamento finalizado',
+      };
+      toast.success(labels[updated.status] ?? 'Status atualizado');
+    },
+    onError: () => toast.error('Erro ao alterar status'),
   });
 
   const getAppointmentsForSlot = (date: Date, time: string) => {
@@ -55,6 +99,11 @@ export default function Agenda() {
   const navigateNext = () => {
     setCurrentDate((prev) => addDays(prev, viewMode === 'week' ? 7 : 1));
   };
+
+  const dayColumns = viewMode === 'day' ? [currentDate] : weekDays;
+  const gridCols = viewMode === 'day'
+    ? 'grid-cols-[80px_1fr]'
+    : 'grid-cols-[80px_repeat(7,1fr)]';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -86,14 +135,25 @@ export default function Agenda() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Professional Filter */}
+          <Select value={professionalFilter} onValueChange={setProfessionalFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Profissional" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {activeProfessionals.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.person.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* View Mode */}
           <Button variant={viewMode === 'day' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('day')}>
             Dia
           </Button>
           <Button variant={viewMode === 'week' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('week')}>
             Semana
-          </Button>
-          <Button variant={viewMode === 'month' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('month')}>
-            Mes
           </Button>
         </div>
       </div>
@@ -107,11 +167,11 @@ export default function Agenda() {
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <div className="min-w-[800px]">
+              <div className={viewMode === 'week' ? 'min-w-[800px]' : ''}>
                 {/* Header */}
-                <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border">
+                <div className={cn('grid border-b border-border', gridCols)}>
                   <div className="p-3 bg-muted/50" />
-                  {weekDays.map((day) => (
+                  {dayColumns.map((day) => (
                     <div
                       key={day.toISOString()}
                       className={cn(
@@ -131,11 +191,11 @@ export default function Agenda() {
 
                 {/* Time Slots */}
                 {timeSlots.map((time) => (
-                  <div key={time} className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border last:border-b-0">
+                  <div key={time} className={cn('grid border-b border-border last:border-b-0', gridCols)}>
                     <div className="p-2 text-sm text-muted-foreground flex items-start justify-end pr-3 bg-muted/30">
                       {time}
                     </div>
-                    {weekDays.map((day) => {
+                    {dayColumns.map((day) => {
                       const slotAppointments = getAppointmentsForSlot(day, time);
                       return (
                         <div
@@ -226,6 +286,44 @@ export default function Agenda() {
                   </div>
                 )}
               </div>
+
+              {/* Status Actions */}
+              {selectedAppointment.status !== 'CANCELED' && selectedAppointment.status !== 'DONE' && (
+                <>
+                  <Separator />
+                  <DialogFooter className="flex-col sm:flex-row gap-2">
+                    {selectedAppointment.status === 'SCHEDULED' && (
+                      <Button
+                        variant="outline"
+                        className="flex-1 text-success border-success/30 hover:bg-success/10"
+                        disabled={statusMutation.isPending}
+                        onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'CONFIRMED' })}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Confirmar
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      disabled={statusMutation.isPending}
+                      onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'DONE' })}
+                    >
+                      <CalendarCheck className="w-4 h-4 mr-2" />
+                      Finalizar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                      disabled={statusMutation.isPending}
+                      onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'CANCELED' })}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
             </div>
           )}
         </DialogContent>
@@ -235,10 +333,7 @@ export default function Agenda() {
       <AppointmentFormDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onSuccess={() => {
-          // Refetch current week's appointments
-          // React Query will auto-refetch since the queryKey includes dates
-        }}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
       />
     </div>
   );
