@@ -159,7 +159,7 @@ export default function Dashboard() {
         {/* Upcoming Appointments */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-semibold">Proximos Agendamentos</CardTitle>
+            <CardTitle className="text-lg font-semibold">Próximos Agendamentos</CardTitle>
             <Button variant="ghost" size="sm" onClick={() => navigate('/agenda')}>
               Ver tudo
               <ChevronRight className="w-4 h-4 ml-1" />

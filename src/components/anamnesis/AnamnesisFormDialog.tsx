@@ -126,7 +126,7 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
           <DialogDescription>
             {isEditing
               ? 'Atualize os dados da anamnese.'
-              : 'Preencha o formulario de anamnese do paciente.'}
+              : 'Preencha o formulário de anamnese do paciente.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -146,9 +146,9 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
 
           {/* Historico Medico */}
           <div className="space-y-3">
-            <h4 className="font-semibold text-foreground border-b border-border pb-2">Historico Medico</h4>
+            <h4 className="font-semibold text-foreground border-b border-border pb-2">Histórico Médico</h4>
             <div className="space-y-2">
-              <Label htmlFor="doencasPreexistentes">Doencas Preexistentes</Label>
+              <Label htmlFor="doencasPreexistentes">Doenças Preexistentes</Label>
               <Textarea id="doencasPreexistentes" rows={2} {...form.register('doencasPreexistentes')} />
             </div>
             <div className="space-y-2">
@@ -161,7 +161,7 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
                 <Input id="alergias" {...form.register('alergias')} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="medicacoesEmUso">Medicacoes em Uso</Label>
+                <Label htmlFor="medicacoesEmUso">Medicações em Uso</Label>
                 <Input id="medicacoesEmUso" {...form.register('medicacoesEmUso')} />
               </div>
             </div>
@@ -169,32 +169,32 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
 
           {/* Habitos de Vida */}
           <div className="space-y-3">
-            <h4 className="font-semibold text-foreground border-b border-border pb-2">Habitos de Vida</h4>
+            <h4 className="font-semibold text-foreground border-b border-border pb-2">Hábitos de Vida</h4>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="atividadeFisica">Atividade Fisica</Label>
+                <Label htmlFor="atividadeFisica">Atividade Física</Label>
                 <Input id="atividadeFisica" {...form.register('atividadeFisica')} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="alimentacao">Alimentacao</Label>
+                <Label htmlFor="alimentacao">Alimentação</Label>
                 <Input id="alimentacao" {...form.register('alimentacao')} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="tabagismo">Tabagismo</Label>
-                <Input id="tabagismo" placeholder="Sim/Nao" {...form.register('tabagismo')} />
+                <Input id="tabagismo" placeholder="Sim/Não" {...form.register('tabagismo')} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="consumoAlcool">Consumo de Alcool</Label>
-                <Input id="consumoAlcool" placeholder="Nao/Ocasional/Frequente" {...form.register('consumoAlcool')} />
+                <Input id="consumoAlcool" placeholder="Não/Ocasional/Frequente" {...form.register('consumoAlcool')} />
               </div>
             </div>
           </div>
 
           {/* Observacoes */}
           <div className="space-y-2">
-            <h4 className="font-semibold text-foreground border-b border-border pb-2">Observacoes Gerais</h4>
+            <h4 className="font-semibold text-foreground border-b border-border pb-2">Observações Gerais</h4>
             <Textarea id="observacoes" rows={3} {...form.register('observacoes')} />
           </div>
 

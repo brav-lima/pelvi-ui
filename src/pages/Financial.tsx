@@ -123,7 +123,7 @@ export default function Financial() {
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Paciente</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Descricao</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Descrição</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Valor</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>

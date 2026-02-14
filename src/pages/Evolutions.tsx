@@ -51,7 +51,7 @@ export default function Evolutions() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Evolucoes"
+        title="Evoluções"
         description="Histórico de evoluções clínicas dos pacientes"
       />
 

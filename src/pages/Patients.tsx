@@ -92,8 +92,8 @@ export default function Patients() {
               title="Nenhum paciente encontrado"
               description={
                 debouncedSearch
-                  ? 'Nao encontramos pacientes com os criterios de busca informados.'
-                  : 'Cadastre o primeiro paciente da clinica.'
+                  ? 'Não encontramos pacientes com os critérios de busca informados.'
+                  : 'Cadastre o primeiro paciente da clínica.'
               }
               action={{
                 label: 'Cadastrar Paciente',
@@ -176,7 +176,7 @@ export default function Patients() {
                   disabled={page >= meta.totalPages}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Proximo
+                  Próximo
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>

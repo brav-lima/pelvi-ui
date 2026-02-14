@@ -36,9 +36,9 @@ export default function SelectClinic() {
 
         <Card className="border-0 shadow-xl">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl">Selecione uma Clinica</CardTitle>
+            <CardTitle className="text-xl">Selecione uma Clínica</CardTitle>
             <CardDescription>
-              Escolha a clinica em que deseja trabalhar hoje
+              Escolha a clínica em que deseja trabalhar hoje
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

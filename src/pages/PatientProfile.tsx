@@ -66,7 +66,7 @@ export default function PatientProfile() {
   if (!patient) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Paciente nao encontrado</p>
+        <p className="text-muted-foreground">Paciente não encontrado</p>
       </div>
     );
   }
@@ -178,7 +178,7 @@ export default function PatientProfile() {
                     <MapPin className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Endereco</p>
+                    <p className="text-sm text-muted-foreground">Endereço</p>
                     <p className="text-sm font-medium">{patient.address}</p>
                   </div>
                 </div>
@@ -208,7 +208,7 @@ export default function PatientProfile() {
             <TabsContent value="appointments" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Historico de Consultas</CardTitle>
+                  <CardTitle className="text-lg">Histórico de Consultas</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {appointments.length === 0 ? (
@@ -282,12 +282,12 @@ export default function PatientProfile() {
             <TabsContent value="evolutions" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Evolucoes Clinicas</CardTitle>
+                  <CardTitle className="text-lg">Evoluções Clínicas</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {evolutions.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">
-                      Nenhuma evolucao registrada
+                      Nenhuma evolução registrada
                     </p>
                   ) : (
                     <div className="relative">

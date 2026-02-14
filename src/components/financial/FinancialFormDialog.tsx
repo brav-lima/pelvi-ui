@@ -172,7 +172,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
             </div>
 
             <div className="space-y-2">
-              <Label>Metodo de Pagamento</Label>
+              <Label>Método de Pagamento</Label>
               <Select
                 value={form.watch('paymentMethod') || ''}
                 onValueChange={(v) => form.setValue('paymentMethod', v)}
@@ -182,17 +182,17 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
-                  <SelectItem value="CARTAO_CREDITO">Cartao Credito</SelectItem>
-                  <SelectItem value="CARTAO_DEBITO">Cartao Debito</SelectItem>
+                  <SelectItem value="CARTAO_CREDITO">Cartão Crédito</SelectItem>
+                  <SelectItem value="CARTAO_DEBITO">Cartão Débito</SelectItem>
                   <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferencia</SelectItem>
+                  <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Descricao</Label>
+            <Label htmlFor="description">Descrição</Label>
             <Input id="description" placeholder="Ex: Consulta Inicial" {...form.register('description')} />
           </div>
 
