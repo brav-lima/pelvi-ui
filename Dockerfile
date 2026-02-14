@@ -3,8 +3,8 @@ FROM node:20-slim AS build
 RUN npm install -g bun
 
 WORKDIR /app
-COPY package.json bun.lockb ./
-RUN bun install --frozen-lockfile
+COPY package.json bun.lock ./
+RUN bun install
 
 COPY . .
 
@@ -16,8 +16,9 @@ RUN bun run build
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 
+ENV PORT=80
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
