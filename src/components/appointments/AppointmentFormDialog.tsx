@@ -91,7 +91,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
     setLoading(true);
     setError('');
 
-    const startAt = `${data.date}T${data.time}:00.000Z`;
+    // Build startAt as local time (no Z suffix, which would mean UTC)
+    const startAt = new Date(`${data.date}T${data.time}:00`).toISOString();
 
     try {
       await appointmentsApi.create({
