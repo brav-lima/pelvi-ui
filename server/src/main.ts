@@ -7,8 +7,12 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const corsOrigin = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : ['http://localhost:8080'];
+
   app.enableCors({
-    origin: ['http://localhost:8080'],
+    origin: corsOrigin,
   });
 
   app.useGlobalPipes(
