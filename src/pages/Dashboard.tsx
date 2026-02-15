@@ -16,6 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { appointmentsApi, patientsApi, financialApi } from '@/lib/api';
+import { formatCurrency } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -101,7 +102,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Receita Mensal"
-          value={`R$ ${(summary?.totalReceived ?? 0).toLocaleString('pt-BR')}`}
+          value={`R$ ${formatCurrency(summary?.totalReceived)}`}
           description="Este mês"
           icon={DollarSign}
         />

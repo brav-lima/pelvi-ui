@@ -23,6 +23,7 @@ import {
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { proceduresApi } from '@/lib/api';
+import { maskCurrency, parseCurrency, formatCurrency } from '@/lib/formatters';
 import type { Procedure } from '@/types/clinic';
 
 const procedureSchema = z.object({
@@ -50,7 +51,7 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
     defaultValues: {
       name: procedure?.name ?? '',
       durationMinutes: procedure?.durationMinutes?.toString() ?? '',
-      price: procedure?.price?.toString() ?? '',
+      price: procedure?.price ? formatCurrency(procedure.price) : '',
     },
   });
 
@@ -61,7 +62,7 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
     const payload = {
       name: data.name,
       durationMinutes: Number(data.durationMinutes),
-      price: Number(data.price),
+      price: parseCurrency(data.price),
     };
 
     try {
@@ -131,11 +132,9 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
               <Label htmlFor="price">Preço (R$) *</Label>
               <Input
                 id="price"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                {...form.register('price')}
+                placeholder="0,00"
+                value={form.watch('price') || ''}
+                onChange={(e) => form.setValue('price', maskCurrency(e.target.value), { shouldValidate: true })}
               />
               {form.formState.errors.price && (
                 <p className="text-sm text-destructive">{form.formState.errors.price.message}</p>

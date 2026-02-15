@@ -24,6 +24,7 @@ import {
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { patientsApi } from '@/lib/api';
+import { maskCPF, maskPhone } from '@/lib/formatters';
 import type { Patient } from '@/types/clinic';
 
 const patientSchema = z.object({
@@ -55,9 +56,9 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
     resolver: zodResolver(patientSchema),
     defaultValues: {
       name: patient?.name ?? '',
-      cpf: patient?.cpf ?? '',
+      cpf: patient?.cpf ? maskCPF(patient.cpf) : '',
       email: patient?.email ?? '',
-      phone: patient?.phone ?? '',
+      phone: patient?.phone ? maskPhone(patient.phone) : '',
       birthDate: patient?.birthDate ? patient.birthDate.slice(0, 10) : '',
       gender: patient?.gender ?? '',
       address: patient?.address ?? '',
@@ -69,9 +70,14 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
     setLoading(true);
     setError('');
 
-    // Clean empty strings to undefined
+    // Strip masks and clean empty strings
+    const cleaned = {
+      ...data,
+      cpf: data.cpf ? data.cpf.replace(/\D/g, '') : undefined,
+      phone: data.phone ? data.phone.replace(/\D/g, '') : undefined,
+    };
     const payload = Object.fromEntries(
-      Object.entries(data).filter(([, v]) => v !== '' && v !== undefined),
+      Object.entries(cleaned).filter(([, v]) => v !== '' && v !== undefined),
     );
 
     try {
@@ -116,7 +122,12 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cpf">CPF</Label>
-              <Input id="cpf" placeholder="00000000000" {...form.register('cpf')} />
+              <Input
+                id="cpf"
+                placeholder="000.000.000-00"
+                value={form.watch('cpf') || ''}
+                onChange={(e) => form.setValue('cpf', maskCPF(e.target.value))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="birthDate">Data de Nascimento</Label>
@@ -134,7 +145,12 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Telefone</Label>
-              <Input id="phone" placeholder="(00) 00000-0000" {...form.register('phone')} />
+              <Input
+                id="phone"
+                placeholder="(00) 00000-0000"
+                value={form.watch('phone') || ''}
+                onChange={(e) => form.setValue('phone', maskPhone(e.target.value))}
+              />
             </div>
           </div>
 
