@@ -31,6 +31,7 @@ import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
+import { formatCPF, formatPhone } from '@/lib/formatters';
 import type { Anamnesis, AppointmentStatus } from '@/types/clinic';
 
 export default function PatientProfile() {
@@ -144,7 +145,7 @@ export default function PatientProfile() {
         </Button>
         <PageHeader
           title={patient.name}
-          description={patient.cpf ? `CPF: ${patient.cpf}` : undefined}
+          description={patient.cpf ? `CPF: ${formatCPF(patient.cpf)}` : undefined}
           actions={
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Edit className="w-4 h-4 mr-2" />
@@ -182,7 +183,7 @@ export default function PatientProfile() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Telefone</p>
-                    <p className="text-sm font-medium">{patient.phone}</p>
+                    <p className="text-sm font-medium">{formatPhone(patient.phone)}</p>
                   </div>
                 </div>
               )}

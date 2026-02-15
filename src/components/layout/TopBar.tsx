@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu } from 'lucide-react';
+import { formatCNPJ } from '@/lib/formatters';
 
 interface TopBarProps {
   /** Called when the hamburger menu is clicked (mobile only). Undefined = no menu button. */
@@ -20,6 +22,12 @@ interface TopBarProps {
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { user, selectedClinic, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  const handleSwitchClinic = () => {
+    logout();
+    navigate('/login');
+  };
 
   const initials = user?.name
     ?.split(' ')
@@ -49,7 +57,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               {selectedClinic?.name}
             </p>
             {selectedClinic?.cnpj && (
-              <p className="text-xs text-muted-foreground hidden sm:block">CNPJ: {selectedClinic.cnpj}</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">CNPJ: {formatCNPJ(selectedClinic.cnpj)}</p>
             )}
           </div>
         </div>
@@ -95,7 +103,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               <User className="w-4 h-4 mr-2" />
               Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSwitchClinic}>
               <Building2 className="w-4 h-4 mr-2" />
               Trocar Clínica
             </DropdownMenuItem>

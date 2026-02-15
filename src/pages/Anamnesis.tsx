@@ -12,6 +12,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { patientsApi, anamnesisApi } from '@/lib/api';
+import { formatCPF } from '@/lib/formatters';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
@@ -144,7 +145,7 @@ export default function Anamnesis() {
                     </Avatar>
                     <div className="min-w-0">
                       <p className="font-medium text-foreground truncate">{p.name}</p>
-                      <p className="text-sm text-muted-foreground">{p.cpf ?? ''}</p>
+                      <p className="text-sm text-muted-foreground">{formatCPF(p.cpf)}</p>
                     </div>
                   </button>
                 ))}

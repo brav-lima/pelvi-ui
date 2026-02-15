@@ -24,6 +24,7 @@ import {
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { financialApi, patientsApi } from '@/lib/api';
+import { maskCurrency, parseCurrency } from '@/lib/formatters';
 
 const financialSchema = z.object({
   patientId: z.string().min(1, 'Selecione um paciente'),
@@ -73,7 +74,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
     try {
       await financialApi.create({
         patientId: data.patientId,
-        amount: Number(data.amount),
+        amount: parseCurrency(data.amount),
         type: data.type,
         description: data.description || undefined,
         paymentMethod: data.paymentMethod || undefined,
@@ -126,11 +127,9 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
               <Label htmlFor="amount">Valor (R$) *</Label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                {...form.register('amount')}
+                placeholder="0,00"
+                value={form.watch('amount') || ''}
+                onChange={(e) => form.setValue('amount', maskCurrency(e.target.value), { shouldValidate: true })}
               />
               {form.formState.errors.amount && (
                 <p className="text-sm text-destructive">{form.formState.errors.amount.message}</p>

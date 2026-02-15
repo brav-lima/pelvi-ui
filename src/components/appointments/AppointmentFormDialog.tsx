@@ -25,6 +25,7 @@ import {
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi } from '@/lib/api';
+import { formatCurrency } from '@/lib/formatters';
 
 const timeSlots = Array.from({ length: 21 }, (_, i) => {
   const hour = Math.floor(i / 2) + 8;
@@ -177,7 +178,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
               <SelectContent>
                 {activeProcedures.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.durationMinutes}min - R$ {Number(p.price).toLocaleString('pt-BR')})
+                    {p.name} ({p.durationMinutes}min - R$ {formatCurrency(p.price)})
                   </SelectItem>
                 ))}
               </SelectContent>

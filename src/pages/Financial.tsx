@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
 import { financialApi } from '@/lib/api';
+import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
@@ -50,6 +51,16 @@ export default function Financial() {
       toast.success('Registro excluído com sucesso');
     },
     onError: () => toast.error('Erro ao excluir registro'),
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: (id: string) => financialApi.update(id, { status: 'PAID' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
+      toast.success('Pagamento confirmado');
+    },
+    onError: () => toast.error('Erro ao confirmar pagamento'),
   });
 
   if (loadingRecords) {
@@ -86,25 +97,25 @@ export default function Financial() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Receita Total"
-          value={`R$ ${(summary?.totalReceived ?? 0).toLocaleString('pt-BR')}`}
+          value={`R$ ${formatCurrency(summary?.totalReceived)}`}
           description="Este mês"
           icon={DollarSign}
         />
         <StatCard
           title="Valores Pendentes"
-          value={`R$ ${(summary?.totalPending ?? 0).toLocaleString('pt-BR')}`}
+          value={`R$ ${formatCurrency(summary?.totalPending)}`}
           description="Aguardando pagamento"
           icon={Clock}
         />
         <StatCard
           title="Despesas"
-          value={`R$ ${(summary?.totalExpenses ?? 0).toLocaleString('pt-BR')}`}
+          value={`R$ ${formatCurrency(summary?.totalExpenses)}`}
           description="Este mês"
           icon={TrendingUp}
         />
         <StatCard
           title="Saldo"
-          value={`R$ ${(summary?.balance ?? 0).toLocaleString('pt-BR')}`}
+          value={`R$ ${formatCurrency(summary?.balance)}`}
           description={`${paidCount} pagamentos realizados`}
           icon={CheckCircle}
         />
@@ -131,7 +142,7 @@ export default function Financial() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Valor</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    {isAdmin && <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-12" />}
+                    {isAdmin && <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-24" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -150,38 +161,68 @@ export default function Financial() {
                         <StatusBadge status={record.type} />
                       </td>
                       <td className="py-3 px-4 text-sm font-medium text-foreground">
-                        R$ {Number(record.amount).toLocaleString('pt-BR')}
+                        R$ {formatCurrency(record.amount)}
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={record.status} />
                       </td>
                       {isAdmin && (
                         <td className="py-3 px-4">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir este registro financeiro?
-                                  Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  onClick={() => deleteMutation.mutate(record.id)}
-                                >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <div className="flex items-center gap-1">
+                            {record.status === 'PENDING' && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-success hover:text-success"
+                                    title="Dar baixa"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirmar Pagamento</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Deseja marcar este registro de R$ {formatCurrency(record.amount)} como pago?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => markPaidMutation.mutate(record.id)}>
+                                      Confirmar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja excluir este registro financeiro?
+                                    Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => deleteMutation.mutate(record.id)}
+                                  >
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </td>
                       )}
                     </tr>

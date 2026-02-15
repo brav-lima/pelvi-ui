@@ -31,6 +31,7 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/formatters';
 import {
   Dialog,
   DialogContent,
@@ -44,13 +45,62 @@ import { AppointmentFormDialog } from '@/components/appointments/AppointmentForm
 import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import type { Appointment, AppointmentStatus } from '@/types/clinic';
 
+// --- Constants ---
+const START_HOUR = 8;
+const END_HOUR = 18;
+const TOTAL_HOURS = END_HOUR - START_HOUR;
+const SLOT_MINUTES = 30;
+const PX_PER_MINUTE = 1; // 1px = 1min, so 1h = 60px
+const TOTAL_SLOTS = TOTAL_HOURS * (60 / SLOT_MINUTES); // 20 half-hour slots
+const GRID_HEIGHT = TOTAL_HOURS * 60 * PX_PER_MINUTE; // 600px
+const SLOT_HEIGHT = SLOT_MINUTES * PX_PER_MINUTE; // 30px
+
+// Half-hour slot definitions
+const halfHourSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
+  const totalMinutes = i * SLOT_MINUTES;
+  const hour = Math.floor(totalMinutes / 60) + START_HOUR;
+  const min = totalMinutes % 60;
+  const time = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+  return { time, index: i, isFullHour: min === 0 };
+});
+
+// Hour labels for the time column
+const hourLabels = Array.from({ length: TOTAL_HOURS }, (_, i) => ({
+  label: `${(i + START_HOUR).toString().padStart(2, '0')}:00`,
+  top: i * 60 * PX_PER_MINUTE,
+}));
+
+// --- Position helpers ---
+function getAppointmentTop(startAt: string): number {
+  const date = parseISO(startAt);
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  return ((hours - START_HOUR) * 60 + minutes) * PX_PER_MINUTE;
+}
+
+function getAppointmentHeight(durationMinutes: number): number {
+  return Math.max(durationMinutes * PX_PER_MINUTE, 20); // minimum 20px
+}
+
+// --- Status color helper ---
+function getStatusClasses(status: AppointmentStatus) {
+  switch (status) {
+    case 'CONFIRMED': return 'bg-success/20 border-success/30 text-success';
+    case 'SCHEDULED': return 'bg-info/20 border-info/30 text-info';
+    case 'CANCELED': return 'bg-destructive/20 border-destructive/30 text-destructive';
+    case 'DONE': return 'bg-muted border-border text-muted-foreground';
+  }
+}
+
 // --- Draggable appointment card ---
 function DraggableAppointment({
   apt,
   onClick,
+  style,
 }: {
   apt: Appointment;
   onClick: () => void;
+  style: React.CSSProperties;
 }) {
   const isDraggable = apt.status !== 'CANCELED' && apt.status !== 'DONE';
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -59,42 +109,54 @@ function DraggableAppointment({
     disabled: !isDraggable,
   });
 
+  const duration = apt.procedure?.durationMinutes ?? 30;
+  const startTime = format(parseISO(apt.startAt), 'HH:mm');
+  const endDate = new Date(parseISO(apt.startAt).getTime() + duration * 60000);
+  const endTime = format(endDate, 'HH:mm');
+  const isCompact = duration <= 30;
+
   return (
     <button
       ref={setNodeRef}
       onClick={onClick}
+      style={style}
       className={cn(
-        'w-full p-2 rounded-md text-left text-xs mb-1 transition-all hover:scale-[1.02]',
-        apt.status === 'CONFIRMED' && 'bg-success/20 border border-success/30 text-success',
-        apt.status === 'SCHEDULED' && 'bg-info/20 border border-info/30 text-info',
-        apt.status === 'CANCELED' && 'bg-destructive/20 border border-destructive/30 text-destructive',
-        apt.status === 'DONE' && 'bg-muted border border-border text-muted-foreground',
+        'absolute left-1 right-1 rounded-md text-left text-xs border transition-all hover:brightness-95 overflow-hidden z-10',
+        getStatusClasses(apt.status),
         isDragging && 'opacity-30',
       )}
     >
-      <div className="flex items-start gap-1">
-        {isDraggable && (
-          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 mt-0.5 touch-none">
+      <div className={cn('flex h-full', isCompact ? 'items-center px-1.5 gap-1' : 'flex-col p-1.5')}>
+        {isDraggable && !isCompact && (
+          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none self-end">
             <GripVertical className="w-3 h-3 opacity-50" />
           </span>
         )}
-        <div className="min-w-0 flex-1">
-          <p className="font-medium truncate">{apt.patient?.name ?? 'Paciente'}</p>
-          <p className="truncate opacity-80">{apt.procedure?.name ?? ''}</p>
-        </div>
+        <p className="font-medium truncate">{apt.patient?.name ?? 'Paciente'}</p>
+        {!isCompact && <p className="truncate opacity-80">{apt.procedure?.name ?? ''}</p>}
+        <p className={cn('opacity-70', isCompact ? 'ml-auto shrink-0' : 'mt-auto')}>
+          {startTime} - {endTime}
+        </p>
+        {isDraggable && isCompact && (
+          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none">
+            <GripVertical className="w-3 h-3 opacity-50" />
+          </span>
+        )}
       </div>
     </button>
   );
 }
 
-// --- Droppable time slot cell ---
+// --- Droppable time slot zone (invisible, behind appointments) ---
 function DroppableSlot({
   id,
-  children,
+  style,
+  isFullHour,
   isToday,
 }: {
   id: string;
-  children: React.ReactNode;
+  style: React.CSSProperties;
+  isFullHour: boolean;
   isToday: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -102,14 +164,14 @@ function DroppableSlot({
   return (
     <div
       ref={setNodeRef}
+      style={style}
       className={cn(
-        'min-h-[60px] p-1 border-l border-border transition-colors',
+        'absolute left-0 right-0 border-t transition-colors',
+        isFullHour ? 'border-border' : 'border-border/30 border-dashed',
         isToday && 'bg-primary/5',
-        isOver ? 'bg-primary/10' : 'hover:bg-muted/30',
+        isOver && 'bg-primary/10',
       )}
-    >
-      {children}
-    </div>
+    />
   );
 }
 
@@ -124,12 +186,10 @@ export default function Agenda() {
   const [professionalFilter, setProfessionalFilter] = useState<string>('all');
   const [draggedAppointment, setDraggedAppointment] = useState<Appointment | null>(null);
 
-  const timeSlots = Array.from({ length: 11 }, (_, i) => `${(i + 8).toString().padStart(2, '0')}:00`);
-
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // Month view: calculate all calendar cells (including overflow from prev/next month)
+  // Month view cells
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -142,7 +202,7 @@ export default function Agenda() {
     day = addDays(day, 1);
   }
 
-  // Date range depends on view mode
+  // Date range for the query
   const startDate =
     viewMode === 'month'
       ? format(calendarStart, 'yyyy-MM-dd')
@@ -211,34 +271,24 @@ export default function Agenda() {
     const apt = active.data.current?.appointment as Appointment;
     if (!apt) return;
 
-    // Slot id format: "slot-{isoDate}-{HH:00}"
     const slotId = over.id as string;
     if (!slotId.startsWith('slot-')) return;
 
     const parts = slotId.replace('slot-', '').split('_');
-    const dateStr = parts[0]; // yyyy-MM-dd
-    const timeStr = parts[1]; // HH:00
+    const dateStr = parts[0];
+    const timeStr = parts[1]; // HH:MM
 
-    // Keep original minutes from the appointment
-    const originalDate = parseISO(apt.startAt);
-    const originalMinutes = originalDate.getMinutes();
-    const hour = parseInt(timeStr.split(':')[0], 10);
+    const [hourStr, minStr] = timeStr.split(':');
+    const hour = parseInt(hourStr, 10);
+    const min = parseInt(minStr, 10);
 
-    const newDate = setMinutes(setHours(parseISO(dateStr + 'T00:00:00'), hour), originalMinutes);
+    const newDate = setMinutes(setHours(parseISO(dateStr + 'T00:00:00'), hour), min);
     const newStartAt = newDate.toISOString();
 
-    // Don't update if same slot
-    if (format(originalDate, 'yyyy-MM-dd HH:00') === `${dateStr} ${timeStr}`) return;
+    const originalDate = parseISO(apt.startAt);
+    if (format(originalDate, 'yyyy-MM-dd HH:mm') === `${dateStr} ${timeStr}`) return;
 
     dragMutation.mutate({ id: apt.id, startAt: newStartAt });
-  };
-
-  const getAppointmentsForSlot = (date: Date, time: string) => {
-    return appointments.filter((a) => {
-      const aptDate = parseISO(a.startAt);
-      const aptTime = format(aptDate, 'HH:00');
-      return isSameDay(aptDate, date) && aptTime === time;
-    });
   };
 
   const getAppointmentsForDay = (date: Date) => {
@@ -268,8 +318,8 @@ export default function Agenda() {
 
   const dayColumns = viewMode === 'day' ? [currentDate] : weekDays;
   const gridCols = viewMode === 'day'
-    ? 'grid-cols-[80px_1fr]'
-    : 'grid-cols-[80px_repeat(7,1fr)]';
+    ? 'grid-cols-[60px_1fr]'
+    : 'grid-cols-[60px_repeat(7,1fr)]';
 
   const headerLabel =
     viewMode === 'month'
@@ -308,7 +358,6 @@ export default function Agenda() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Professional Filter */}
           <Select value={professionalFilter} onValueChange={setProfessionalFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Profissional" />
@@ -321,7 +370,6 @@ export default function Agenda() {
             </SelectContent>
           </Select>
 
-          {/* View Mode */}
           <Button variant={viewMode === 'day' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('day')}>
             Dia
           </Button>
@@ -340,10 +388,9 @@ export default function Agenda() {
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : viewMode === 'month' ? (
-        /* Month View */
+        /* ====== Month View ====== */
         <Card className="overflow-hidden">
           <CardContent className="p-0">
-            {/* Week day headers */}
             <div className="grid grid-cols-7 border-b border-border">
               {weekDayHeaders.map((d) => (
                 <div key={d} className="p-2 text-center text-xs font-medium text-muted-foreground uppercase bg-muted/50">
@@ -351,8 +398,6 @@ export default function Agenda() {
                 </div>
               ))}
             </div>
-
-            {/* Day cells */}
             <div className="grid grid-cols-7">
               {monthDays.map((d) => {
                 const dayAppts = getAppointmentsForDay(d);
@@ -411,13 +456,13 @@ export default function Agenda() {
           </CardContent>
         </Card>
       ) : (
-        /* Day / Week View with Drag & Drop */
+        /* ====== Day / Week View with duration-based blocks ====== */
         <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <div className={viewMode === 'week' ? 'min-w-[800px]' : ''}>
-                  {/* Header */}
+                  {/* Day Headers */}
                   <div className={cn('grid border-b border-border', gridCols)}>
                     <div className="p-3 bg-muted/50" />
                     {dayColumns.map((d) => (
@@ -438,33 +483,69 @@ export default function Agenda() {
                     ))}
                   </div>
 
-                  {/* Time Slots */}
-                  {timeSlots.map((time) => (
-                    <div key={time} className={cn('grid border-b border-border last:border-b-0', gridCols)}>
-                      <div className="p-2 text-sm text-muted-foreground flex items-start justify-end pr-3 bg-muted/30">
-                        {time}
-                      </div>
-                      {dayColumns.map((d) => {
-                        const slotAppointments = getAppointmentsForSlot(d, time);
-                        const slotId = `slot-${format(d, 'yyyy-MM-dd')}_${time}`;
-                        return (
-                          <DroppableSlot
-                            key={slotId}
-                            id={slotId}
-                            isToday={isSameDay(d, new Date())}
-                          >
-                            {slotAppointments.map((apt) => (
+                  {/* Time Grid (absolute positioning) */}
+                  <div className={cn('grid', gridCols)}>
+                    {/* Time Labels Column */}
+                    <div className="relative bg-muted/30" style={{ height: GRID_HEIGHT }}>
+                      {hourLabels.map(({ label, top }) => (
+                        <div
+                          key={label}
+                          className="absolute right-0 pr-2 text-xs text-muted-foreground -translate-y-1/2"
+                          style={{ top }}
+                        >
+                          {label}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Day Columns */}
+                    {dayColumns.map((d) => {
+                      const dayAppts = getAppointmentsForDay(d);
+                      const isToday = isSameDay(d, new Date());
+                      const dateStr = format(d, 'yyyy-MM-dd');
+
+                      return (
+                        <div
+                          key={d.toISOString()}
+                          className="relative border-l border-border"
+                          style={{ height: GRID_HEIGHT }}
+                        >
+                          {/* Grid lines + droppable zones */}
+                          {halfHourSlots.map((slot) => {
+                            const slotId = `slot-${dateStr}_${slot.time}`;
+                            return (
+                              <DroppableSlot
+                                key={slotId}
+                                id={slotId}
+                                isFullHour={slot.isFullHour}
+                                isToday={isToday}
+                                style={{ top: slot.index * SLOT_HEIGHT, height: SLOT_HEIGHT }}
+                              />
+                            );
+                          })}
+
+                          {/* Appointments */}
+                          {dayAppts.map((apt) => {
+                            const top = getAppointmentTop(apt.startAt);
+                            const duration = apt.procedure?.durationMinutes ?? 30;
+                            const height = getAppointmentHeight(duration);
+
+                            // Skip if outside visible range
+                            if (top < 0 || top >= GRID_HEIGHT) return null;
+
+                            return (
                               <DraggableAppointment
                                 key={apt.id}
                                 apt={apt}
                                 onClick={() => setSelectedAppointment(apt)}
+                                style={{ top, height: Math.min(height, GRID_HEIGHT - top) }}
                               />
-                            ))}
-                          </DroppableSlot>
-                        );
-                      })}
-                    </div>
-                  ))}
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -472,16 +553,22 @@ export default function Agenda() {
 
           {/* Drag Overlay */}
           <DragOverlay>
-            {draggedAppointment && (
-              <div className={cn(
-                'p-2 rounded-md text-xs shadow-lg',
-                draggedAppointment.status === 'CONFIRMED' && 'bg-success/20 border border-success/30 text-success',
-                draggedAppointment.status === 'SCHEDULED' && 'bg-info/20 border border-info/30 text-info',
-              )}>
-                <p className="font-medium truncate">{draggedAppointment.patient?.name ?? 'Paciente'}</p>
-                <p className="truncate opacity-80">{draggedAppointment.procedure?.name ?? ''}</p>
-              </div>
-            )}
+            {draggedAppointment && (() => {
+              const duration = draggedAppointment.procedure?.durationMinutes ?? 30;
+              const height = getAppointmentHeight(duration);
+              return (
+                <div
+                  className={cn(
+                    'p-1.5 rounded-md text-xs shadow-lg border',
+                    getStatusClasses(draggedAppointment.status),
+                  )}
+                  style={{ height, width: 120 }}
+                >
+                  <p className="font-medium truncate">{draggedAppointment.patient?.name ?? 'Paciente'}</p>
+                  <p className="truncate opacity-80">{draggedAppointment.procedure?.name ?? ''}</p>
+                </div>
+              );
+            })()}
           </DragOverlay>
         </DndContext>
       )}
@@ -535,7 +622,7 @@ export default function Agenda() {
                   <div>
                     <p className="text-sm text-muted-foreground">Valor</p>
                     <p className="font-medium text-lg">
-                      R$ {Number(selectedAppointment.procedure.price).toLocaleString('pt-BR')}
+                      R$ {formatCurrency(selectedAppointment.procedure.price)}
                     </p>
                   </div>
                 )}

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Building2, ChevronRight, Stethoscope } from 'lucide-react';
+import { formatCNPJ } from '@/lib/formatters';
 
 export default function SelectClinic() {
   const { user, clinics, selectClinic } = useAuth();
@@ -58,7 +59,7 @@ export default function SelectClinic() {
                     <p className="font-semibold text-foreground">{clinic.name}</p>
                     {clinic.cnpj && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        CNPJ: {clinic.cnpj}
+                        CNPJ: {formatCNPJ(clinic.cnpj)}
                       </p>
                     )}
                   </div>
