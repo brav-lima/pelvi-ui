@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { JwtPayload } from './strategies/jwt.strategy';
@@ -46,5 +48,29 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Token inválido ou expirado' })
   me(@CurrentUser() user: JwtPayload) {
     return this.authService.getProfile(user);
+  }
+
+  @ApiBearerAuth()
+  @Patch('profile')
+  @ApiOperation({ summary: 'Atualizar perfil (nome, email, telefone)' })
+  @ApiResponse({ status: 200, description: 'Perfil atualizado' })
+  @ApiResponse({ status: 409, description: 'Email já cadastrado' })
+  updateProfile(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(user, dto);
+  }
+
+  @ApiBearerAuth()
+  @Post('change-password')
+  @ApiOperation({ summary: 'Alterar senha (requer senha atual)' })
+  @ApiResponse({ status: 200, description: 'Senha alterada com sucesso' })
+  @ApiResponse({ status: 401, description: 'Senha atual incorreta' })
+  changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user, dto);
   }
 }

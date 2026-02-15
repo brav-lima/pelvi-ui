@@ -1,10 +1,16 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { PersonService } from '../person/person.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
@@ -129,6 +135,51 @@ export class AuthService {
       organization: orgUser?.organization ?? null,
       role: payload.role,
     };
+  }
+
+  async updateProfile(payload: JwtPayload, dto: UpdateProfileDto) {
+    if (dto.email) {
+      const existing = await this.prisma.person.findFirst({
+        where: { email: dto.email, NOT: { id: payload.sub } },
+      });
+      if (existing) {
+        throw new ConflictException('Email já cadastrado');
+      }
+    }
+
+    const data: Record<string, unknown> = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.email !== undefined) data.email = dto.email;
+    if (dto.phone !== undefined) data.phone = dto.phone;
+
+    return this.prisma.person.update({
+      where: { id: payload.sub },
+      data,
+      select: { id: true, cpf: true, name: true, email: true, phone: true },
+    });
+  }
+
+  async changePassword(payload: JwtPayload, dto: ChangePasswordDto) {
+    const person = await this.prisma.person.findUnique({
+      where: { id: payload.sub },
+    });
+
+    if (!person) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    const valid = await bcrypt.compare(dto.currentPassword, person.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Senha atual incorreta');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.person.update({
+      where: { id: payload.sub },
+      data: { passwordHash },
+    });
+
+    return { message: 'Senha alterada com sucesso' };
   }
 
   private generateToken(

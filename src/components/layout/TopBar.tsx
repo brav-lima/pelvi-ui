@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ProfileDialog } from '@/components/profile/ProfileDialog';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -52,6 +54,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     queryFn: () => financialApi.list({ month: now.getMonth() + 1, year: now.getFullYear() }),
     refetchInterval: 5 * 60 * 1000,
   });
+
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const upcomingAppointments = todayAppointments.filter(
     (a) => a.status === 'SCHEDULED' || a.status === 'CONFIRMED',
@@ -205,7 +209,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setProfileOpen(true)}>
               <User className="w-4 h-4 mr-2" />
               Perfil
             </DropdownMenuItem>
@@ -221,6 +225,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </header>
   );
 }

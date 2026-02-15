@@ -82,6 +82,10 @@ export const authApi = {
     api.post<SelectOrgResponse>('/auth/select-organization', { personId, organizationId }),
 
   me: () => api.get<ProfileResponse>('/auth/me'),
+  updateProfile: (data: { name?: string; email?: string; phone?: string }) =>
+    api.patch<{ id: string; cpf: string; name: string; email: string | null; phone: string | null }>('/auth/profile', data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.post<{ message: string }>('/auth/change-password', data),
 };
 
 function queryString(params?: Record<string, unknown>): string {
