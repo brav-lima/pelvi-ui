@@ -64,7 +64,7 @@ export default function Professionals() {
 
   const deleteMutation = useMutation({
     mutationFn: (prof: Professional) =>
-      professionalsApi.removeFromOrg(prof.organizationId, prof.id),
+      professionalsApi.removeFromOrg(selectedClinic!.id, prof.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['professionals'] });
       toast.success('Profissional removido com sucesso');
