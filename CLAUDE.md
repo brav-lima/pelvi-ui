@@ -17,13 +17,13 @@ ClinicFlow (careflow-ui) is a **multi-tenant clinic management system** (Clinic 
 The system targets small/medium clinics (physiotherapy, psychology, medical) with these core modules:
 
 - **Authentication** — Login via CPF + password. One CPF can be linked to multiple clinics (multi-tenant). After login, user selects clinic context (or auto-enters if only one).
-- **Agenda** — Clinic schedule with week view grid. Statuses: SCHEDULED, CONFIRMED, CANCELED, DONE.
-- **Patients** — Per-clinic patient registry with profile containing basic data, appointment history, anamnesis, and evolutions. Paginated listing with server-side search.
-- **Professionals** — Staff management with roles (ADMIN, PROFESSIONAL, RECEPTIONIST).
-- **Procedures** — Clinic services with name, durationMinutes, price, active/inactive toggle.
+- **Agenda** — Clinic schedule with day/week/month views. Duration-proportional blocks, drag-and-drop rescheduling (@dnd-kit), per-professional filter. Statuses: SCHEDULED, CONFIRMED, CANCELED, DONE.
+- **Patients** — Per-clinic patient registry with profile containing basic data, appointment history, anamnesis, and evolutions. Paginated listing with server-side search. Card/list toggle view.
+- **Professionals** — Staff management with roles (ADMIN, PROFESSIONAL, RECEPTIONIST). Card/list toggle view.
+- **Procedures** — Clinic services with name, durationMinutes, price, active/inactive toggle. Card/list toggle view.
 - **Anamnesis** — Free-form JSON patient records (flexible structure per clinic).
 - **Evolutions** — Continuous clinical evolution notes displayed as a timeline.
-- **Financial** — Income/expense tracking linked to patients and appointments. Monthly summary with totals. Statuses: PENDING, PAID.
+- **Financial** — Income/expense tracking linked to patients and appointments. Monthly summary with totals. "Dar baixa" (mark as paid) inline. Statuses: PENDING, PAID.
 
 ### Multi-Tenant Model
 
@@ -94,11 +94,12 @@ QueryClientProvider (TanStack React Query)
     → AuthProvider (real JWT auth + multi-tenant clinic selection)
       → TooltipProvider
         → BrowserRouter (React Router v6)
+          → Suspense (lazy-loaded pages with PageLoader fallback)
 ```
 
-### Routing
+### Routing & Code Splitting
 
-Routes are defined in `src/App.tsx`. Two route groups:
+Routes are defined in `src/App.tsx`. All pages are lazy-loaded via `React.lazy()` + `Suspense` for code splitting (main bundle ~397KB, pages loaded on demand). Two route groups:
 
 - **Unauthenticated**: `/login`, `/select-clinic` — no layout wrapper
 - **Authenticated**: All other pages wrapped in `MainLayout` — redirects to `/login` if not authenticated, to `/select-clinic` if no clinic selected
@@ -106,16 +107,18 @@ Routes are defined in `src/App.tsx`. Two route groups:
 ### Layout System
 
 `MainLayout` (`src/components/layout/MainLayout.tsx`) provides the authenticated shell:
-- `Sidebar` — collapsible left nav
-- `TopBar` — clinic info, notifications, theme toggle, user menu
+- `Sidebar` — collapsible left nav (desktop), Sheet overlay (mobile < 768px)
+- `TopBar` — clinic info (CNPJ formatted), notifications, theme toggle, user menu (Trocar Clinica, Sair), hamburger menu (mobile)
 - `<Outlet />` — renders the matched child route
+- Responsive: sidebar hidden on mobile, hamburger button in TopBar opens Sheet
 
 ### State Management
 
-- **Auth state**: React Context (`src/contexts/AuthContext.tsx`) — `useAuth()` hook. Real JWT auth via `src/lib/api.ts`. Token persisted in `localStorage`. Session restoration on mount via `GET /api/auth/me`.
+- **Auth state**: React Context (`src/contexts/AuthContext.tsx`) — `useAuth()` hook. Real JWT auth via `src/lib/api.ts`. Token persisted in `localStorage`. Session restoration on mount via `GET /api/auth/me`. `logout()` clears token + state. "Trocar Clinica" calls logout + navigates to `/login`.
 - **Theme state**: React Context (`src/contexts/ThemeContext.tsx`) — light/dark toggle
 - **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query. Module-specific API clients in `src/lib/api.ts`.
 - **Component state**: local `useState`
+- **View preferences**: Card/list toggle persisted in `localStorage` (`patients-view`, `procedures-view`, `professionals-view`)
 
 ### API Client (`src/lib/api.ts`)
 
@@ -131,13 +134,20 @@ Centralized HTTP client with:
 
 | Path | Purpose |
 |------|---------|
-| `src/pages/` | Route page components (one per route) |
+| `src/pages/` | Route page components (one per route, lazy-loaded) |
 | `src/components/ui/` | shadcn/ui components + custom UI primitives |
 | `src/components/layout/` | MainLayout, Sidebar, TopBar |
 | `src/components/patients/` | PatientFormDialog (create/edit patient) |
+| `src/components/appointments/` | AppointmentFormDialog |
+| `src/components/procedures/` | ProcedureFormDialog |
+| `src/components/financial/` | FinancialFormDialog |
+| `src/components/anamnesis/` | AnamnesisFormDialog |
+| `src/components/evolutions/` | EvolutionFormDialog |
+| `src/components/auth/` | RoleGuard, ProtectedRoute, useHasRole |
 | `src/contexts/` | AuthContext, ThemeContext |
 | `src/types/clinic.ts` | All domain type definitions (aligned with backend models) |
 | `src/lib/api.ts` | API client (fetch wrapper + module APIs) |
+| `src/lib/formatters.ts` | Input masks (CPF, phone, currency) + display formatters |
 | `src/hooks/` | Custom hooks (use-mobile, use-toast) |
 | `src/lib/utils.ts` | `cn()` utility for Tailwind class merging |
 
@@ -145,17 +155,17 @@ Centralized HTTP client with:
 
 | Page | File | Data Source | Features |
 |------|------|-------------|----------|
-| Dashboard | `Dashboard.tsx` | `appointmentsApi`, `patientsApi`, `financialApi` | Stats cards, today's schedule, upcoming appointments |
-| Agenda | `Agenda.tsx` | `appointmentsApi` | Week grid view, time slots, appointment detail modal |
-| Pacientes | `Patients.tsx` | `patientsApi` | Paginated list, server-side search (debounced), create dialog |
-| Perfil Paciente | `PatientProfile.tsx` | `patientsApi`, `appointmentsApi`, `anamnesisApi`, `evolutionsApi` | Patient info card, tabs (Consultas, Anamnese, Evolucoes), edit dialog |
-| Profissionais | `Professionals.tsx` | `professionalsApi` | Card grid with avatar, role badge, contact info |
-| Procedimentos | `Procedures.tsx` | `proceduresApi` | Card grid with active toggle, delete with confirmation |
-| Anamnese | `Anamnesis.tsx` | `patientsApi`, `anamnesisApi` | Patient list + anamnesis viewer (flexible JSON rendering) |
-| Evolucoes | `Evolutions.tsx` | `patientsApi`, `evolutionsApi` | Patient list + evolution timeline |
-| Financeiro | `Financial.tsx` | `financialApi` | Stats cards (summary), records table with type/status badges |
-| Login | `Login.tsx` | `authApi` | CPF + password, handles single/multi-clinic responses |
-| Selecionar Clinica | `SelectClinic.tsx` | `authApi` | Clinic selection for multi-tenant users |
+| Dashboard | `Dashboard.tsx` | `appointmentsApi`, `patientsApi`, `financialApi` | Stats cards (formatted currency), today's schedule, upcoming appointments |
+| Agenda | `Agenda.tsx` | `appointmentsApi`, `professionalsApi` | Day/week/month views, duration-proportional blocks, drag-and-drop (@dnd-kit), professional filter, status actions, detail modal |
+| Pacientes | `Patients.tsx` | `patientsApi` | Paginated list, server-side search (debounced), card/list toggle (localStorage), CPF/phone formatted, create dialog |
+| Perfil Paciente | `PatientProfile.tsx` | `patientsApi`, `appointmentsApi`, `anamnesisApi`, `evolutionsApi` | Patient info card (formatted CPF/phone), tabs (Consultas, Anamnese, Evolucoes), inline status actions, all create/edit dialogs |
+| Profissionais | `Professionals.tsx` | `professionalsApi` | Card/list toggle (localStorage), avatar, role badge, formatted phone |
+| Procedimentos | `Procedures.tsx` | `proceduresApi` | Card/list toggle (localStorage), active toggle, formatted currency, delete with confirmation |
+| Anamnese | `Anamnesis.tsx` | `patientsApi`, `anamnesisApi` | Patient list (formatted CPF) + anamnesis viewer (flexible JSON rendering), create/edit dialog |
+| Evolucoes | `Evolutions.tsx` | `patientsApi`, `evolutionsApi` | Patient list + evolution timeline, create dialog |
+| Financeiro | `Financial.tsx` | `financialApi` | Stats cards (formatted currency), records table, "dar baixa" (mark as paid) with confirmation, delete with confirmation |
+| Login | `Login.tsx` | `authApi` | CPF with mask (XXX.XXX.XXX-XX), password, handles single/multi-clinic responses |
+| Selecionar Clinica | `SelectClinic.tsx` | `authApi` | Clinic selection for multi-tenant users, formatted CNPJ |
 
 ### UI Components
 
@@ -166,6 +176,24 @@ bunx shadcn-ui@latest add <component-name>
 ```
 
 Custom UI components beyond shadcn: `page-header`, `stat-card`, `status-badge`, `empty-state`.
+
+### Formatting & Masks (`src/lib/formatters.ts`)
+
+Centralized formatting utilities used across forms and display:
+- **Input masks**: `maskCPF()`, `maskPhone()`, `maskCurrency()` — for controlled inputs
+- **Display formatters**: `formatCPF()`, `formatCNPJ()`, `formatPhone()`, `formatCurrency()` — for rendering
+- **Parse**: `parseCurrency("1.234,56")` → `1234.56` — for converting masked values back to numbers before API calls
+
+### Role-Based Access (`src/components/auth/`)
+
+- `<RoleGuard roles={[...]}> ` — renders children only if user has allowed role
+- `useHasRole(...roles)` — boolean hook for inline checks
+- `<ProtectedRoute roles={[...]}> ` — wraps route, redirects to `/dashboard` if unauthorized
+- Rules: ADMIN (full access), PROFESSIONAL (clinical pages), RECEPTIONIST (dashboard, agenda, patients)
+
+### Drag and Drop
+
+`@dnd-kit/core` + `@dnd-kit/utilities` for agenda rescheduling. `DndContext` wraps day/week grid. Draggable appointment cards, droppable time slots. Disabled for CANCELED/DONE appointments.
 
 ### Import Alias
 

@@ -1,18 +1,40 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Mail, Loader2, LayoutGrid, List } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Phone, Mail, Loader2, LayoutGrid, List, Plus, Edit, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { professionalsApi } from '@/lib/api';
 import { formatPhone } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { useHasRole } from '@/components/auth/RoleGuard';
+import { useAuth } from '@/contexts/AuthContext';
+import { ProfessionalFormDialog } from '@/components/professionals/ProfessionalFormDialog';
+import { ProfessionalEditDialog } from '@/components/professionals/ProfessionalEditDialog';
+import { toast } from 'sonner';
+import type { Professional } from '@/types/clinic';
 
 type ViewMode = 'card' | 'list';
 
 export default function Professionals() {
+  const queryClient = useQueryClient();
+  const isAdmin = useHasRole('ADMIN');
+  const { selectedClinic } = useAuth();
+
   const { data: professionals = [], isLoading } = useQuery({
     queryKey: ['professionals'],
     queryFn: professionalsApi.list,
@@ -21,10 +43,38 @@ export default function Professionals() {
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem('professionals-view') as ViewMode) || 'card',
   );
+  const [formOpen, setFormOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingProfessional, setEditingProfessional] = useState<Professional | undefined>();
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode);
     localStorage.setItem('professionals-view', mode);
+  };
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      professionalsApi.update(id, { active }),
+    onSuccess: (_, { active }) => {
+      queryClient.invalidateQueries({ queryKey: ['professionals'] });
+      toast.success(active ? 'Profissional ativado' : 'Profissional desativado');
+    },
+    onError: () => toast.error('Erro ao alterar status'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (prof: Professional) =>
+      professionalsApi.removeFromOrg(prof.organizationId, prof.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['professionals'] });
+      toast.success('Profissional removido com sucesso');
+    },
+    onError: () => toast.error('Erro ao remover profissional'),
+  });
+
+  const openEdit = (prof: Professional) => {
+    setEditingProfessional(prof);
+    setEditDialogOpen(true);
   };
 
   const getInitials = (name: string) => {
@@ -58,6 +108,14 @@ export default function Professionals() {
       <PageHeader
         title="Profissionais"
         description="Equipe da clínica"
+        actions={
+          isAdmin ? (
+            <Button onClick={() => setFormOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Profissional
+            </Button>
+          ) : undefined
+        }
       />
 
       {/* View Toggle */}
@@ -121,6 +179,46 @@ export default function Professionals() {
                       </div>
                     )}
                   </div>
+
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
+                      <Switch
+                        checked={prof.active}
+                        onCheckedChange={() =>
+                          toggleMutation.mutate({ id: prof.id, active: !prof.active })
+                        }
+                      />
+                      <Button variant="ghost" size="sm" className="flex-1" onClick={() => openEdit(prof)}>
+                        <Edit className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remover Profissional</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja remover {prof.person.name} da clínica?
+                              Esta ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => deleteMutation.mutate(prof)}
+                            >
+                              Remover
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -138,6 +236,7 @@ export default function Professionals() {
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Telefone</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                    {isAdmin && <th className="py-3 px-4 text-sm font-medium text-muted-foreground w-40" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -164,6 +263,46 @@ export default function Professionals() {
                             {prof.active ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </td>
+                        {isAdmin && (
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1">
+                              <Switch
+                                checked={prof.active}
+                                onCheckedChange={() =>
+                                  toggleMutation.mutate({ id: prof.id, active: !prof.active })
+                                }
+                              />
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(prof)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remover Profissional</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja remover {prof.person.name} da clínica?
+                                      Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      onClick={() => deleteMutation.mutate(prof)}
+                                    >
+                                      Remover
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -172,6 +311,21 @@ export default function Professionals() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      <ProfessionalFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['professionals'] })}
+      />
+
+      {editingProfessional && (
+        <ProfessionalEditDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['professionals'] })}
+          professional={editingProfessional}
+        />
       )}
     </div>
   );

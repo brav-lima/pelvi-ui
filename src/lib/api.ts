@@ -110,11 +110,20 @@ export const proceduresApi = {
   remove: (id: string) => api.delete<void>(`/procedures/${id}`),
 };
 
+export const personsApi = {
+  create: (data: { cpf: string; name: string; email: string; phone?: string; password: string }) =>
+    api.post<{ id: string }>('/persons', data),
+};
+
 export const professionalsApi = {
   list: () => api.get<Professional[]>('/professionals'),
   getById: (id: string) => api.get<Professional>(`/professionals/${id}`),
   update: (id: string, data: { role?: string; active?: boolean }) =>
     api.patch<Professional>(`/professionals/${id}`, data),
+  addToOrg: (orgId: string, data: { personId: string; role: string }) =>
+    api.post<unknown>(`/organizations/${orgId}/users`, data),
+  removeFromOrg: (orgId: string, userId: string) =>
+    api.delete<void>(`/organizations/${orgId}/users/${userId}`),
 };
 
 export const appointmentsApi = {

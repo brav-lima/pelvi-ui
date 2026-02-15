@@ -1,7 +1,13 @@
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +17,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu } from 'lucide-react';
-import { formatCNPJ } from '@/lib/formatters';
+import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign } from 'lucide-react';
+import { formatCNPJ, formatCurrency } from '@/lib/formatters';
+import { appointmentsApi, financialApi } from '@/lib/api';
+import { format } from 'date-fns';
 
 interface TopBarProps {
   /** Called when the hamburger menu is clicked (mobile only). Undefined = no menu button. */
@@ -28,6 +36,28 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     logout();
     navigate('/login');
   };
+
+  // Notifications: today's appointments
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: todayAppointments = [] } = useQuery({
+    queryKey: ['notifications-appointments', today],
+    queryFn: () => appointmentsApi.list({ startDate: today, endDate: today }),
+    refetchInterval: 5 * 60 * 1000,
+  });
+
+  // Notifications: pending payments this month
+  const now = new Date();
+  const { data: monthFinancial = [] } = useQuery({
+    queryKey: ['notifications-financial', now.getMonth() + 1, now.getFullYear()],
+    queryFn: () => financialApi.list({ month: now.getMonth() + 1, year: now.getFullYear() }),
+    refetchInterval: 5 * 60 * 1000,
+  });
+
+  const upcomingAppointments = todayAppointments.filter(
+    (a) => a.status === 'SCHEDULED' || a.status === 'CONFIRMED',
+  );
+  const pendingPayments = monthFinancial.filter((f) => f.status === 'PENDING');
+  const notificationCount = upcomingAppointments.length + pendingPayments.length;
 
   const initials = user?.name
     ?.split(' ')
@@ -66,10 +96,86 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       {/* Right Side */}
       <div className="flex items-center gap-1 sm:gap-2">
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5 text-muted-foreground" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="w-5 h-5 text-muted-foreground" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-0">
+            <div className="p-3 border-b border-border">
+              <p className="font-semibold text-sm">Notificações</p>
+            </div>
+            {notificationCount === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Nenhuma notificação pendente
+              </div>
+            ) : (
+              <div className="max-h-[400px] overflow-y-auto">
+                {/* Today's appointments */}
+                {upcomingAppointments.length > 0 && (
+                  <div className="p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Consultas de Hoje</p>
+                    </div>
+                    <div className="space-y-1">
+                      {upcomingAppointments.slice(0, 5).map((apt) => (
+                        <div key={apt.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
+                          <span className="truncate font-medium">{apt.patient?.name ?? 'Paciente'}</span>
+                          <span className="text-muted-foreground shrink-0 ml-2">
+                            {format(new Date(apt.startAt), 'HH:mm')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {upcomingAppointments.length > 5 && (
+                      <button
+                        onClick={() => navigate('/agenda')}
+                        className="text-xs text-primary hover:underline mt-1 px-2"
+                      >
+                        Ver todas ({upcomingAppointments.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Pending payments */}
+                {pendingPayments.length > 0 && (
+                  <div className={`p-3 ${upcomingAppointments.length > 0 ? 'border-t border-border' : ''}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-4 h-4 text-warning" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Pagamentos Pendentes</p>
+                    </div>
+                    <div className="space-y-1">
+                      {pendingPayments.slice(0, 5).map((fin) => (
+                        <div key={fin.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
+                          <span className="truncate font-medium">{fin.patient?.name ?? 'Paciente'}</span>
+                          <span className="text-muted-foreground shrink-0 ml-2">
+                            R$ {formatCurrency(fin.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {pendingPayments.length > 5 && (
+                      <button
+                        onClick={() => navigate('/financial')}
+                        className="text-xs text-primary hover:underline mt-1 px-2"
+                      >
+                        Ver todos ({pendingPayments.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
 
         {/* Theme Toggle */}
         <Button variant="ghost" size="icon" onClick={toggleTheme}>
