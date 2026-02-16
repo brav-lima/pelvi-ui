@@ -149,7 +149,7 @@ export default function Procedures() {
                   </div>
                   <div className="flex items-center gap-1.5 text-foreground font-medium">
                     <DollarSign className="w-4 h-4" />
-                    <span>R$ {formatCurrency(procedure.price)}</span>
+                    <span>{formatCurrency(procedure.price)}</span>
                   </div>
                 </div>
 

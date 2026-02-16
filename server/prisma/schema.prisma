@@ -207,6 +207,32 @@ model Evolution {
 // FinancialRecord
 // ──────────────────────────────────────────────
 
+// ──────────────────────────────────────────────
+// AuditLog
+// ──────────────────────────────────────────────
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  action         String
+  entity         String
+  entityId       String?  @map("entity_id")
+  details        Json?
+  ipAddress      String?  @map("ip_address")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ──────────────────────────────────────────────
+// FinancialRecord
+// ──────────────────────────────────────────────
+
 enum FinancialType {
   INCOME
   EXPENSE

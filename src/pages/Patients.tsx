@@ -20,7 +20,7 @@ import {
   List,
 } from 'lucide-react';
 import { patientsApi } from '@/lib/api';
-import { formatCPF, formatPhone } from '@/lib/formatters';
+import { formatCPFMasked, formatPhone } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
@@ -158,7 +158,7 @@ export default function Patients() {
                           <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                         </div>
                         {patient.cpf && (
-                          <p className="text-sm text-muted-foreground">{formatCPF(patient.cpf)}</p>
+                          <p className="text-sm text-muted-foreground">{formatCPFMasked(patient.cpf)}</p>
                         )}
                         <div className="mt-3 space-y-1">
                           {patient.phone && (
@@ -207,7 +207,7 @@ export default function Patients() {
                           onClick={() => navigate(`/patients/${patient.id}`)}
                         >
                           <td className="py-3 px-4 text-sm font-medium text-foreground">{patient.name}</td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">{formatCPF(patient.cpf)}</td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground">{formatCPFMasked(patient.cpf)}</td>
                           <td className="py-3 px-4 text-sm text-muted-foreground">{formatPhone(patient.phone)}</td>
                           <td className="py-3 px-4 text-sm text-muted-foreground">{patient.email || '-'}</td>
                           <td className="py-3 px-4 text-sm text-muted-foreground">

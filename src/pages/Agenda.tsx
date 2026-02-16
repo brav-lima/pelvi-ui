@@ -47,7 +47,7 @@ import type { Appointment, AppointmentStatus } from '@/types/clinic';
 
 // --- Constants ---
 const START_HOUR = 8;
-const END_HOUR = 18;
+const END_HOUR = 21;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SLOT_MINUTES = 30;
 const PX_PER_MINUTE = 1; // 1px = 1min, so 1h = 60px

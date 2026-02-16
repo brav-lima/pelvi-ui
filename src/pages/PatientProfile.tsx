@@ -31,7 +31,7 @@ import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
-import { formatCPF, formatPhone } from '@/lib/formatters';
+import { formatCPF, formatCPFMasked, formatPhone } from '@/lib/formatters';
 import type { Anamnesis, AppointmentStatus } from '@/types/clinic';
 
 export default function PatientProfile() {
@@ -145,7 +145,7 @@ export default function PatientProfile() {
         </Button>
         <PageHeader
           title={patient.name}
-          description={patient.cpf ? `CPF: ${formatCPF(patient.cpf)}` : undefined}
+          description={patient.cpf ? `CPF: ${formatCPFMasked(patient.cpf)}` : undefined}
           actions={
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Edit className="w-4 h-4 mr-2" />
@@ -355,15 +355,41 @@ export default function PatientProfile() {
                               Editar
                             </Button>
                           </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {Object.entries(anamnesis.data).map(([key, value]) => (
-                              <div key={key} className="p-3 rounded-lg bg-muted/50">
-                                <p className="text-sm text-muted-foreground">{key}</p>
-                                <p className="text-sm font-medium mt-1">
-                                  {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '-')}
-                                </p>
-                              </div>
-                            ))}
+                          <div className="space-y-4">
+                            {Object.entries(anamnesis.data).map(([key, value]) => {
+                              if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                                const section = value as Record<string, unknown>;
+                                return (
+                                  <div key={key} className="border border-border rounded-lg p-4">
+                                    <h4 className="font-semibold text-foreground mb-3 pb-2 border-b border-border">
+                                      {key}
+                                    </h4>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                      {Object.entries(section).map(([fieldKey, fieldValue]) => (
+                                        <div key={fieldKey} className="p-3 rounded-lg bg-muted/50">
+                                          <p className="text-sm text-muted-foreground">{fieldKey}</p>
+                                          <p className="text-sm font-medium mt-1">
+                                            {fieldValue != null && String(fieldValue).trim() !== ''
+                                              ? String(fieldValue)
+                                              : 'Não informado'}
+                                          </p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={key} className="p-3 rounded-lg bg-muted/50">
+                                  <p className="text-sm text-muted-foreground">{key}</p>
+                                  <p className="text-sm font-medium mt-1">
+                                    {value != null && String(value).trim() !== ''
+                                      ? String(value)
+                                      : 'Não informado'}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}

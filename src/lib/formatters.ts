@@ -44,6 +44,13 @@ export function formatCPF(cpf: string | null | undefined): string {
   return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 }
 
+export function formatCPFMasked(cpf: string | null | undefined): string {
+  if (!cpf) return '';
+  const numbers = cpf.replace(/\D/g, '');
+  if (numbers.length !== 11) return cpf;
+  return `***.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-**`;
+}
+
 export function formatCNPJ(cnpj: string | null | undefined): string {
   if (!cnpj) return '';
   const numbers = cnpj.replace(/\D/g, '');
