@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { User, Clinic, LoginResponseMulti } from '@/types/clinic';
-import { authApi, setToken, removeToken, getToken, ApiError } from '@/lib/api';
+import { authApi, setToken, setRefreshToken, removeToken, getToken, ApiError } from '@/lib/api';
 
 interface LoginResult {
   success: boolean;
@@ -40,6 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setClinics([]);
     setPendingPersonId(null);
   }, [queryClient]);
+
+  // Listen for automatic logout triggered by expired refresh token
+  useEffect(() => {
+    const handleForceLogout = () => logout();
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
+  }, [logout]);
 
   // Restore session from stored token on mount
   useEffect(() => {
@@ -82,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.accessToken) {
         // Single clinic — token received immediately
         setToken(response.accessToken);
+        setRefreshToken(response.refreshToken);
         setUser({
           id: response.person.id,
           name: response.person.name,
@@ -121,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authApi.selectOrganization(personId, organizationId);
       setToken(response.accessToken);
+      setRefreshToken(response.refreshToken);
       setUser({
         id: response.person.id,
         name: response.person.name,

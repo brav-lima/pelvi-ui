@@ -19,6 +19,7 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const TOKEN_KEY = 'careflow_token';
+const REFRESH_TOKEN_KEY = 'careflow_refresh_token';
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -28,13 +29,80 @@ export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string): void {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
 export function removeToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// Refresh token queue to avoid multiple simultaneous refreshes
+let isRefreshing = false;
+let refreshQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}> = [];
+
+function processQueue(error: unknown, token: string | null) {
+  refreshQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token!);
+    }
+  });
+  refreshQueue = [];
+}
+
+async function tryRefreshToken(): Promise<string> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    throw new ApiError(401, 'Sessão expirada');
+  }
+
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      refreshQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) {
+      throw new ApiError(401, 'Sessão expirada');
+    }
+
+    const data = await res.json();
+    setToken(data.accessToken);
+    setRefreshToken(data.refreshToken);
+    processQueue(null, data.accessToken);
+    return data.accessToken;
+  } catch (err) {
+    processQueue(err, null);
+    removeToken();
+    window.dispatchEvent(new CustomEvent('auth:logout'));
+    throw err;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+async function request<T>(path: string, options: RequestInit = {}, _isRetry = false): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -56,6 +124,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     });
 
     if (!res.ok) {
+      // Try refresh on 401, but not for auth endpoints or retries
+      if (res.status === 401 && !_isRetry && !path.startsWith('/auth/')) {
+        const newToken = await tryRefreshToken();
+        headers['Authorization'] = `Bearer ${newToken}`;
+        return request<T>(path, options, true);
+      }
+
       const body = await res.json().catch(() => ({}));
       throw new ApiError(res.status, body.message || 'Erro na requisição');
     }

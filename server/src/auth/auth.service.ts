@@ -11,6 +11,7 @@ import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
@@ -52,14 +53,14 @@ export class AuthService {
 
     if (organizations.length === 1) {
       const org = organizations[0];
-      const accessToken = this.generateToken(
+      const tokens = this.generateTokens(
         person.id,
         org.organization.id,
         org.role,
       );
 
       return {
-        accessToken,
+        ...tokens,
         person: personData,
         organization: org.organization,
         role: org.role,
@@ -68,6 +69,7 @@ export class AuthService {
 
     return {
       accessToken: null,
+      refreshToken: null,
       person: personData,
       organizations,
     };
@@ -100,14 +102,14 @@ export class AuthService {
       );
     }
 
-    const accessToken = this.generateToken(
+    const tokens = this.generateTokens(
       dto.personId,
       dto.organizationId,
       link.role,
     );
 
     return {
-      accessToken,
+      ...tokens,
       person: link.person,
       organization: link.organization,
       role: link.role,
@@ -182,15 +184,41 @@ export class AuthService {
     return { message: 'Senha alterada com sucesso' };
   }
 
-  private generateToken(
+  async refreshAccessToken(dto: RefreshTokenDto) {
+    try {
+      const payload = this.jwtService.verify(dto.refreshToken);
+
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException('Token inválido');
+      }
+
+      return this.generateTokens(
+        payload.sub,
+        payload.organizationId,
+        payload.role,
+      );
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    }
+  }
+
+  private generateTokens(
     personId: string,
     organizationId: string,
     role: string,
-  ): string {
-    return this.jwtService.sign({
-      sub: personId,
-      organizationId,
-      role,
+  ): { accessToken: string; refreshToken: string } {
+    const basePayload = { sub: personId, organizationId, role };
+
+    const accessToken = this.jwtService.sign(basePayload, {
+      expiresIn: '15m',
     });
+
+    const refreshToken = this.jwtService.sign(
+      { ...basePayload, type: 'refresh' },
+      { expiresIn: '7d' },
+    );
+
+    return { accessToken, refreshToken };
   }
 }
