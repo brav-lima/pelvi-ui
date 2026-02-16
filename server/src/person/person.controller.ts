@@ -8,12 +8,15 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
 import { PersonService } from './person.service';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiBearerAuth()
 @ApiTags('Persons')
+@Roles(Role.ADMIN)
 @Controller('persons')
 export class PersonController {
   constructor(private readonly personService: PersonService) {}

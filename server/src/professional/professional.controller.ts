@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
 import { ProfessionalService } from './professional.service';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiBearerAuth()
 @ApiTags('Professionals')
@@ -21,6 +23,7 @@ export class ProfessionalController {
   }
 
   @Patch(':id')
+  @Roles(Role.ADMIN)
   update(
     @OrgId() orgId: string,
     @Param('id') id: string,
