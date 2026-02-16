@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User, Clinic, LoginResponseMulti } from '@/types/clinic';
 import { authApi, setToken, removeToken, getToken, ApiError } from '@/lib/api';
 
@@ -22,6 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -32,11 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     removeToken();
+    queryClient.clear();
     setUser(null);
     setSelectedClinic(null);
     setClinics([]);
     setPendingPersonId(null);
-  }, []);
+  }, [queryClient]);
 
   // Restore session from stored token on mount
   useEffect(() => {
