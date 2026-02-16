@@ -1,73 +1,118 @@
-# Welcome to your Lovable project
+# CareFlow
 
-## Project info
+Sistema de gestao para clinicas de saude (fisioterapia, psicologia, medicina). Multi-tenant, com agenda, prontuario, financeiro e controle de acesso por perfil.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+| Camada | Tecnologia |
+|--------|-----------|
+| Frontend | React + TypeScript + Vite + Tailwind CSS + shadcn/ui |
+| Backend | NestJS + Prisma + PostgreSQL |
+| Banco | Neon (serverless PostgreSQL) |
+| Deploy | Railway (2 servicos: API + Web) |
+| Package Manager | Bun |
 
-There are several ways of editing your application.
+## Modulos
 
-**Use Lovable**
+- **Agenda** — Dia/semana/mes, drag-and-drop, blocos proporcionais a duracao, filtro por profissional
+- **Pacientes** — Cadastro, perfil com historico de consultas, anamnese e evolucoes
+- **Profissionais** — Gestao de equipe com roles (Admin, Profissional, Recepcao)
+- **Procedimentos** — Servicos da clinica com duracao, preco e status ativo/inativo
+- **Anamnese** — Formulario JSON flexivel por paciente
+- **Evolucoes** — Timeline de evolucao clinica
+- **Financeiro** — Receitas/despesas com resumo mensal, baixa de pagamento
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Requisitos
 
-Changes made via Lovable will be committed automatically to this repo.
+- [Bun](https://bun.sh/) >= 1.0
+- PostgreSQL (ou conta no [Neon](https://neon.tech/))
 
-**Use your preferred IDE**
+## Setup Local
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+# Clonar o repositorio
+git clone https://github.com/brav999/careflow-ui.git
+cd careflow-ui
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# Instalar dependencias (frontend + backend)
+bun install
+cd server && bun install && cd ..
 
-Follow these steps:
+# Configurar variaveis de ambiente
+# server/.env.dev precisa de: DATABASE_URL, JWT_SECRET, CORS_ORIGIN
+# .env (raiz) opcional: VITE_API_URL (default: http://localhost:3000)
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Gerar Prisma Client e rodar migrations
+cd server
+bunx prisma generate
+bunx prisma migrate dev
+bunx prisma db seed   # dados de teste
+cd ..
 ```
 
-**Edit a file directly in GitHub**
+## Executando
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+# Terminal 1 — Backend (porta 3000)
+bun run server:dev
 
-**Use GitHub Codespaces**
+# Terminal 2 — Frontend (porta 8080)
+bun run dev
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Comandos
 
-## What technologies are used for this project?
+### Frontend (raiz do projeto)
 
-This project is built with:
+| Comando | Descricao |
+|---------|-----------|
+| `bun run dev` | Servidor de desenvolvimento |
+| `bun run build` | Build de producao |
+| `bun run lint` | ESLint |
+| `bun run test` | Testes (Vitest) |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Backend (raiz do projeto ou /server)
 
-## How can I deploy this project?
+| Comando | Descricao |
+|---------|-----------|
+| `bun run server:dev` | NestJS em watch mode |
+| `bun run server:build` | Build de producao |
+| `bun run server:test` | Testes (Jest) |
+| `bunx prisma migrate dev --name <name>` | Criar migration |
+| `bunx prisma db seed` | Popular banco com dados de teste |
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Credenciais de Teste
 
-## Can I connect a custom domain to my Lovable project?
+Todas usam senha `123456`:
 
-Yes, you can!
+| CPF | Role | Nota |
+|-----|------|------|
+| 11111111111 | Admin | Multi-clinica (2 clinicas) |
+| 22222222222 | Profissional | Fisioterapeuta |
+| 33333333333 | Profissional | Psicologo |
+| 44444444444 | Recepcionista | — |
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Seguranca
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- JWT com refresh token (access 15min + refresh 7d)
+- RBAC no backend (@Roles) e frontend (RoleGuard)
+- Rate limiting (60 req/min geral, 5 req/min login)
+- CSP e referrer policy
+- Isolamento multi-tenant por organizationId
+- Logs de auditoria (AuditLog)
+- CPF mascarado nas listagens (LGPD)
+- Envs criptografados via dotenvx
+
+## Deploy
+
+Dois servicos no Railway a partir do mesmo monorepo:
+
+- **careflow-api** — NestJS, builder Railpack, root `/server`
+- **careflow-web** — Nginx servindo SPA, builder Dockerfile, root `/`
+
+## Documentacao
+
+- `docs/steps.txt` — Roadmap completo com status de cada etapa
+- `docs/project-overview.md` — Especificacao do produto
+- `docs/schema.md` — Modelo de dados
+- Swagger disponivel em `/docs` (backend)
