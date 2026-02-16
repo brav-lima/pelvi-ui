@@ -124,8 +124,9 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
     });
 
     if (!res.ok) {
-      // Try refresh on 401, but not for auth endpoints or retries
-      if (res.status === 401 && !_isRetry && !path.startsWith('/auth/')) {
+      // Try refresh on 401, but not for login/refresh endpoints or retries
+      const skipRefreshPaths = ['/auth/login', '/auth/refresh', '/auth/select-organization'];
+      if (res.status === 401 && !_isRetry && !skipRefreshPaths.includes(path)) {
         const newToken = await tryRefreshToken();
         headers['Authorization'] = `Bearer ${newToken}`;
         return request<T>(path, options, true);

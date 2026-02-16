@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sidebar } from './Sidebar';
@@ -7,9 +8,17 @@ import { TopBar } from './TopBar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 export function MainLayout() {
-  const { isAuthenticated, selectedClinic } = useAuth();
+  const { isAuthenticated, selectedClinic, isLoading } = useAuth();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
