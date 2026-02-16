@@ -9,11 +9,13 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Role } from '@prisma/client';
 import { FinancialService } from './financial.service';
 import { CreateFinancialDto } from './dto/create-financial.dto';
 import { UpdateFinancialDto } from './dto/update-financial.dto';
 import { QueryFinancialDto } from './dto/query-financial.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiBearerAuth()
 @ApiTags('Financial')
@@ -22,6 +24,7 @@ export class FinancialController {
   constructor(private readonly financialService: FinancialService) {}
 
   @Post()
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Criar registro financeiro (entrada ou saída)' })
   create(@OrgId() orgId: string, @Body() dto: CreateFinancialDto) {
     return this.financialService.create(orgId, dto);
@@ -52,6 +55,7 @@ export class FinancialController {
   }
 
   @Patch(':id')
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Atualizar registro financeiro' })
   update(
     @OrgId() orgId: string,
@@ -62,6 +66,7 @@ export class FinancialController {
   }
 
   @Delete(':id')
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Remover registro financeiro' })
   remove(@OrgId() orgId: string, @Param('id') id: string) {
     return this.financialService.remove(orgId, id);
