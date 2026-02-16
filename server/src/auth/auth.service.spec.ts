@@ -59,13 +59,17 @@ describe('AuthService', () => {
       });
 
       expect(result.accessToken).toBe('mock-token');
+      expect(result.refreshToken).toBe('mock-token');
       expect(result.person.id).toBe('person-1');
       expect(result.organization).toBeDefined();
-      expect(jwtService.sign).toHaveBeenCalledWith({
-        sub: 'person-1',
-        organizationId: 'org-1',
-        role: 'ADMIN',
-      });
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        { sub: 'person-1', organizationId: 'org-1', role: 'ADMIN' },
+        { expiresIn: '15m' },
+      );
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        { sub: 'person-1', organizationId: 'org-1', role: 'ADMIN', type: 'refresh' },
+        { expiresIn: '7d' },
+      );
     });
 
     it('deve retornar lista de organizações quando há múltiplas', async () => {
@@ -89,6 +93,7 @@ describe('AuthService', () => {
       });
 
       expect(result.accessToken).toBeNull();
+      expect(result.refreshToken).toBeNull();
       expect(result.organizations).toHaveLength(2);
     });
 

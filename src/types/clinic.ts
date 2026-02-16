@@ -16,6 +16,7 @@ export interface Clinic {
 // Auth API response types
 export interface LoginResponseSingle {
   accessToken: string;
+  refreshToken: string;
   person: { id: string; cpf: string; name: string; email: string | null };
   organization: Clinic;
   role: User['role'];
@@ -38,6 +39,7 @@ export type LoginResponse = LoginResponseSingle | LoginResponseMulti;
 
 export interface SelectOrgResponse {
   accessToken: string;
+  refreshToken: string;
   person: { id: string; cpf: string; name: string; email: string | null };
   organization: Clinic;
   role: User['role'];

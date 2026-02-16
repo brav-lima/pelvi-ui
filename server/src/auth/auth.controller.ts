@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from './decorators/public.decorator';
@@ -41,6 +42,18 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Vínculo inválido ou inativo' })
   selectOrganization(@Body() dto: SelectOrganizationDto) {
     return this.authService.selectOrganization(dto);
+  }
+
+  @Public()
+  @Post('refresh')
+  @ApiOperation({
+    summary: 'Renovar access token via refresh token',
+    description: 'Envia o refreshToken e recebe um novo par accessToken + refreshToken.',
+  })
+  @ApiResponse({ status: 200, description: 'Tokens renovados com sucesso' })
+  @ApiResponse({ status: 401, description: 'Refresh token inválido ou expirado' })
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshAccessToken(dto);
   }
 
   @ApiBearerAuth()
