@@ -25,6 +25,7 @@ model Organization {
   anamneses        Anamnesis[]
   evolutions       Evolution[]
   financialRecords FinancialRecord[]
+  treatmentPackages TreatmentPackage[]
 
   @@map("organizations")
 }
@@ -103,6 +104,7 @@ model Patient {
   anamneses        Anamnesis[]
   evolutions       Evolution[]
   financialRecords FinancialRecord[]
+  treatmentPackages TreatmentPackage[]
 
   @@map("patients")
 }
@@ -121,8 +123,9 @@ model Procedure {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  appointments Appointment[]
+  organization              Organization               @relation(fields: [organizationId], references: [id])
+  appointments              Appointment[]
+  treatmentPackageProcedures TreatmentPackageProcedure[]
 
   @@map("procedures")
 }
@@ -139,22 +142,24 @@ enum AppointmentStatus {
 }
 
 model Appointment {
-  id             String            @id @default(uuid())
-  organizationId String            @map("organization_id")
-  patientId      String            @map("patient_id")
-  professionalId String            @map("professional_id")
-  procedureId    String            @map("procedure_id")
-  startAt        DateTime          @map("start_at")
-  endAt          DateTime          @map("end_at")
-  status         AppointmentStatus @default(SCHEDULED)
-  notes          String?
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  id                 String            @id @default(uuid())
+  organizationId     String            @map("organization_id")
+  patientId          String            @map("patient_id")
+  professionalId     String            @map("professional_id")
+  procedureId        String            @map("procedure_id")
+  treatmentPackageId String?           @map("treatment_package_id")
+  startAt            DateTime          @map("start_at")
+  endAt              DateTime          @map("end_at")
+  status             AppointmentStatus @default(SCHEDULED)
+  notes              String?
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
 
-  organization     Organization      @relation(fields: [organizationId], references: [id])
-  patient          Patient           @relation(fields: [patientId], references: [id])
-  professional     OrganizationUser  @relation(fields: [professionalId], references: [id])
-  procedure        Procedure         @relation(fields: [procedureId], references: [id])
+  organization     Organization       @relation(fields: [organizationId], references: [id])
+  patient          Patient            @relation(fields: [patientId], references: [id])
+  professional     OrganizationUser   @relation(fields: [professionalId], references: [id])
+  procedure        Procedure          @relation(fields: [procedureId], references: [id])
+  treatmentPackage TreatmentPackage?  @relation(fields: [treatmentPackageId], references: [id])
   evolutions       Evolution[]
   financialRecords FinancialRecord[]
 
@@ -204,10 +209,6 @@ model Evolution {
 }
 
 // ──────────────────────────────────────────────
-// FinancialRecord
-// ──────────────────────────────────────────────
-
-// ──────────────────────────────────────────────
 // AuditLog
 // ──────────────────────────────────────────────
 
@@ -244,24 +245,70 @@ enum FinancialStatus {
 }
 
 model FinancialRecord {
-  id             String          @id @default(uuid())
-  organizationId String          @map("organization_id")
-  patientId      String          @map("patient_id")
-  appointmentId  String?         @map("appointment_id")
-  amount           Decimal         @db.Decimal(10, 2)
-  type             FinancialType
-  status           FinancialStatus @default(PENDING)
-  paymentMethod    String?         @map("payment_method")
-  description      String?
-  dueDate          DateTime?       @map("due_date")
-  installment      Int?
-  installmentTotal Int?            @map("installment_total")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  id                 String          @id @default(uuid())
+  organizationId     String          @map("organization_id")
+  patientId          String          @map("patient_id")
+  appointmentId      String?         @map("appointment_id")
+  treatmentPackageId String?         @map("treatment_package_id")
+  amount             Decimal         @db.Decimal(10, 2)
+  type               FinancialType
+  status             FinancialStatus @default(PENDING)
+  paymentMethod      String?         @map("payment_method")
+  description        String?
+  dueDate            DateTime?       @map("due_date")
+  installment        Int?
+  installmentTotal   Int?            @map("installment_total")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  patient      Patient      @relation(fields: [patientId], references: [id])
-  appointment  Appointment? @relation(fields: [appointmentId], references: [id])
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  patient          Patient           @relation(fields: [patientId], references: [id])
+  appointment      Appointment?      @relation(fields: [appointmentId], references: [id])
+  treatmentPackage TreatmentPackage? @relation(fields: [treatmentPackageId], references: [id])
 
   @@map("financial_records")
+}
+
+// ──────────────────────────────────────────────
+// TreatmentPackage (Pacote de Tratamento)
+// ──────────────────────────────────────────────
+
+enum TreatmentPackageStatus {
+  ACTIVE
+  COMPLETED
+  CANCELED
+}
+
+model TreatmentPackage {
+  id             String                 @id @default(uuid())
+  organizationId String                 @map("organization_id")
+  patientId      String                 @map("patient_id")
+  name           String
+  totalSessions  Int                    @map("total_sessions")
+  usedSessions   Int                    @default(0) @map("used_sessions")
+  totalPrice     Decimal                @db.Decimal(10, 2) @map("total_price")
+  status         TreatmentPackageStatus @default(ACTIVE)
+  notes          String?
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  organization     Organization               @relation(fields: [organizationId], references: [id])
+  patient          Patient                    @relation(fields: [patientId], references: [id])
+  procedures       TreatmentPackageProcedure[]
+  appointments     Appointment[]
+  financialRecords FinancialRecord[]
+
+  @@map("treatment_packages")
+}
+
+model TreatmentPackageProcedure {
+  id                 String @id @default(uuid())
+  treatmentPackageId String @map("treatment_package_id")
+  procedureId        String @map("procedure_id")
+
+  treatmentPackage TreatmentPackage @relation(fields: [treatmentPackageId], references: [id], onDelete: Cascade)
+  procedure        Procedure        @relation(fields: [procedureId], references: [id])
+
+  @@unique([treatmentPackageId, procedureId])
+  @@map("treatment_package_procedures")
 }

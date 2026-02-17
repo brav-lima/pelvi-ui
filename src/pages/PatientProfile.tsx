@@ -22,8 +22,9 @@ import {
   CheckCircle,
   XCircle,
   CalendarCheck,
+  Package,
 } from 'lucide-react';
-import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi } from '@/lib/api';
+import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi, treatmentPackagesApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,8 +32,19 @@ import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
-import { formatCPF, formatCPFMasked, formatPhone } from '@/lib/formatters';
-import type { Anamnesis, AppointmentStatus } from '@/types/clinic';
+import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
+import { formatCPF, formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
+import type { Anamnesis, AppointmentStatus, TreatmentPackage } from '@/types/clinic';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function PatientProfile() {
   const { id } = useParams();
@@ -43,6 +55,8 @@ export default function PatientProfile() {
   const [evolutionOpen, setEvolutionOpen] = useState(false);
   const [anamnesisOpen, setAnamnesisOpen] = useState(false);
   const [editingAnamnesis, setEditingAnamnesis] = useState<Anamnesis | undefined>();
+  const [packageOpen, setPackageOpen] = useState(false);
+  const [cancelingPackage, setCancelingPackage] = useState<TreatmentPackage | null>(null);
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -67,6 +81,23 @@ export default function PatientProfile() {
     queryKey: ['patient-evolutions', id],
     queryFn: () => evolutionsApi.list(id!),
     enabled: !!id,
+  });
+
+  const { data: treatmentPackages = [] } = useQuery({
+    queryKey: ['treatment-packages', id],
+    queryFn: () => treatmentPackagesApi.list({ patientId: id }),
+    enabled: !!id,
+  });
+
+  const cancelPackageMutation = useMutation({
+    mutationFn: (pkgId: string) =>
+      treatmentPackagesApi.update(pkgId, { status: 'CANCELED' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['treatment-packages', id] });
+      toast.success('Pacote cancelado com sucesso');
+      setCancelingPackage(null);
+    },
+    onError: () => toast.error('Erro ao cancelar pacote'),
   });
 
   const statusMutation = useMutation({
@@ -241,6 +272,10 @@ export default function PatientProfile() {
               <TabsTrigger value="evolutions" className="gap-2">
                 <TrendingUp className="w-4 h-4" />
                 Evoluções
+              </TabsTrigger>
+              <TabsTrigger value="packages" className="gap-2">
+                <Package className="w-4 h-4" />
+                Pacotes
               </TabsTrigger>
             </TabsList>
 
@@ -444,6 +479,100 @@ export default function PatientProfile() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* === Treatment Packages Tab === */}
+            <TabsContent value="packages" className="mt-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Pacotes de Tratamento</CardTitle>
+                  <Button size="sm" onClick={() => setPackageOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Pacote
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {treatmentPackages.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Nenhum pacote de tratamento registrado
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {treatmentPackages.map((pkg) => {
+                        const progress = pkg.totalSessions > 0
+                          ? Math.round((pkg.usedSessions / pkg.totalSessions) * 100)
+                          : 0;
+                        const remaining = pkg.totalSessions - pkg.usedSessions;
+                        return (
+                          <div
+                            key={pkg.id}
+                            className="border border-border rounded-lg p-4 space-y-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-md bg-primary/10">
+                                  <Package className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                  <h4 className="font-medium">{pkg.name}</h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    R$ {formatCurrency(pkg.totalPrice)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <StatusBadge status={pkg.status} />
+                                {pkg.status === 'ACTIVE' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={() => setCancelingPackage(pkg)}
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  {pkg.usedSessions}/{pkg.totalSessions} sessões utilizadas
+                                </span>
+                                <span className="font-medium">
+                                  {remaining > 0 ? `${remaining} restantes` : 'Concluído'}
+                                </span>
+                              </div>
+                              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Procedures */}
+                            {pkg.procedures && pkg.procedures.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {pkg.procedures.map((pp) => (
+                                  <span
+                                    key={pp.id}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-xs text-muted-foreground"
+                                  >
+                                    {pp.procedure.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -483,6 +612,38 @@ export default function PatientProfile() {
           anamnesis={editingAnamnesis}
         />
       )}
+
+      {/* Create Treatment Package Dialog */}
+      {id && (
+        <TreatmentPackageFormDialog
+          open={packageOpen}
+          onOpenChange={setPackageOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['treatment-packages', id] })}
+          patientId={id}
+        />
+      )}
+
+      {/* Cancel Package Confirmation */}
+      <AlertDialog open={!!cancelingPackage} onOpenChange={() => setCancelingPackage(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar Pacote</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja cancelar o pacote "{cancelingPackage?.name}"?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => cancelingPackage && cancelPackageMutation.mutate(cancelingPackage.id)}
+            >
+              Cancelar Pacote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

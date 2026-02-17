@@ -16,4 +16,8 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'ID do pacote de tratamento inválido' })
+  treatmentPackageId?: string;
 }
