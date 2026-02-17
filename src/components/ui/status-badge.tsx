@@ -11,6 +11,9 @@ const statusConfig: Record<string, { label: string; style: string }> = {
   CONFIRMED: { label: 'Confirmado', style: 'status-confirmed' },
   CANCELED: { label: 'Cancelado', style: 'status-canceled' },
   DONE: { label: 'Concluido', style: 'status-done' },
+  // Treatment package statuses
+  ACTIVE: { label: 'Ativo', style: 'status-confirmed' },
+  COMPLETED: { label: 'Concluído', style: 'status-done' },
   // Financial statuses
   PENDING: { label: 'Pendente', style: 'status-pending' },
   PAID: { label: 'Pago', style: 'status-confirmed' },

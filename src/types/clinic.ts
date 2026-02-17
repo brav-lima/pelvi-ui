@@ -115,6 +115,7 @@ export interface Appointment {
   patientId: string;
   professionalId: string;
   procedureId: string;
+  treatmentPackageId?: string;
   startAt: string;
   endAt: string;
   status: AppointmentStatus;
@@ -124,6 +125,7 @@ export interface Appointment {
   patient?: { id: string; name: string };
   professional?: { id: string; person: { name: string } };
   procedure?: { id: string; name: string; durationMinutes: number; price: number };
+  treatmentPackage?: { id: string; name: string };
 }
 
 export interface Anamnesis {
@@ -149,6 +151,28 @@ export interface Evolution {
   updatedAt: string;
   patient?: { id: string; name: string };
   professional?: { id: string; person: { name: string } };
+}
+
+export type TreatmentPackageStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELED';
+
+export interface TreatmentPackage {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  name: string;
+  totalSessions: number;
+  usedSessions: number;
+  totalPrice: number;
+  status: TreatmentPackageStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  procedures?: Array<{
+    id: string;
+    procedureId: string;
+    procedure: { id: string; name: string };
+  }>;
+  patient?: { id: string; name: string };
 }
 
 export type FinancialType = 'INCOME' | 'EXPENSE';

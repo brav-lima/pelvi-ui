@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { appointmentsApi, patientsApi, professionalsApi, proceduresApi } from '@/lib/api';
+import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 
 const timeSlots = Array.from({ length: 21 }, (_, i) => {
@@ -53,6 +53,7 @@ interface AppointmentFormDialogProps {
 export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: AppointmentFormDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
 
   const { data: patientsData } = useQuery({
     queryKey: ['patients-select'],
@@ -88,6 +89,21 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
     },
   });
 
+  const watchPatientId = form.watch('patientId');
+
+  const { data: patientPackages = [] } = useQuery({
+    queryKey: ['treatment-packages', watchPatientId, 'active'],
+    queryFn: () => treatmentPackagesApi.list({ patientId: watchPatientId, status: 'ACTIVE' }),
+    enabled: open && !!watchPatientId,
+  });
+
+  const selectedPackage = patientPackages.find((p) => p.id === selectedPackageId);
+  const packageProcedureIds = selectedPackage?.procedures?.map((pp) => pp.procedureId) ?? [];
+
+  const filteredProcedures = selectedPackageId
+    ? activeProcedures.filter((p) => packageProcedureIds.includes(p.id))
+    : activeProcedures;
+
   const onSubmit = async (data: AppointmentFormData) => {
     setLoading(true);
     setError('');
@@ -102,11 +118,13 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
         procedureId: data.procedureId,
         startAt,
         notes: data.notes || undefined,
+        treatmentPackageId: selectedPackageId || undefined,
       });
       toast.success('Agendamento criado com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
+      setSelectedPackageId('');
     } catch {
       toast.error('Erro ao criar agendamento');
       setError('Erro ao criar agendamento. Verifique se não há conflito de horário.');
@@ -130,7 +148,11 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
             <Label>Paciente *</Label>
             <Select
               value={form.watch('patientId') || ''}
-              onValueChange={(v) => form.setValue('patientId', v, { shouldValidate: true })}
+              onValueChange={(v) => {
+                form.setValue('patientId', v, { shouldValidate: true });
+                setSelectedPackageId('');
+                form.setValue('procedureId', '');
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um paciente" />
@@ -166,6 +188,32 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
             )}
           </div>
 
+          {/* Package select (only if patient has active packages) */}
+          {watchPatientId && patientPackages.length > 0 && (
+            <div className="space-y-2">
+              <Label>Pacote de Tratamento</Label>
+              <Select
+                value={selectedPackageId}
+                onValueChange={(v) => {
+                  setSelectedPackageId(v === '__none__' ? '' : v);
+                  form.setValue('procedureId', '');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Nenhum (avulso)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhum (avulso)</SelectItem>
+                  {patientPackages.map((pkg) => (
+                    <SelectItem key={pkg.id} value={pkg.id}>
+                      {pkg.name} ({pkg.totalSessions - pkg.usedSessions} sessões restantes)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Procedimento *</Label>
             <Select
@@ -176,9 +224,9 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
                 <SelectValue placeholder="Selecione um procedimento" />
               </SelectTrigger>
               <SelectContent>
-                {activeProcedures.map((p) => (
+                {filteredProcedures.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.durationMinutes}min - R$ {formatCurrency(p.price)})
+                    {p.name} ({p.durationMinutes}min{!selectedPackageId && ` - R$ ${formatCurrency(p.price)}`})
                   </SelectItem>
                 ))}
               </SelectContent>

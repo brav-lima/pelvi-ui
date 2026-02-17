@@ -13,6 +13,7 @@ import type {
   Evolution,
   FinancialRecord,
   FinancialSummary,
+  TreatmentPackage,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -225,7 +226,7 @@ export const appointmentsApi = {
   list: (params: { startDate: string; endDate: string; professionalId?: string }) =>
     api.get<Appointment[]>(`/appointments?${queryString(params)}`),
   getById: (id: string) => api.get<Appointment>(`/appointments/${id}`),
-  create: (data: { patientId: string; professionalId: string; procedureId: string; startAt: string; notes?: string }) =>
+  create: (data: { patientId: string; professionalId: string; procedureId: string; startAt: string; notes?: string; treatmentPackageId?: string }) =>
     api.post<Appointment>('/appointments', data),
   update: (id: string, data: Record<string, unknown>) =>
     api.patch<Appointment>(`/appointments/${id}`, data),
@@ -248,6 +249,26 @@ export const evolutionsApi = {
   getById: (id: string) => api.get<Evolution>(`/evolutions/${id}`),
   create: (data: { patientId: string; description: string; appointmentId?: string }) =>
     api.post<Evolution>('/evolutions', data),
+};
+
+export const treatmentPackagesApi = {
+  list: (params?: { patientId?: string; status?: string }) =>
+    api.get<TreatmentPackage[]>(`/treatment-packages?${queryString(params)}`),
+  getById: (id: string) => api.get<TreatmentPackage>(`/treatment-packages/${id}`),
+  create: (data: {
+    name: string;
+    patientId: string;
+    procedureIds: string[];
+    totalSessions: number;
+    totalPrice: number;
+    notes?: string;
+    paymentMethod?: string;
+    installments?: number;
+    dueDate?: string;
+  }) => api.post<TreatmentPackage>('/treatment-packages', data),
+  update: (id: string, data: { name?: string; notes?: string; status?: string }) =>
+    api.patch<TreatmentPackage>(`/treatment-packages/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/treatment-packages/${id}`),
 };
 
 export const financialApi = {
