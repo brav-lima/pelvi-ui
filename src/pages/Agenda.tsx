@@ -251,11 +251,42 @@ export default function Agenda() {
   const dragMutation = useMutation({
     mutationFn: ({ id, startAt }: { id: string; startAt: string }) =>
       appointmentsApi.update(id, { startAt }),
+    onMutate: async ({ id, startAt }) => {
+      // Cancel in-flight fetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['appointments'] });
+
+      // Snapshot current cache
+      const queryKey = ['appointments', startDate, endDate, professionalFilter];
+      const previous = queryClient.getQueryData<Appointment[]>(queryKey);
+
+      // Optimistically update the appointment in the cache
+      if (previous) {
+        queryClient.setQueryData<Appointment[]>(queryKey, (old) =>
+          (old ?? []).map((apt) => {
+            if (apt.id !== id) return apt;
+            const duration = apt.procedure?.durationMinutes ?? 30;
+            const newEnd = new Date(new Date(startAt).getTime() + duration * 60_000);
+            return { ...apt, startAt, endAt: newEnd.toISOString() };
+          }),
+        );
+      }
+
+      return { previous, queryKey };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+      toast.error('Erro ao reagendar');
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Agendamento reagendado');
     },
-    onError: () => toast.error('Erro ao reagendar'),
+    onSettled: () => {
+      // Always refetch to ensure server state is in sync
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    },
   });
 
   const handleDragStart = (event: DragStartEvent) => {
