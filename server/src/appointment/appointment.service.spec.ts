@@ -2,12 +2,18 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
   let prisma: { appointment: any; procedure: any };
 
   const orgId = 'org-1';
+
+  const treatmentPackageService = {
+    incrementUsedSessions: jest.fn(),
+    decrementUsedSessions: jest.fn(),
+  };
 
   beforeEach(async () => {
     prisma = {
@@ -27,6 +33,7 @@ describe('AppointmentService', () => {
       providers: [
         AppointmentService,
         { provide: PrismaService, useValue: prisma },
+        { provide: TreatmentPackageService, useValue: treatmentPackageService },
       ],
     }).compile();
 
