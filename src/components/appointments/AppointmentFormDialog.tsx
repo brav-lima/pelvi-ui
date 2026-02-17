@@ -26,7 +26,6 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
-import type { TreatmentPackage } from '@/types/clinic';
 
 const timeSlots = Array.from({ length: 21 }, (_, i) => {
   const hour = Math.floor(i / 2) + 8;
