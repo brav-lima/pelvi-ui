@@ -248,13 +248,16 @@ model FinancialRecord {
   organizationId String          @map("organization_id")
   patientId      String          @map("patient_id")
   appointmentId  String?         @map("appointment_id")
-  amount         Decimal         @db.Decimal(10, 2)
-  type           FinancialType
-  status         FinancialStatus @default(PENDING)
-  paymentMethod  String?         @map("payment_method")
-  description    String?
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  amount           Decimal         @db.Decimal(10, 2)
+  type             FinancialType
+  status           FinancialStatus @default(PENDING)
+  paymentMethod    String?         @map("payment_method")
+  description      String?
+  dueDate          DateTime?       @map("due_date")
+  installment      Int?
+  installmentTotal Int?            @map("installment_total")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id])
   patient      Patient      @relation(fields: [patientId], references: [id])

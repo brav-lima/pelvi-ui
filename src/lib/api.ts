@@ -256,8 +256,8 @@ export const financialApi = {
   summary: (params: { month: number; year: number }) =>
     api.get<FinancialSummary>(`/financial/summary?${queryString(params)}`),
   getById: (id: string) => api.get<FinancialRecord>(`/financial/${id}`),
-  create: (data: { patientId: string; amount: number; type: string; description?: string; paymentMethod?: string; appointmentId?: string }) =>
-    api.post<FinancialRecord>('/financial', data),
+  create: (data: { patientId: string; amount: number; type: string; description?: string; paymentMethod?: string; appointmentId?: string; installments?: number; dueDate?: string }) =>
+    api.post<FinancialRecord | FinancialRecord[]>('/financial', data),
   update: (id: string, data: Record<string, unknown>) =>
     api.patch<FinancialRecord>(`/financial/${id}`, data),
   remove: (id: string) => api.delete<void>(`/financial/${id}`),

@@ -1,9 +1,12 @@
 import {
+  IsDateString,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
 } from 'class-validator';
 import { FinancialType } from '@prisma/client';
@@ -30,4 +33,14 @@ export class CreateFinancialDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsInt({ message: 'Número de parcelas deve ser inteiro' })
+  @Min(2, { message: 'Mínimo de 2 parcelas' })
+  @Max(12, { message: 'Máximo de 12 parcelas' })
+  installments?: number;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Data de vencimento inválida' })
+  dueDate?: string;
 }

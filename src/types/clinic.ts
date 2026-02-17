@@ -164,6 +164,9 @@ export interface FinancialRecord {
   status: FinancialStatus;
   paymentMethod?: string;
   description?: string;
+  dueDate?: string;
+  installment?: number;
+  installmentTotal?: number;
   createdAt: string;
   updatedAt: string;
   patient?: { id: string; name: string };

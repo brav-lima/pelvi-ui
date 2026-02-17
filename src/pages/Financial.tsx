@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
 import { financialApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
@@ -137,6 +138,7 @@ export default function Financial() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Vencimento</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Paciente</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Descrição</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
@@ -151,11 +153,23 @@ export default function Financial() {
                       <td className="py-3 px-4 text-sm text-foreground">
                         {format(new Date(record.createdAt), 'dd/MM/yyyy')}
                       </td>
+                      <td className="py-3 px-4 text-sm text-foreground">
+                        {record.dueDate
+                          ? format(new Date(record.dueDate), 'dd/MM/yyyy')
+                          : '-'}
+                      </td>
                       <td className="py-3 px-4 text-sm font-medium text-foreground">
                         {record.patient?.name ?? '-'}
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {record.description || '-'}
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{record.description || '-'}</span>
+                          {record.installment && record.installmentTotal && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 shrink-0">
+                              {record.installment}/{record.installmentTotal}
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={record.type} />
