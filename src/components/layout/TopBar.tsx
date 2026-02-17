@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign } from 'lucide-react';
+import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign, CheckCheck, X } from 'lucide-react';
 import { formatCNPJ, formatCurrency } from '@/lib/formatters';
 import { appointmentsApi, financialApi } from '@/lib/api';
 import { format } from 'date-fns';
@@ -39,28 +39,70 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     navigate('/login');
   };
 
-  // Notifications: today's appointments
+  // Notifications: today's appointments (shares 'appointments' prefix so invalidations from Agenda propagate)
   const today = format(new Date(), 'yyyy-MM-dd');
   const { data: todayAppointments = [] } = useQuery({
-    queryKey: ['notifications-appointments', today],
+    queryKey: ['appointments', 'notifications', today],
     queryFn: () => appointmentsApi.list({ startDate: today, endDate: today }),
     refetchInterval: 5 * 60 * 1000,
   });
 
-  // Notifications: pending payments this month
+  // Notifications: pending payments this month (shares 'financial' prefix so invalidations propagate)
   const now = new Date();
   const { data: monthFinancial = [] } = useQuery({
-    queryKey: ['notifications-financial', now.getMonth() + 1, now.getFullYear()],
+    queryKey: ['financial', 'notifications', now.getMonth() + 1, now.getFullYear()],
     queryFn: () => financialApi.list({ month: now.getMonth() + 1, year: now.getFullYear() }),
     refetchInterval: 5 * 60 * 1000,
   });
 
   const [profileOpen, setProfileOpen] = useState(false);
 
+  // Dismissed notifications — persisted per day in localStorage
+  const dismissedKey = `notifications-dismissed-${today}`;
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(dismissedKey);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Clean up old keys when the day changes
+  useEffect(() => {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('notifications-dismissed-') && k !== dismissedKey)
+      .forEach((k) => localStorage.removeItem(k));
+  }, [dismissedKey]);
+
+  const dismissNotification = useCallback((id: string) => {
+    setDismissedIds((prev) => {
+      const next = new Set(prev).add(id);
+      localStorage.setItem(dismissedKey, JSON.stringify([...next]));
+      return next;
+    });
+  }, [dismissedKey]);
+
+  const dismissAll = useCallback(() => {
+    const allIds = [
+      ...todayAppointments
+        .filter((a) => a.status === 'SCHEDULED' || a.status === 'CONFIRMED')
+        .map((a) => a.id),
+      ...monthFinancial
+        .filter((f) => f.status === 'PENDING')
+        .map((f) => f.id),
+    ];
+    setDismissedIds(() => {
+      const next = new Set(allIds);
+      localStorage.setItem(dismissedKey, JSON.stringify([...next]));
+      return next;
+    });
+  }, [dismissedKey, todayAppointments, monthFinancial]);
+
   const upcomingAppointments = todayAppointments.filter(
-    (a) => a.status === 'SCHEDULED' || a.status === 'CONFIRMED',
+    (a) => (a.status === 'SCHEDULED' || a.status === 'CONFIRMED') && !dismissedIds.has(a.id),
   );
-  const pendingPayments = monthFinancial.filter((f) => f.status === 'PENDING');
+  const pendingPayments = monthFinancial.filter((f) => f.status === 'PENDING' && !dismissedIds.has(f.id));
   const notificationCount = upcomingAppointments.length + pendingPayments.length;
 
   const initials = user?.name
@@ -112,8 +154,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-0">
-            <div className="p-3 border-b border-border">
+            <div className="p-3 border-b border-border flex items-center justify-between">
               <p className="font-semibold text-sm">Notificações</p>
+              {notificationCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+                  onClick={dismissAll}
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  Marcar todas como lidas
+                </Button>
+              )}
             </div>
             {notificationCount === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
@@ -130,11 +183,20 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                     </div>
                     <div className="space-y-1">
                       {upcomingAppointments.slice(0, 5).map((apt) => (
-                        <div key={apt.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
+                        <div key={apt.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 text-sm group">
                           <span className="truncate font-medium">{apt.patient?.name ?? 'Paciente'}</span>
-                          <span className="text-muted-foreground shrink-0 ml-2">
-                            {format(new Date(apt.startAt), 'HH:mm')}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <span className="text-muted-foreground">
+                              {format(new Date(apt.startAt), 'HH:mm')}
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); dismissNotification(apt.id); }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-muted transition-opacity"
+                              title="Marcar como lida"
+                            >
+                              <X className="w-3 h-3 text-muted-foreground" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -158,11 +220,20 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                     </div>
                     <div className="space-y-1">
                       {pendingPayments.slice(0, 5).map((fin) => (
-                        <div key={fin.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
+                        <div key={fin.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 text-sm group">
                           <span className="truncate font-medium">{fin.patient?.name ?? 'Paciente'}</span>
-                          <span className="text-muted-foreground shrink-0 ml-2">
-                            R$ {formatCurrency(fin.amount)}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <span className="text-muted-foreground">
+                              R$ {formatCurrency(fin.amount)}
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); dismissNotification(fin.id); }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-muted transition-opacity"
+                              title="Marcar como lida"
+                            >
+                              <X className="w-3 h-3 text-muted-foreground" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
