@@ -56,11 +56,14 @@ export class AppointmentService {
   }
 
   async findAll(organizationId: string, query: QueryAppointmentDto) {
+    const endDate = new Date(query.endDate);
+    endDate.setUTCHours(23, 59, 59, 999);
+
     const where: Record<string, unknown> = {
       organizationId,
       startAt: {
         gte: new Date(query.startDate),
-        lte: new Date(query.endDate),
+        lte: endDate,
       },
     };
 
