@@ -34,7 +34,31 @@ export class CreatePatientDto {
 
   @IsOptional()
   @IsString()
-  address?: string;
+  addressCep?: string;
+
+  @IsOptional()
+  @IsString()
+  addressStreet?: string;
+
+  @IsOptional()
+  @IsString()
+  addressNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  addressComplement?: string;
+
+  @IsOptional()
+  @IsString()
+  addressNeighborhood?: string;
+
+  @IsOptional()
+  @IsString()
+  addressCity?: string;
+
+  @IsOptional()
+  @IsString()
+  addressState?: string;
 
   @IsOptional()
   @IsString()

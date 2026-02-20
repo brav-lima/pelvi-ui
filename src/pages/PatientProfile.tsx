@@ -242,14 +242,28 @@ export default function PatientProfile() {
                   </div>
                 </div>
               )}
-              {patient.address && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+              {(patient.addressStreet || patient.addressCity) && (
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted mt-0.5">
                     <MapPin className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Endereço</p>
-                    <p className="text-sm font-medium">{patient.address}</p>
+                    {patient.addressStreet && (
+                      <p className="text-sm font-medium">
+                        {patient.addressStreet}
+                        {patient.addressNumber ? `, ${patient.addressNumber}` : ''}
+                        {patient.addressComplement ? ` - ${patient.addressComplement}` : ''}
+                      </p>
+                    )}
+                    {(patient.addressNeighborhood || patient.addressCity) && (
+                      <p className="text-sm text-muted-foreground">
+                        {[patient.addressNeighborhood, patient.addressCity, patient.addressState]
+                          .filter(Boolean)
+                          .join(', ')}
+                        {patient.addressCep ? ` — CEP ${patient.addressCep}` : ''}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

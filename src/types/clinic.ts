@@ -75,7 +75,13 @@ export interface Patient {
   email?: string;
   phone?: string;
   gender?: string;
-  address?: string;
+  addressCep?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity?: string;
+  addressState?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -93,7 +99,13 @@ export interface CreatePatientData {
   email?: string;
   phone?: string;
   gender?: string;
-  address?: string;
+  addressCep?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity?: string;
+  addressState?: string;
   notes?: string;
 }
 
