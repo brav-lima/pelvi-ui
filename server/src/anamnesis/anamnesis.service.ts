@@ -66,11 +66,16 @@ export class AnamnesisService {
   }
 
   async update(organizationId: string, id: string, dto: UpdateAnamnesisDto) {
-    await this.findById(organizationId, id);
+    const existing = await this.findById(organizationId, id);
+
+    const mergedData =
+      existing.data && typeof existing.data === 'object' && !Array.isArray(existing.data)
+        ? { ...(existing.data as Record<string, unknown>), ...dto.data }
+        : dto.data;
 
     return this.prisma.anamnesis.update({
       where: { id },
-      data: { data: dto.data as Prisma.InputJsonValue },
+      data: { data: mergedData as Prisma.InputJsonValue },
       include: {
         patient: { select: { id: true, name: true } },
         professional: {

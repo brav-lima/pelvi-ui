@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -57,24 +57,41 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
   const [error, setError] = useState('');
   const isEditing = !!anamnesis;
 
-  const d = anamnesis?.data ?? {};
-
   const form = useForm<AnamnesisFormData>({
     resolver: zodResolver(anamnesisSchema),
     defaultValues: {
-      motivoConsulta: extractField(d, 'Queixa Principal', 'Motivo da Consulta'),
-      inicioSintomas: extractField(d, 'Queixa Principal', 'Inicio dos Sintomas'),
-      doencasPreexistentes: extractField(d, 'Historico Medico', 'Doencas Preexistentes'),
-      cirurgiasAnteriores: extractField(d, 'Historico Medico', 'Cirurgias Anteriores'),
-      alergias: extractField(d, 'Historico Medico', 'Alergias'),
-      medicacoesEmUso: extractField(d, 'Historico Medico', 'Medicacoes em Uso'),
-      atividadeFisica: extractField(d, 'Habitos de Vida', 'Atividade Fisica'),
-      alimentacao: extractField(d, 'Habitos de Vida', 'Alimentacao'),
-      tabagismo: extractField(d, 'Habitos de Vida', 'Tabagismo'),
-      consumoAlcool: extractField(d, 'Habitos de Vida', 'Consumo de Alcool'),
-      observacoes: typeof d['Observacoes Gerais'] === 'string' ? d['Observacoes Gerais'] : '',
+      motivoConsulta: '',
+      inicioSintomas: '',
+      doencasPreexistentes: '',
+      cirurgiasAnteriores: '',
+      alergias: '',
+      medicacoesEmUso: '',
+      atividadeFisica: '',
+      alimentacao: '',
+      tabagismo: '',
+      consumoAlcool: '',
+      observacoes: '',
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      const d = anamnesis?.data ?? {};
+      form.reset({
+        motivoConsulta: extractField(d, 'Queixa Principal', 'Motivo da Consulta'),
+        inicioSintomas: extractField(d, 'Queixa Principal', 'Inicio dos Sintomas'),
+        doencasPreexistentes: extractField(d, 'Historico Medico', 'Doencas Preexistentes'),
+        cirurgiasAnteriores: extractField(d, 'Historico Medico', 'Cirurgias Anteriores'),
+        alergias: extractField(d, 'Historico Medico', 'Alergias'),
+        medicacoesEmUso: extractField(d, 'Historico Medico', 'Medicacoes em Uso'),
+        atividadeFisica: extractField(d, 'Habitos de Vida', 'Atividade Fisica'),
+        alimentacao: extractField(d, 'Habitos de Vida', 'Alimentacao'),
+        tabagismo: extractField(d, 'Habitos de Vida', 'Tabagismo'),
+        consumoAlcool: extractField(d, 'Habitos de Vida', 'Consumo de Alcool'),
+        observacoes: typeof d['Observacoes Gerais'] === 'string' ? d['Observacoes Gerais'] : '',
+      });
+    }
+  }, [open, anamnesis]);
 
   const onSubmit = async (formData: AnamnesisFormData) => {
     setLoading(true);
