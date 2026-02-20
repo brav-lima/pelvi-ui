@@ -245,7 +245,10 @@ async function main() {
         phone: '11988880005',
         birthDate: new Date('1960-05-12'),
         gender: 'M',
-        address: 'Rua das Flores, 123 - São Paulo/SP',
+        addressStreet: 'Rua das Flores',
+        addressNumber: '123',
+        addressCity: 'São Paulo',
+        addressState: 'SP',
       },
     }),
   ]);
