@@ -28,7 +28,7 @@ import { maskCurrency, parseCurrency, formatCurrency } from '@/lib/formatters';
 import { format, addMonths } from 'date-fns';
 
 const financialSchema = z.object({
-  patientId: z.string().min(1, 'Selecione um paciente'),
+  patientId: z.string().optional(),
   amount: z.string().min(1, 'Informe o valor'),
   type: z.enum(['INCOME', 'EXPENSE'], { required_error: 'Selecione o tipo' }),
   status: z.enum(['PENDING', 'PAID']),
@@ -49,6 +49,7 @@ interface FinancialFormDialogProps {
 export function FinancialFormDialog({ open, onOpenChange, onSuccess }: FinancialFormDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [linkPatient, setLinkPatient] = useState(false);
 
   const { data: patientsData } = useQuery({
     queryKey: ['patients-select'],
@@ -75,7 +76,9 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
   const watchInstallments = parseInt(form.watch('installments') || '1', 10);
   const watchAmount = form.watch('amount') || '';
   const watchDueDate = form.watch('dueDate') || '';
+  const watchType = form.watch('type');
   const isInstallment = watchInstallments > 1;
+  const showPatient = watchType === 'INCOME' || linkPatient;
 
   const installmentPreview = useMemo(() => {
     if (!isInstallment || !watchAmount || !watchDueDate) return [];
@@ -107,7 +110,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
 
     try {
       await financialApi.create({
-        patientId: data.patientId,
+        patientId: data.patientId || undefined,
         amount: parseCurrency(data.amount),
         type: data.type,
         description: data.description || undefined,
@@ -128,6 +131,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
       onSuccess();
       onOpenChange(false);
       form.reset();
+      setLinkPatient(false);
     } catch {
       toast.error('Erro ao salvar registro financeiro');
       setError('Erro ao salvar registro financeiro. Tente novamente.');
@@ -147,26 +151,36 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* Tipo */}
           <div className="space-y-2">
-            <Label>Paciente *</Label>
+            <Label>Tipo *</Label>
             <Select
-              value={form.watch('patientId') || ''}
-              onValueChange={(v) => form.setValue('patientId', v, { shouldValidate: true })}
+              value={form.watch('type')}
+              onValueChange={(v) => {
+                form.setValue('type', v as 'INCOME' | 'EXPENSE');
+                if (v === 'EXPENSE') {
+                  form.setValue('patientId', '');
+                  setLinkPatient(false);
+                }
+              }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione um paciente" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {patients.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
+                <SelectItem value="INCOME">Receita</SelectItem>
+                <SelectItem value="EXPENSE">Despesa</SelectItem>
               </SelectContent>
             </Select>
-            {form.formState.errors.patientId && (
-              <p className="text-sm text-destructive">{form.formState.errors.patientId.message}</p>
-            )}
           </div>
 
+          {/* Descrição */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Descrição</Label>
+            <Input id="description" placeholder="Ex: Consulta Inicial" {...form.register('description')} />
+          </div>
+
+          {/* Valor + Status */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="amount">Valor Total (R$) *</Label>
@@ -182,24 +196,6 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
             </div>
 
             <div className="space-y-2">
-              <Label>Tipo *</Label>
-              <Select
-                value={form.watch('type')}
-                onValueChange={(v) => form.setValue('type', v as 'INCOME' | 'EXPENSE')}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="INCOME">Receita</SelectItem>
-                  <SelectItem value="EXPENSE">Despesa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label>Status</Label>
               <Select
                 value={form.watch('status')}
@@ -214,34 +210,80 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
+          {/* Paciente */}
+          {showPatient ? (
             <div className="space-y-2">
-              <Label>Método de Pagamento</Label>
+              <div className="flex items-center justify-between">
+                <Label>Paciente {watchType === 'INCOME' ? '(opcional)' : ''}</Label>
+                {watchType === 'EXPENSE' && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                    onClick={() => { setLinkPatient(false); form.setValue('patientId', ''); }}
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
               <Select
-                value={form.watch('paymentMethod') || ''}
-                onValueChange={(v) => form.setValue('paymentMethod', v)}
+                value={form.watch('patientId') || ''}
+                onValueChange={(v) => form.setValue('patientId', v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
+                  <SelectValue placeholder="Selecione um paciente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
-                  <SelectItem value="CARTAO_CREDITO">Cartão Crédito</SelectItem>
-                  <SelectItem value="CARTAO_DEBITO">Cartão Débito</SelectItem>
-                  <SelectItem value="PIX">PIX</SelectItem>
-                  <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
+                  {patients.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          ) : (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground underline w-full text-left"
+              onClick={() => setLinkPatient(true)}
+            >
+              + Vincular a um paciente (opcional)
+            </button>
+          )}
 
+          {/* Método de Pagamento */}
           <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
-            <Input id="description" placeholder="Ex: Consulta Inicial" {...form.register('description')} />
+            <Label>Método de Pagamento</Label>
+            <Select
+              value={form.watch('paymentMethod') || ''}
+              onValueChange={(v) => form.setValue('paymentMethod', v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+                <SelectItem value="CARTAO_CREDITO">Cartão Crédito</SelectItem>
+                <SelectItem value="CARTAO_DEBITO">Cartão Débito</SelectItem>
+                <SelectItem value="PIX">PIX</SelectItem>
+                <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Parcelamento */}
+          {/* Vencimento + Parcelas */}
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">
+                {isInstallment ? '1º Vencimento' : 'Vencimento'}
+              </Label>
+              <Input
+                id="dueDate"
+                type="date"
+                {...form.register('dueDate')}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label>Parcelas</Label>
               <Select
@@ -258,17 +300,6 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">
-                {isInstallment ? '1º Vencimento' : 'Vencimento'}
-              </Label>
-              <Input
-                id="dueDate"
-                type="date"
-                {...form.register('dueDate')}
-              />
             </div>
           </div>
 

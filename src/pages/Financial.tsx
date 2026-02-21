@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatCard } from '@/components/ui/stat-card';
@@ -159,7 +160,14 @@ export default function Financial() {
                           : '-'}
                       </td>
                       <td className="py-3 px-4 text-sm font-medium text-foreground">
-                        {record.patient?.name ?? '-'}
+                        {record.patient?.name ? (
+                          <Link
+                            to={`/patients/${record.patientId}`}
+                            className="hover:underline"
+                          >
+                            {record.patient.name}
+                          </Link>
+                        ) : '-'}
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
