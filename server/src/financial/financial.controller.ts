@@ -48,6 +48,12 @@ export class FinancialController {
     return this.financialService.summary(orgId, query);
   }
 
+  @Get('patient/:patientId')
+  @ApiOperation({ summary: 'Listar registros financeiros por paciente' })
+  findByPatient(@OrgId() orgId: string, @Param('patientId') patientId: string) {
+    return this.financialService.findByPatient(orgId, patientId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar registro financeiro por ID' })
   findById(@OrgId() orgId: string, @Param('id') id: string) {

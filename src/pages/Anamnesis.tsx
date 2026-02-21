@@ -102,8 +102,8 @@ export default function Anamnesis() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title="Anamnese"
-        description="Formulários de anamnese dos pacientes"
+        title="Avaliação"
+        description="Formulários de avaliação dos pacientes"
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -158,7 +158,7 @@ export default function Anamnesis() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">
-              {patient ? `Anamnese - ${patient.name}` : 'Selecione um Paciente'}
+              {patient ? `Avaliação - ${patient.name}` : 'Selecione um Paciente'}
             </CardTitle>
             {patient && (
               <Button variant="outline" size="sm">
@@ -181,10 +181,10 @@ export default function Anamnesis() {
             ) : !latestAnamnesis ? (
               <EmptyState
                 icon={FileText}
-                title="Nenhuma anamnese registrada"
-                description="Este paciente ainda não possui anamnese"
+                title="Nenhuma avaliação registrada"
+                description="Este paciente ainda não possui avaliação"
                 action={{
-                  label: 'Nova Anamnese',
+                  label: 'Nova Avaliação',
                   onClick: openCreate,
                 }}
               />
@@ -201,10 +201,10 @@ export default function Anamnesis() {
 
                 <div className="flex gap-2 pt-4">
                   <Button variant="outline" className="flex-1" onClick={() => openEdit(latestAnamnesis)}>
-                    Editar Anamnese
+                    Editar Avaliação
                   </Button>
                   <Button className="flex-1" onClick={openCreate}>
-                    Nova Anamnese
+                    Nova Avaliação
                   </Button>
                 </div>
               </div>

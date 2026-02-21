@@ -33,7 +33,7 @@ const navigation: NavItem[] = [
   { name: 'Pacientes', href: '/patients', icon: Users },
   { name: 'Profissionais', href: '/professionals', icon: UserCog, roles: ['ADMIN'] },
   { name: 'Procedimentos', href: '/procedures', icon: ClipboardList, roles: ['ADMIN', 'PROFESSIONAL'] },
-  { name: 'Anamnese', href: '/anamnesis', icon: FileText, roles: ['ADMIN', 'PROFESSIONAL'] },
+  { name: 'Avaliação', href: '/anamnesis', icon: FileText, roles: ['ADMIN', 'PROFESSIONAL'] },
   { name: 'Evoluções', href: '/evolutions', icon: TrendingUp, roles: ['ADMIN', 'PROFESSIONAL'] },
   { name: 'Financeiro', href: '/financial', icon: DollarSign, roles: ['ADMIN'] },
 ];

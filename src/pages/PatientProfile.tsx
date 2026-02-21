@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
@@ -14,7 +14,6 @@ import {
   Mail,
   MapPin,
   Calendar,
-  FileText,
   TrendingUp,
   Clock,
   Plus,
@@ -23,8 +22,11 @@ import {
   XCircle,
   CalendarCheck,
   Package,
+  ScrollText,
+  DollarSign,
+  ClipboardList,
 } from 'lucide-react';
-import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi, treatmentPackagesApi } from '@/lib/api';
+import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi, treatmentPackagesApi, financialApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,8 +35,8 @@ import { AppointmentFormDialog } from '@/components/appointments/AppointmentForm
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
-import { formatCPF, formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
-import type { Anamnesis, AppointmentStatus, TreatmentPackage } from '@/types/clinic';
+import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
+import type { Anamnesis, AppointmentStatus, TreatmentPackage, FinancialRecord } from '@/types/clinic';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +90,28 @@ export default function PatientProfile() {
     queryFn: () => treatmentPackagesApi.list({ patientId: id }),
     enabled: !!id,
   });
+
+  const { data: patientFinancial = [] } = useQuery({
+    queryKey: ['patient-financial', id],
+    queryFn: () => financialApi.listByPatient(id!),
+    enabled: !!id,
+  });
+
+  type TimelineItem =
+    | { kind: 'appointment'; date: Date; data: (typeof appointments)[number] }
+    | { kind: 'evaluation'; date: Date; data: Anamnesis }
+    | { kind: 'evolution'; date: Date; data: (typeof evolutions)[number] }
+    | { kind: 'financial'; date: Date; data: FinancialRecord };
+
+  const timelineItems = useMemo((): TimelineItem[] => {
+    const items: TimelineItem[] = [
+      ...appointments.map((a) => ({ kind: 'appointment' as const, date: new Date(a.startAt), data: a })),
+      ...anamneses.map((a) => ({ kind: 'evaluation' as const, date: new Date(a.createdAt), data: a })),
+      ...evolutions.map((e) => ({ kind: 'evolution' as const, date: new Date(e.createdAt), data: e })),
+      ...patientFinancial.map((f) => ({ kind: 'financial' as const, date: new Date(f.createdAt), data: f })),
+    ];
+    return items.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [appointments, anamneses, evolutions, patientFinancial]);
 
   const cancelPackageMutation = useMutation({
     mutationFn: (pkgId: string) =>
@@ -273,25 +297,166 @@ export default function PatientProfile() {
 
         {/* Tabs */}
         <div className="lg:col-span-2">
-          <Tabs defaultValue="appointments">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="appointments" className="gap-2">
-                <Calendar className="w-4 h-4" />
-                Consultas
-              </TabsTrigger>
-              <TabsTrigger value="anamnesis" className="gap-2">
-                <FileText className="w-4 h-4" />
-                Anamnese
-              </TabsTrigger>
-              <TabsTrigger value="evolutions" className="gap-2">
-                <TrendingUp className="w-4 h-4" />
-                Evoluções
-              </TabsTrigger>
-              <TabsTrigger value="packages" className="gap-2">
-                <Package className="w-4 h-4" />
-                Pacotes
-              </TabsTrigger>
-            </TabsList>
+          <Tabs defaultValue="prontuario">
+            <div className="overflow-x-auto">
+              <TabsList className="justify-start">
+                <TabsTrigger value="prontuario" className="gap-2">
+                  <ScrollText className="w-4 h-4" />
+                  Prontuário
+                </TabsTrigger>
+                <TabsTrigger value="appointments" className="gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Consultas
+                </TabsTrigger>
+                <TabsTrigger value="anamnesis" className="gap-2">
+                  <ClipboardList className="w-4 h-4" />
+                  Avaliação
+                </TabsTrigger>
+                <TabsTrigger value="evolutions" className="gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Evoluções
+                </TabsTrigger>
+                <TabsTrigger value="packages" className="gap-2">
+                  <Package className="w-4 h-4" />
+                  Pacotes
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* === Prontuário (Timeline) Tab === */}
+            <TabsContent value="prontuario" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Prontuário Completo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {timelineItems.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Nenhum registro encontrado
+                    </p>
+                  ) : (
+                    <div className="relative">
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                      <div className="space-y-4">
+                        {timelineItems.map((item) => {
+                          if (item.kind === 'appointment') {
+                            const apt = item.data;
+                            return (
+                              <div key={`apt-${apt.id}`} className="relative pl-10">
+                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-background" />
+                                <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                      <Calendar className="w-3 h-3" />
+                                      Consulta
+                                    </span>
+                                    <StatusBadge status={apt.status} />
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {format(item.date, 'dd/MM/yyyy')} às {format(item.date, 'HH:mm')}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm font-medium">{apt.procedure?.name ?? '-'}</p>
+                                  {apt.professional?.person?.name && (
+                                    <p className="text-xs text-muted-foreground">{apt.professional.person.name}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          if (item.kind === 'evaluation') {
+                            const ev = item.data;
+                            const firstEntry = Object.entries(ev.data ?? {})[0];
+                            const preview = firstEntry
+                              ? typeof firstEntry[1] === 'object'
+                                ? firstEntry[0]
+                                : `${firstEntry[0]}: ${String(firstEntry[1]).slice(0, 60)}`
+                              : '';
+                            return (
+                              <div key={`eval-${ev.id}`} className="relative pl-10">
+                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-purple-500 border-2 border-background" />
+                                <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                                      <ClipboardList className="w-3 h-3" />
+                                      Avaliação
+                                    </span>
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {format(item.date, 'dd/MM/yyyy')}
+                                    </span>
+                                  </div>
+                                  {preview && <p className="text-sm text-muted-foreground">{preview}</p>}
+                                  {ev.professional?.person?.name && (
+                                    <p className="text-xs text-muted-foreground">{ev.professional.person.name}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          if (item.kind === 'evolution') {
+                            const evo = item.data;
+                            return (
+                              <div key={`evo-${evo.id}`} className="relative pl-10">
+                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-green-500 border-2 border-background" />
+                                <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                      <TrendingUp className="w-3 h-3" />
+                                      Evolução
+                                    </span>
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {format(item.date, 'dd/MM/yyyy')}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground line-clamp-2">{evo.description}</p>
+                                  {evo.professional?.person?.name && (
+                                    <p className="text-xs text-muted-foreground">{evo.professional.person.name}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          if (item.kind === 'financial') {
+                            const fin = item.data as FinancialRecord;
+                            const isIncome = fin.type === 'INCOME';
+                            return (
+                              <div key={`fin-${fin.id}`} className="relative pl-10">
+                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-background" />
+                                <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                      <DollarSign className="w-3 h-3" />
+                                      {isIncome ? 'Receita' : 'Despesa'}
+                                    </span>
+                                    <StatusBadge status={fin.status} />
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {format(item.date, 'dd/MM/yyyy')}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm font-medium">
+                                    R$ {Number(fin.amount).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                                    {fin.installmentTotal && fin.installmentTotal > 1
+                                      ? ` (${fin.installment}/${fin.installmentTotal})`
+                                      : ''}
+                                  </p>
+                                  {fin.description && (
+                                    <p className="text-xs text-muted-foreground">{fin.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* === Appointments Tab === */}
             <TabsContent value="appointments" className="mt-4">
@@ -375,20 +540,20 @@ export default function PatientProfile() {
               </Card>
             </TabsContent>
 
-            {/* === Anamnesis Tab === */}
+            {/* === Avaliação Tab === */}
             <TabsContent value="anamnesis" className="mt-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Anamnese</CardTitle>
+                  <CardTitle className="text-lg">Avaliações</CardTitle>
                   <Button size="sm" onClick={openCreateAnamnesis}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Nova Anamnese
+                    Nova Avaliação
                   </Button>
                 </CardHeader>
                 <CardContent>
                   {anamneses.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">
-                      Nenhuma anamnese registrada
+                      Nenhuma avaliação registrada
                     </p>
                   ) : (
                     <div className="space-y-6">

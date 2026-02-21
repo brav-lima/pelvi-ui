@@ -123,13 +123,13 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
       } else {
         await anamnesisApi.create({ patientId, data: payload });
       }
-      toast.success(isEditing ? 'Anamnese atualizada com sucesso' : 'Anamnese registrada com sucesso');
+      toast.success(isEditing ? 'Avaliação atualizada com sucesso' : 'Avaliação registrada com sucesso');
       onSuccess();
       onOpenChange(false);
       form.reset();
     } catch {
-      toast.error('Erro ao salvar anamnese');
-      setError('Erro ao salvar anamnese. Tente novamente.');
+      toast.error('Erro ao salvar avaliação');
+      setError('Erro ao salvar avaliação. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -139,11 +139,11 @@ export function AnamnesisFormDialog({ open, onOpenChange, onSuccess, patientId, 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar Anamnese' : 'Nova Anamnese'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Editar Avaliação' : 'Nova Avaliação'}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? 'Atualize os dados da anamnese.'
-              : 'Preencha o formulário de anamnese do paciente.'}
+              ? 'Atualize os dados da avaliação.'
+              : 'Preencha o formulário de avaliação do paciente.'}
           </DialogDescription>
         </DialogHeader>
 

@@ -83,6 +83,17 @@ export class FinancialService {
     return records;
   }
 
+  async findByPatient(organizationId: string, patientId: string) {
+    return this.prisma.financialRecord.findMany({
+      where: { organizationId, patientId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        patient: { select: { id: true, name: true } },
+        appointment: { select: { id: true, startAt: true } },
+      },
+    });
+  }
+
   async findAll(organizationId: string, query: QueryFinancialDto) {
     const startDate = new Date(query.year, query.month - 1, 1);
     const endDate = new Date(query.year, query.month, 1);

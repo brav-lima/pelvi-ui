@@ -274,6 +274,8 @@ export const treatmentPackagesApi = {
 export const financialApi = {
   list: (params: { month: number; year: number }) =>
     api.get<FinancialRecord[]>(`/financial?${queryString(params)}`),
+  listByPatient: (patientId: string) =>
+    api.get<FinancialRecord[]>(`/financial/patient/${patientId}`),
   summary: (params: { month: number; year: number }) =>
     api.get<FinancialSummary>(`/financial/summary?${queryString(params)}`),
   getById: (id: string) => api.get<FinancialRecord>(`/financial/${id}`),
