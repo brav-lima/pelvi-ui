@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -10,7 +12,7 @@ concurrency:
 
 jobs:
   frontend:
-    name: Frontend (lint + tests)
+    name: Frontend (lint + tests + build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,6 +20,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-frontend-${{ hashFiles('bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-frontend-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -27,6 +36,9 @@ jobs:
 
       - name: Tests
         run: bun run test
+
+      - name: Build
+        run: bun run build
 
   backend:
     name: Backend (build + tests)
@@ -40,6 +52,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-backend-${{ hashFiles('server/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-backend-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
