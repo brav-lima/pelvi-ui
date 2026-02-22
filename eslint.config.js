@@ -25,4 +25,11 @@ export default tseslint.config(
       "@typescript-eslint/no-require-imports": "off",
     },
   },
+  // Test files: relax rules that are unhelpful in mock-heavy test code
+  {
+    files: ["**/*.{test,spec}.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );
