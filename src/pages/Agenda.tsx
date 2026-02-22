@@ -153,11 +153,13 @@ function DroppableSlot({
   style,
   isFullHour,
   isToday,
+  onClick,
 }: {
   id: string;
   style: React.CSSProperties;
   isFullHour: boolean;
   isToday: boolean;
+  onClick: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -165,11 +167,12 @@ function DroppableSlot({
     <div
       ref={setNodeRef}
       style={style}
+      onClick={onClick}
       className={cn(
-        'absolute left-0 right-0 border-t transition-colors',
+        'absolute left-0 right-0 border-t transition-colors cursor-pointer',
         isFullHour ? 'border-border' : 'border-border/30 border-dashed',
         isToday && 'bg-primary/5',
-        isOver && 'bg-primary/10',
+        isOver ? 'bg-primary/10' : 'hover:bg-muted/30',
       )}
     />
   );
@@ -185,6 +188,7 @@ export default function Agenda() {
   const [createOpen, setCreateOpen] = useState(false);
   const [professionalFilter, setProfessionalFilter] = useState<string>('all');
   const [draggedAppointment, setDraggedAppointment] = useState<Appointment | null>(null);
+  const [slotPreset, setSlotPreset] = useState<{ date: string; time: string } | null>(null);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -551,6 +555,10 @@ export default function Agenda() {
                                 isFullHour={slot.isFullHour}
                                 isToday={isToday}
                                 style={{ top: slot.index * SLOT_HEIGHT, height: SLOT_HEIGHT }}
+                                onClick={() => {
+                                  setSlotPreset({ date: dateStr, time: slot.time });
+                                  setCreateOpen(true);
+                                }}
                               />
                             );
                           })}
@@ -704,7 +712,12 @@ export default function Agenda() {
       {/* Create Appointment Dialog */}
       <AppointmentFormDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setSlotPreset(null);
+        }}
+        defaultDate={slotPreset?.date}
+        defaultTime={slotPreset?.time}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
       />
     </div>

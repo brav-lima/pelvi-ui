@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 
-const timeSlots = Array.from({ length: 21 }, (_, i) => {
+const timeSlots = Array.from({ length: 26 }, (_, i) => {
   const hour = Math.floor(i / 2) + 8;
   const min = i % 2 === 0 ? '00' : '30';
   return `${hour.toString().padStart(2, '0')}:${min}`;
@@ -48,9 +48,11 @@ interface AppointmentFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  defaultDate?: string;
+  defaultTime?: string;
 }
 
-export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: AppointmentFormDialogProps) {
+export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDate, defaultTime }: AppointmentFormDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
@@ -88,6 +90,21 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess }: Appoint
       notes: '',
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        patientId: '',
+        professionalId: '',
+        procedureId: '',
+        date: defaultDate ?? '',
+        time: defaultTime ?? '',
+        notes: '',
+      });
+      setSelectedPackageId('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const watchPatientId = form.watch('patientId');
 
