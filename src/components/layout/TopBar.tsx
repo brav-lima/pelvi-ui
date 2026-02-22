@@ -89,7 +89,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         .filter((a) => a.status === 'SCHEDULED' || a.status === 'CONFIRMED')
         .map((a) => a.id),
       ...monthFinancial
-        .filter((f) => f.status === 'PENDING')
+        .filter((f) => f.type === 'INCOME' && f.status === 'PENDING')
         .map((f) => f.id),
     ];
     setDismissedIds(() => {
@@ -102,7 +102,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const upcomingAppointments = todayAppointments.filter(
     (a) => (a.status === 'SCHEDULED' || a.status === 'CONFIRMED') && !dismissedIds.has(a.id),
   );
-  const pendingPayments = monthFinancial.filter((f) => f.status === 'PENDING' && !dismissedIds.has(f.id));
+  const pendingPayments = monthFinancial.filter((f) => f.type === 'INCOME' && f.status === 'PENDING' && !dismissedIds.has(f.id));
   const notificationCount = upcomingAppointments.length + pendingPayments.length;
 
   const initials = user?.name

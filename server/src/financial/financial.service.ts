@@ -174,10 +174,9 @@ export class FinancialService {
       .filter((r) => r.status === FinancialStatus.PENDING)
       .reduce((sum, r) => sum + Number(r.amount), 0);
 
-    const totalExpenses = expenseRecords.reduce(
-      (sum, r) => sum + Number(r.amount),
-      0,
-    );
+    const totalExpenses = expenseRecords
+      .filter((r) => r.status === FinancialStatus.PAID)
+      .reduce((sum, r) => sum + Number(r.amount), 0);
 
     return {
       month: query.month,
