@@ -183,8 +183,8 @@ export class FinancialService {
   }
 
   async summary(organizationId: string, query: QueryFinancialDto) {
-    const startDate = new Date(query.year, query.month - 1, 1);
-    const endDate = new Date(query.year, query.month, 1);
+    const startDate = new Date(query.year!, query.month! - 1, 1);
+    const endDate = new Date(query.year!, query.month!, 1);
 
     const where = {
       organizationId,
