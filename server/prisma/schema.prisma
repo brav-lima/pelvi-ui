@@ -253,7 +253,7 @@ enum FinancialStatus {
 model FinancialRecord {
   id                 String          @id @default(uuid())
   organizationId     String          @map("organization_id")
-  patientId          String          @map("patient_id")
+  patientId          String?         @map("patient_id")
   appointmentId      String?         @map("appointment_id")
   treatmentPackageId String?         @map("treatment_package_id")
   amount             Decimal         @db.Decimal(10, 2)
@@ -268,7 +268,7 @@ model FinancialRecord {
   updatedAt          DateTime        @updatedAt @map("updated_at")
 
   organization     Organization      @relation(fields: [organizationId], references: [id])
-  patient          Patient           @relation(fields: [patientId], references: [id])
+  patient          Patient?          @relation(fields: [patientId], references: [id])
   appointment      Appointment?      @relation(fields: [appointmentId], references: [id])
   treatmentPackage TreatmentPackage? @relation(fields: [treatmentPackageId], references: [id])
 
