@@ -12,8 +12,9 @@ import {
 import { FinancialType } from '@prisma/client';
 
 export class CreateFinancialDto {
+  @IsOptional()
   @IsUUID('4', { message: 'ID do paciente inválido' })
-  patientId: string;
+  patientId?: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'ID do agendamento inválido' })
