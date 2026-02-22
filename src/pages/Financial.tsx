@@ -22,7 +22,7 @@ import { TrendingUp, TrendingDown, BookOpen, CheckCircle, Plus, Trash2, Loader2,
 import { financialApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, subDays, addDays } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
 import { LivroCaixaSheet } from '@/components/financial/LivroCaixaSheet';
 import { useHasRole } from '@/components/auth/RoleGuard';
@@ -37,9 +37,12 @@ export default function Financial() {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
+  const windowStart = format(subDays(now, 10), 'yyyy-MM-dd');
+  const windowEnd = format(addDays(now, 10), 'yyyy-MM-dd');
+
   const { data: records = [], isLoading: loadingRecords } = useQuery({
-    queryKey: ['financial', month, year],
-    queryFn: () => financialApi.list({ month, year }),
+    queryKey: ['financial', 'window', windowStart, windowEnd],
+    queryFn: () => financialApi.list({ startDate: windowStart, endDate: windowEnd }),
   });
 
   const { data: summary } = useQuery({
@@ -135,7 +138,10 @@ export default function Financial() {
       {/* Records Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Registros Financeiros</CardTitle>
+          <CardTitle className="text-lg flex items-baseline gap-2">
+            Registros Financeiros
+            <span className="text-sm font-normal text-muted-foreground">últimos e próximos 10 dias</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {records.length === 0 ? (
@@ -268,7 +274,6 @@ export default function Financial() {
       <LivroCaixaSheet
         open={livroOpen}
         onOpenChange={setLivroOpen}
-        initialMonth={month}
         initialYear={year}
       />
 

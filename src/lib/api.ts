@@ -272,7 +272,7 @@ export const treatmentPackagesApi = {
 };
 
 export const financialApi = {
-  list: (params: { month: number; year: number }) =>
+  list: (params: { month: number; year: number } | { startDate: string; endDate: string }) =>
     api.get<FinancialRecord[]>(`/financial?${queryString(params)}`),
   listByPatient: (patientId: string) =>
     api.get<FinancialRecord[]>(`/financial/patient/${patientId}`),

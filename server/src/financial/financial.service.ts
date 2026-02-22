@@ -95,8 +95,47 @@ export class FinancialService {
   }
 
   async findAll(organizationId: string, query: QueryFinancialDto) {
-    const startDate = new Date(query.year, query.month - 1, 1);
-    const endDate = new Date(query.year, query.month, 1);
+    const include = {
+      patient: { select: { id: true, name: true } },
+      appointment: { select: { id: true, startAt: true } },
+    };
+
+    if (query.startDate || query.endDate) {
+      const start = query.startDate ? new Date(query.startDate) : undefined;
+      // Include the full end day
+      const end = query.endDate
+        ? new Date(query.endDate + 'T23:59:59.999Z')
+        : undefined;
+
+      return this.prisma.financialRecord.findMany({
+        where: {
+          organizationId,
+          OR: [
+            // Records with an explicit due date in range
+            {
+              dueDate: {
+                ...(start && { gte: start }),
+                ...(end && { lte: end }),
+              },
+            },
+            // Records without a due date, fall back to createdAt
+            {
+              dueDate: null,
+              createdAt: {
+                ...(start && { gte: start }),
+                ...(end && { lte: end }),
+              },
+            },
+          ],
+        },
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
+        include,
+      });
+    }
+
+    // Default: filter by month/year using createdAt
+    const startDate = new Date(query.year!, query.month! - 1, 1);
+    const endDate = new Date(query.year!, query.month!, 1);
 
     return this.prisma.financialRecord.findMany({
       where: {
@@ -104,10 +143,7 @@ export class FinancialService {
         createdAt: { gte: startDate, lt: endDate },
       },
       orderBy: { createdAt: 'desc' },
-      include: {
-        patient: { select: { id: true, name: true } },
-        appointment: { select: { id: true, startAt: true } },
-      },
+      include,
     });
   }
 
