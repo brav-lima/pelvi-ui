@@ -18,17 +18,19 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Clock, Wallet, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, BookOpen, CheckCircle, Plus, Trash2, Loader2, ChevronRight } from 'lucide-react';
 import { financialApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
+import { LivroCaixaSheet } from '@/components/financial/LivroCaixaSheet';
 import { useHasRole } from '@/components/auth/RoleGuard';
 
 export default function Financial() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [livroOpen, setLivroOpen] = useState(false);
   const isAdmin = useHasRole('ADMIN');
 
   const now = new Date();
@@ -73,10 +75,6 @@ export default function Financial() {
     );
   }
 
-  const totalPendingExpenses = records
-    .filter((r) => r.type === 'EXPENSE' && r.status === 'PENDING')
-    .reduce((sum, r) => sum + Number(r.amount), 0);
-
   const handleSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['financial'] });
     queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
@@ -98,62 +96,40 @@ export default function Financial() {
       />
 
       {/* Stats */}
-      <div className="space-y-4">
-        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-          {/* Grupo Receitas */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 px-1">
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Receitas</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard
-                title="Recebidas"
-                value={`R$ ${formatCurrency(summary?.totalReceived)}`}
-                description="Pagas no mês"
-                icon={TrendingUp}
-              />
-              <StatCard
-                title="A Receber"
-                value={`R$ ${formatCurrency(summary?.totalPending)}`}
-                description="Aguardando recebimento"
-                icon={Clock}
-              />
-            </div>
-          </div>
-
-          {/* Grupo Despesas */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 px-1">
-              <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Despesas</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard
-                title="Pagas"
-                value={`R$ ${formatCurrency(summary?.totalExpenses)}`}
-                description="Pagas no mês"
-                icon={TrendingDown}
-              />
-              <StatCard
-                title="A Pagar"
-                value={`R$ ${formatCurrency(totalPendingExpenses)}`}
-                description="Aguardando pagamento"
-                icon={Clock}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Saldo */}
-        <div className="lg:w-1/2 mx-auto">
-          <StatCard
-            title="Saldo"
-            value={`R$ ${formatCurrency(summary?.balance)}`}
-            description="Receitas recebidas − Despesas pagas"
-            icon={Wallet}
-          />
-        </div>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+        <StatCard
+          title="Receitas"
+          value={`R$ ${formatCurrency(summary?.totalReceived)}`}
+          description="Recebidas no mês"
+          icon={TrendingUp}
+        />
+        <StatCard
+          title="Despesas"
+          value={`R$ ${formatCurrency(summary?.totalExpenses)}`}
+          description="Pagas no mês"
+          icon={TrendingDown}
+        />
+        <button
+          onClick={() => setLivroOpen(true)}
+          className="text-left w-full"
+        >
+          <Card className="overflow-hidden h-full hover:border-primary/50 transition-colors cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Livro Caixa</p>
+                  <p className="text-lg font-semibold text-foreground">Ver detalhes</p>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    Saldo e pendências <ChevronRight className="w-3.5 h-3.5" />
+                  </p>
+                </div>
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-accent shrink-0">
+                  <BookOpen className="w-6 h-6 text-accent-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </button>
       </div>
 
       {/* Records Table */}
@@ -288,6 +264,13 @@ export default function Financial() {
           )}
         </CardContent>
       </Card>
+
+      <LivroCaixaSheet
+        open={livroOpen}
+        onOpenChange={setLivroOpen}
+        initialMonth={month}
+        initialYear={year}
+      />
 
       <FinancialFormDialog
         open={dialogOpen}
