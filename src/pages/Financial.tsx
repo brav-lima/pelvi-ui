@@ -18,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, TrendingUp, Clock, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Wallet, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
 import { financialApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
@@ -73,7 +73,9 @@ export default function Financial() {
     );
   }
 
-  const paidCount = records.filter((r) => r.status === 'PAID').length;
+  const totalPendingExpenses = records
+    .filter((r) => r.type === 'EXPENSE' && r.status === 'PENDING')
+    .reduce((sum, r) => sum + Number(r.amount), 0);
 
   const handleSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['financial'] });
@@ -96,31 +98,62 @@ export default function Financial() {
       />
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Receita Total"
-          value={`R$ ${formatCurrency(summary?.totalReceived)}`}
-          description="Este mês"
-          icon={DollarSign}
-        />
-        <StatCard
-          title="Valores Pendentes"
-          value={`R$ ${formatCurrency(summary?.totalPending)}`}
-          description="Aguardando pagamento"
-          icon={Clock}
-        />
-        <StatCard
-          title="Despesas"
-          value={`R$ ${formatCurrency(summary?.totalExpenses)}`}
-          description="Este mês"
-          icon={TrendingUp}
-        />
-        <StatCard
-          title="Saldo"
-          value={`R$ ${formatCurrency(summary?.balance)}`}
-          description={`${paidCount} pagamentos realizados`}
-          icon={CheckCircle}
-        />
+      <div className="space-y-4">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+          {/* Grupo Receitas */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 px-1">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Receitas</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                title="Recebidas"
+                value={`R$ ${formatCurrency(summary?.totalReceived)}`}
+                description="Pagas no mês"
+                icon={TrendingUp}
+              />
+              <StatCard
+                title="A Receber"
+                value={`R$ ${formatCurrency(summary?.totalPending)}`}
+                description="Aguardando recebimento"
+                icon={Clock}
+              />
+            </div>
+          </div>
+
+          {/* Grupo Despesas */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 px-1">
+              <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Despesas</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                title="Pagas"
+                value={`R$ ${formatCurrency(summary?.totalExpenses)}`}
+                description="Pagas no mês"
+                icon={TrendingDown}
+              />
+              <StatCard
+                title="A Pagar"
+                value={`R$ ${formatCurrency(totalPendingExpenses)}`}
+                description="Aguardando pagamento"
+                icon={Clock}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Saldo */}
+        <div className="lg:w-1/2 mx-auto">
+          <StatCard
+            title="Saldo"
+            value={`R$ ${formatCurrency(summary?.balance)}`}
+            description="Receitas recebidas − Despesas pagas"
+            icon={Wallet}
+          />
+        </div>
       </div>
 
       {/* Records Table */}
