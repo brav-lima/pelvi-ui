@@ -22,7 +22,7 @@ import Login from '@/pages/Login';
 function renderLogin(loginMock = vi.fn()) {
   vi.mocked(useAuth).mockReturnValue({ login: loginMock } as any);
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Login />
     </MemoryRouter>,
   );
