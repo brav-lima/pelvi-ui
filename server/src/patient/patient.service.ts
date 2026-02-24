@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -9,6 +9,19 @@ export class PatientService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(organizationId: string, dto: CreatePatientDto) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { planMaxPatients: true },
+    });
+    if (org?.planMaxPatients) {
+      const count = await this.prisma.patient.count({ where: { organizationId } });
+      if (count >= org.planMaxPatients) {
+        throw new BadRequestException(
+          `Limite de pacientes atingido (${org.planMaxPatients}). Faça upgrade do plano.`,
+        );
+      }
+    }
+
     return this.prisma.patient.create({
       data: {
         organizationId,

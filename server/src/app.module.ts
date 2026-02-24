@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
@@ -15,6 +15,8 @@ import { FinancialModule } from './financial/financial.module';
 import { AuditModule } from './audit/audit.module';
 import { TreatmentPackageModule } from './treatment-package/treatment-package.module';
 import { HealthModule } from './health/health.module';
+import { InternalModule } from './internal/internal.module';
+import { AccessStatusMiddleware } from './auth/middleware/access-status.middleware';
 
 @Module({
   imports: [
@@ -43,6 +45,14 @@ import { HealthModule } from './health/health.module';
     AuditModule,
     TreatmentPackageModule,
     HealthModule,
+    InternalModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AccessStatusMiddleware)
+      .exclude({ path: 'api/auth/login', method: RequestMethod.POST })
+      .forRoutes('*')
+  }
+}

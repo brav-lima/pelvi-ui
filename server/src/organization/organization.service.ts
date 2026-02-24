@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -111,6 +112,21 @@ export class OrganizationService {
       throw new ConflictException(
         'Pessoa já vinculada a esta organização',
       );
+    }
+
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { planMaxUsers: true },
+    });
+    if (org?.planMaxUsers) {
+      const count = await this.prisma.organizationUser.count({
+        where: { organizationId, active: true },
+      });
+      if (count >= org.planMaxUsers) {
+        throw new BadRequestException(
+          `Limite de usuários atingido (${org.planMaxUsers}). Faça upgrade do plano.`,
+        );
+      }
     }
 
     return this.prisma.organizationUser.create({
