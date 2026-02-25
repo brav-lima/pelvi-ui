@@ -22,6 +22,7 @@ const Procedures = lazy(() => import("./pages/Procedures"));
 const Anamnesis = lazy(() => import("./pages/Anamnesis"));
 const Evolutions = lazy(() => import("./pages/Evolutions"));
 const Financial = lazy(() => import("./pages/Financial"));
+const Settings = lazy(() => import("./pages/Settings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
                   <Route path="/anamnesis" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Anamnesis /></ProtectedRoute>} />
                   <Route path="/evolutions" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Evolutions /></ProtectedRoute>} />
                   <Route path="/financial" element={<ProtectedRoute roles={['ADMIN']}><Financial /></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute roles={['ADMIN']}><Settings /></ProtectedRoute>} />
                 </Route>
 
                 <Route path="/" element={<Navigate to="/login" replace />} />

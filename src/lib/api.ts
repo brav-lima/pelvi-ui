@@ -14,6 +14,7 @@ import type {
   FinancialRecord,
   FinancialSummary,
   TreatmentPackage,
+  PlanUsage,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -284,4 +285,8 @@ export const financialApi = {
   update: (id: string, data: Record<string, unknown>) =>
     api.patch<FinancialRecord>(`/financial/${id}`, data),
   remove: (id: string) => api.delete<void>(`/financial/${id}`),
+};
+
+export const organizationApi = {
+  getPlanUsage: () => api.get<PlanUsage>('/organizations/me/plan'),
 };

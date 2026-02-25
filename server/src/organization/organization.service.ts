@@ -221,6 +221,26 @@ export class OrganizationService {
     });
   }
 
+  async getPlanUsage(organizationId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { planMaxPatients: true, planMaxUsers: true, accessStatus: true },
+    });
+
+    const [currentPatients, currentUsers] = await Promise.all([
+      this.prisma.patient.count({ where: { organizationId } }),
+      this.prisma.organizationUser.count({ where: { organizationId, active: true } }),
+    ]);
+
+    return {
+      accessStatus: org?.accessStatus ?? 'ACTIVE',
+      planMaxPatients: org?.planMaxPatients ?? null,
+      planMaxUsers: org?.planMaxUsers ?? null,
+      currentPatients,
+      currentUsers,
+    };
+  }
+
   async removeUser(organizationId: string, id: string) {
     await this.findUserById(organizationId, id);
 
