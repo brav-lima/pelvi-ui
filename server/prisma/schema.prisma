@@ -10,13 +10,23 @@ datasource db {
 // Organization (Clínica / Tenant)
 // ──────────────────────────────────────────────
 
+enum ClinicAccessStatus {
+  ACTIVE
+  BLOCKED
+}
+
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  cnpj      String?  @unique
-  settings  Json?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String             @id @default(uuid())
+  name         String
+  cnpj         String?            @unique
+  email        String?
+  phone        String?
+  settings        Json?
+  accessStatus    ClinicAccessStatus @default(ACTIVE) @map("access_status")
+  planMaxUsers    Int?               @map("plan_max_users")
+  planMaxPatients Int?               @map("plan_max_patients")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
 
   users            OrganizationUser[]
   patients         Patient[]

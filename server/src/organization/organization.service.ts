@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -113,6 +114,21 @@ export class OrganizationService {
       );
     }
 
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { planMaxUsers: true },
+    });
+    if (org?.planMaxUsers) {
+      const count = await this.prisma.organizationUser.count({
+        where: { organizationId, active: true },
+      });
+      if (count >= org.planMaxUsers) {
+        throw new BadRequestException(
+          `Limite de usuários atingido (${org.planMaxUsers}). Faça upgrade do plano.`,
+        );
+      }
+    }
+
     return this.prisma.organizationUser.create({
       data: {
         organizationId,
@@ -203,6 +219,26 @@ export class OrganizationService {
         },
       },
     });
+  }
+
+  async getPlanUsage(organizationId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { planMaxPatients: true, planMaxUsers: true, accessStatus: true },
+    });
+
+    const [currentPatients, currentUsers] = await Promise.all([
+      this.prisma.patient.count({ where: { organizationId } }),
+      this.prisma.organizationUser.count({ where: { organizationId, active: true } }),
+    ]);
+
+    return {
+      accessStatus: org?.accessStatus ?? 'ACTIVE',
+      planMaxPatients: org?.planMaxPatients ?? null,
+      planMaxUsers: org?.planMaxUsers ?? null,
+      currentPatients,
+      currentUsers,
+    };
   }
 
   async removeUser(organizationId: string, id: string) {

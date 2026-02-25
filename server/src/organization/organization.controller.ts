@@ -27,6 +27,13 @@ export class OrganizationController {
     private readonly organizationService: OrganizationService,
   ) {}
 
+  // ── Plan usage (deve vir antes de ':id' para evitar conflito de rota) ──
+
+  @Get('me/plan')
+  getPlanUsage(@OrgId() orgId: string) {
+    return this.organizationService.getPlanUsage(orgId);
+  }
+
   // ── Organization CRUD ──
 
   @Post()

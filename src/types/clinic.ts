@@ -187,6 +187,14 @@ export interface TreatmentPackage {
   patient?: { id: string; name: string };
 }
 
+export interface PlanUsage {
+  accessStatus: 'ACTIVE' | 'BLOCKED';
+  planMaxPatients: number | null;
+  planMaxUsers: number | null;
+  currentPatients: number;
+  currentUsers: number;
+}
+
 export type FinancialType = 'INCOME' | 'EXPENSE';
 export type FinancialStatus = 'PENDING' | 'PAID';
 

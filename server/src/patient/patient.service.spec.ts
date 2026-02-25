@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 describe('PatientService', () => {
   let service: PatientService;
-  let prisma: { patient: any };
+  let prisma: { patient: any; organization: any };
 
   const orgA = 'org-a';
   const orgB = 'org-b';
@@ -19,6 +19,9 @@ describe('PatientService', () => {
         count: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+      },
+      organization: {
+        findUnique: jest.fn().mockResolvedValue({ planMaxPatients: null }),
       },
     };
 
