@@ -48,7 +48,7 @@ export interface SelectOrgResponse {
 export interface ProfileResponse {
   person: { id: string; cpf: string; name: string; email: string | null; phone: string | null };
   organization: Clinic | null;
-  role: User['role'];
+  role: User['role'] | null;
 }
 
 // Backend returns OrganizationUser + Person join
