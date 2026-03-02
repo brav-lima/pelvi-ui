@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 describe('PatientService', () => {
   let service: PatientService;
-  let prisma: { patient: any; organization: any };
+  let prisma: jest.Mocked<PrismaService>;
 
   const orgA = 'org-a';
   const orgB = 'org-b';
@@ -23,7 +23,7 @@ describe('PatientService', () => {
       organization: {
         findUnique: jest.fn().mockResolvedValue({ planMaxPatients: null }),
       },
-    };
+    } as unknown as jest.Mocked<PrismaService>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
