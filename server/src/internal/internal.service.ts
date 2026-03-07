@@ -44,6 +44,7 @@ export class InternalService {
     status: 'ACTIVE' | 'BLOCKED',
     maxUsers?: number,
     maxPatients?: number,
+    features?: Record<string, boolean>,
   ) {
     const clinic = await this.prisma.organization.findUnique({
       where: { id: clinicId },
@@ -56,6 +57,7 @@ export class InternalService {
         accessStatus: status,
         ...(maxUsers !== undefined && { planMaxUsers: maxUsers }),
         ...(maxPatients !== undefined && { planMaxPatients: maxPatients }),
+        ...(features !== undefined && { planFeatures: features }),
       },
     })
 

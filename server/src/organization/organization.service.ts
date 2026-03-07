@@ -1,9 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
@@ -13,7 +17,12 @@ import { UpdateOrganizationUserDto } from './dto/update-organization-user.dto';
 
 @Injectable()
 export class OrganizationService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OrganizationService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   // ──────────────────────────────────────────────
   // Organization CRUD
@@ -124,7 +133,7 @@ export class OrganizationService {
       });
       if (count >= org.planMaxUsers) {
         throw new BadRequestException(
-          `Limite de usuários atingido (${org.planMaxUsers}). Faça upgrade do plano.`,
+          `Limite de usuários atingido (${org.planMaxUsers}). Avalie um upgrade do plano atual.`,
         );
       }
     }
@@ -221,6 +230,40 @@ export class OrganizationService {
     });
   }
 
+  async getMe(organizationId: string) {
+    return this.findById(organizationId);
+  }
+
+  async updateSettings(
+    organizationId: string,
+    settings: Record<string, unknown>,
+  ) {
+    const org = await this.findById(organizationId);
+
+    if (settings.whatsappNotificationsEnabled === true) {
+      const planFeatures = org.planFeatures as Record<string, boolean> | null;
+      if (!planFeatures?.whatsapp) {
+        throw new ForbiddenException(
+          'Notificações WhatsApp não estão incluídas no plano da sua clínica.',
+        );
+      }
+    }
+
+    const incoming = Object.fromEntries(
+      Object.entries(settings).filter(([, v]) => v !== undefined),
+    );
+
+    const merged = {
+      ...((org.settings as Record<string, unknown>) ?? {}),
+      ...incoming,
+    };
+
+    return this.prisma.organization.update({
+      where: { id: organizationId },
+      data: { settings: merged as Prisma.InputJsonValue },
+    });
+  }
+
   async getPlanUsage(organizationId: string) {
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
@@ -239,6 +282,66 @@ export class OrganizationService {
       currentPatients,
       currentUsers,
     };
+  }
+
+  async getAvailablePlans() {
+    const adminUrl = this.config.get<string>('CAREFLOW_ADMIN_URL');
+    if (!adminUrl) return [];
+
+    try {
+      const res = await fetch(`${adminUrl}/plans`);
+      if (!res.ok) {
+        this.logger.warn(`Failed to fetch plans from admin: ${res.status}`);
+        return [];
+      }
+      return res.json();
+    } catch {
+      this.logger.warn('careflow-admin unavailable, returning empty plans list');
+      return [];
+    }
+  }
+
+  async changePlan(organizationId: string, planId: string) {
+    const usage = await this.getPlanUsage(organizationId);
+
+    // Fetch the target plan to validate downgrade constraints
+    const adminUrl = this.config.get<string>('CAREFLOW_ADMIN_URL');
+    if (!adminUrl) throw new ServiceUnavailableException('Serviço de planos indisponível');
+
+    let plan: { id: string; maxPatients: number; maxUsers: number };
+    try {
+      const res = await fetch(`${adminUrl}/plans/${planId}`);
+      if (!res.ok) throw new NotFoundException('Plano não encontrado');
+      plan = await res.json();
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      throw new ServiceUnavailableException('Serviço de planos indisponível');
+    }
+
+    if (usage.planMaxPatients !== null && plan.maxPatients < usage.currentPatients) {
+      throw new BadRequestException(
+        `Downgrade não permitido: você possui ${usage.currentPatients} paciente(s) cadastrado(s) e o plano selecionado permite no máximo ${plan.maxPatients}.`,
+      );
+    }
+    if (usage.planMaxUsers !== null && plan.maxUsers < usage.currentUsers) {
+      throw new BadRequestException(
+        `Downgrade não permitido: você possui ${usage.currentUsers} usuário(s) ativo(s) e o plano selecionado permite no máximo ${plan.maxUsers}.`,
+      );
+    }
+
+    const apiKey = this.config.getOrThrow<string>('INTERNAL_API_KEY');
+    const res = await fetch(`${adminUrl}/subscriptions/change-by-clinic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-api-key': apiKey },
+      body: JSON.stringify({ clinicExternalId: organizationId, planId }),
+    }).catch(() => {
+      throw new ServiceUnavailableException('Serviço de planos indisponível');
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new BadRequestException((body as any)?.message ?? 'Erro ao alterar plano');
+    }
   }
 
   async removeUser(organizationId: string, id: string) {

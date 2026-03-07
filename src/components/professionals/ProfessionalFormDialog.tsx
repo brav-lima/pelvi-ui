@@ -64,18 +64,31 @@ export function ProfessionalFormDialog({ open, onOpenChange, onSuccess }: Profes
     setLoading(true);
 
     try {
-      // Step 1: Create person
-      const person = await personsApi.create({
-        cpf: data.cpf.replace(/\D/g, ''),
-        name: data.name,
-        email: data.email,
-        phone: data.phone?.replace(/\D/g, '') || undefined,
-        password: data.password,
-      });
+      let personId: string;
+
+      try {
+        // Step 1: Try to create person
+        const person = await personsApi.create({
+          cpf: data.cpf.replace(/\D/g, ''),
+          name: data.name,
+          email: data.email,
+          phone: data.phone?.replace(/\D/g, '') || undefined,
+          password: data.password,
+        });
+        personId = person.id;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409 && err.message.includes('CPF')) {
+          // Person already exists globally — look up and reuse
+          const existing = await personsApi.getByCpf(data.cpf.replace(/\D/g, ''));
+          personId = existing.id;
+        } else {
+          throw err;
+        }
+      }
 
       // Step 2: Link to organization
       await professionalsApi.addToOrg(selectedClinic.id, {
-        personId: person.id,
+        personId,
         role: data.role,
       });
 
@@ -84,8 +97,8 @@ export function ProfessionalFormDialog({ open, onOpenChange, onSuccess }: Profes
       onOpenChange(false);
       form.reset();
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        toast.error('CPF já cadastrado no sistema');
+      if (err instanceof ApiError && (err.status === 409 || err.status === 400)) {
+        toast.error(err.message);
       } else {
         toast.error('Erro ao cadastrar profissional');
       }

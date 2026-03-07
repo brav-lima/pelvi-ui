@@ -17,7 +17,7 @@ export class PatientService {
       const count = await this.prisma.patient.count({ where: { organizationId } });
       if (count >= org.planMaxPatients) {
         throw new BadRequestException(
-          `Limite de pacientes atingido (${org.planMaxPatients}). Faça upgrade do plano.`,
+          `Limite de pacientes atingido (${org.planMaxPatients}). Avalie um upgrade do plano atual.`,
         );
       }
     }

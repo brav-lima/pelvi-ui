@@ -114,6 +114,7 @@ function DraggableAppointment({
   const endDate = new Date(parseISO(apt.startAt).getTime() + duration * 60000);
   const endTime = format(endDate, 'HH:mm');
   const isCompact = duration <= 30;
+  const showProcedure = duration >= 75;
 
   return (
     <button
@@ -126,22 +127,21 @@ function DraggableAppointment({
         isDragging && 'opacity-30',
       )}
     >
-      <div className={cn('flex h-full', isCompact ? 'items-center px-1.5 gap-1' : 'flex-col p-1.5')}>
-        {isDraggable && !isCompact && (
-          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none self-end">
-            <GripVertical className="w-3 h-3 opacity-50" />
-          </span>
-        )}
-        <p className="font-medium truncate">{apt.patient?.name ?? 'Paciente'}</p>
-        {!isCompact && <p className="truncate opacity-80">{apt.procedure?.name ?? ''}</p>}
-        <p className={cn('opacity-70', isCompact ? 'ml-auto shrink-0' : 'mt-auto')}>
+      {isDraggable && (
+        <span
+          {...listeners}
+          {...attributes}
+          className="absolute top-0.5 right-0.5 cursor-grab active:cursor-grabbing touch-none z-10"
+        >
+          <GripVertical className="w-3 h-3 opacity-40" />
+        </span>
+      )}
+      <div className={cn('flex h-full', isCompact ? 'items-center px-1.5 gap-1' : 'flex-col p-1.5 gap-0.5')}>
+        <p className={cn('font-medium leading-tight truncate', !isCompact && 'pr-3')}>{apt.patient?.name ?? 'Paciente'}</p>
+        {showProcedure && <p className="leading-tight truncate opacity-80">{apt.procedure?.name ?? ''}</p>}
+        <p className={cn('leading-tight opacity-70 shrink-0', isCompact ? 'ml-auto' : '')}>
           {startTime} - {endTime}
         </p>
-        {isDraggable && isCompact && (
-          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none">
-            <GripVertical className="w-3 h-3 opacity-50" />
-          </span>
-        )}
       </div>
     </button>
   );

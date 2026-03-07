@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { patientsApi } from '@/lib/api';
+import { patientsApi, ApiError } from '@/lib/api';
 import { maskCPF, maskPhone } from '@/lib/formatters';
 import type { Patient } from '@/types/clinic';
 
@@ -146,9 +146,12 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
       toast.success(isEditing ? 'Paciente atualizado com sucesso' : 'Paciente cadastrado com sucesso');
       onSuccess();
       onOpenChange(false);
-    } catch {
-      toast.error('Erro ao salvar paciente');
-      setError('Erro ao salvar paciente. Tente novamente.');
+    } catch (err) {
+      const message = err instanceof ApiError && err.status === 400
+        ? err.message
+        : 'Erro ao salvar paciente';
+      toast.error(message);
+      setError(message);
     } finally {
       setLoading(false);
     }

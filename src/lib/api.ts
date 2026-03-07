@@ -15,6 +15,9 @@ import type {
   FinancialSummary,
   TreatmentPackage,
   PlanUsage,
+  Plan,
+  Organization,
+  OrganizationSettings,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -138,7 +141,8 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
       throw new ApiError(res.status, body.message || 'Erro na requisição');
     }
 
-    return res.json();
+    const text = await res.text();
+    return (text ? JSON.parse(text) : null) as T;
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new ApiError(408, 'A requisição excedeu o tempo limite. Tente novamente.');
@@ -210,6 +214,8 @@ export const proceduresApi = {
 export const personsApi = {
   create: (data: { cpf: string; name: string; email: string; phone?: string; password: string }) =>
     api.post<{ id: string }>('/persons', data),
+  getByCpf: (cpf: string) =>
+    api.get<{ id: string }>(`/persons/by-cpf/${cpf}`),
 };
 
 export const professionalsApi = {
@@ -288,5 +294,11 @@ export const financialApi = {
 };
 
 export const organizationApi = {
+  getMe: () => api.get<Organization>('/organizations/me'),
   getPlanUsage: () => api.get<PlanUsage>('/organizations/me/plan'),
+  updateSettings: (settings: OrganizationSettings) =>
+    api.patch<Organization>('/organizations/me/settings', settings),
+  getAvailablePlans: () => api.get<Plan[]>('/organizations/me/available-plans'),
+  changePlan: (planId: string) =>
+    api.post<void>('/organizations/me/plan-change', { planId }),
 };

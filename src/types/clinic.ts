@@ -187,12 +187,41 @@ export interface TreatmentPackage {
   patient?: { id: string; name: string };
 }
 
+export interface OrganizationSettings {
+  whatsappNotificationsEnabled?: boolean;
+  reminderHours?: number;
+}
+
+export interface PlanFeatures {
+  whatsapp?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  cnpj?: string;
+  phone?: string;
+  settings?: OrganizationSettings;
+  planFeatures?: PlanFeatures;
+}
+
 export interface PlanUsage {
   accessStatus: 'ACTIVE' | 'BLOCKED';
   planMaxPatients: number | null;
   planMaxUsers: number | null;
   currentPatients: number;
   currentUsers: number;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  priceMonthly: number;
+  maxUsers: number;
+  maxPatients: number;
+  features?: Record<string, boolean>;
+  isActive: boolean;
 }
 
 export type FinancialType = 'INCOME' | 'EXPENSE';

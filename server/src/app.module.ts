@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -16,6 +17,7 @@ import { AuditModule } from './audit/audit.module';
 import { TreatmentPackageModule } from './treatment-package/treatment-package.module';
 import { HealthModule } from './health/health.module';
 import { InternalModule } from './internal/internal.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { AccessStatusMiddleware } from './auth/middleware/access-status.middleware';
 
 @Module({
@@ -24,6 +26,7 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
       isGlobal: true,
       envFilePath: `.env.${process.env.NODE_ENV || 'dev'}`,
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -46,6 +49,7 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     TreatmentPackageModule,
     HealthModule,
     InternalModule,
+    NotificationsModule,
   ],
 })
 export class AppModule implements NestModule {

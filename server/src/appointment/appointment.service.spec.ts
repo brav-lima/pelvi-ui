@@ -3,6 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
@@ -13,6 +14,10 @@ describe('AppointmentService', () => {
   const treatmentPackageService = {
     incrementUsedSessions: jest.fn(),
     decrementUsedSessions: jest.fn(),
+  };
+
+  const notificationsService = {
+    sendWhatsApp: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -27,6 +32,11 @@ describe('AppointmentService', () => {
       procedure: {
         findFirst: jest.fn(),
       },
+      organization: {
+        findUnique: jest.fn().mockResolvedValue({
+          settings: { whatsappNotificationsEnabled: true },
+        }),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -34,6 +44,7 @@ describe('AppointmentService', () => {
         AppointmentService,
         { provide: PrismaService, useValue: prisma },
         { provide: TreatmentPackageService, useValue: treatmentPackageService },
+        { provide: NotificationsService, useValue: notificationsService },
       ],
     }).compile();
 

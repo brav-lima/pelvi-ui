@@ -31,6 +31,11 @@ export class PersonController {
     return this.personService.findAll();
   }
 
+  @Get('by-cpf/:cpf')
+  findByCpf(@Param('cpf') cpf: string) {
+    return this.personService.findByCpf(cpf);
+  }
+
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.personService.findById(id);

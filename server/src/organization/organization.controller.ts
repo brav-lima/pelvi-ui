@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  HttpCode,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
@@ -15,6 +16,7 @@ import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { CreateOrganizationUserDto } from './dto/create-organization-user.dto';
 import { UpdateOrganizationUserDto } from './dto/update-organization-user.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 
@@ -27,11 +29,32 @@ export class OrganizationController {
     private readonly organizationService: OrganizationService,
   ) {}
 
-  // ── Plan usage (deve vir antes de ':id' para evitar conflito de rota) ──
+  // ── "me" routes (devem vir antes de ':id' para evitar conflito) ──
+
+  @Get('me')
+  getMe(@OrgId() orgId: string) {
+    return this.organizationService.getMe(orgId);
+  }
+
+  @Patch('me/settings')
+  updateSettings(@OrgId() orgId: string, @Body() dto: UpdateSettingsDto) {
+    return this.organizationService.updateSettings(orgId, dto as Record<string, unknown>);
+  }
 
   @Get('me/plan')
   getPlanUsage(@OrgId() orgId: string) {
     return this.organizationService.getPlanUsage(orgId);
+  }
+
+  @Get('me/available-plans')
+  getAvailablePlans() {
+    return this.organizationService.getAvailablePlans();
+  }
+
+  @Post('me/plan-change')
+  @HttpCode(200)
+  changePlan(@OrgId() orgId: string, @Body() body: { planId: string }) {
+    return this.organizationService.changePlan(orgId, body.planId);
   }
 
   // ── Organization CRUD ──

@@ -22,6 +22,7 @@ model Organization {
   email        String?
   phone        String?
   settings        Json?
+  planFeatures    Json?              @map("plan_features")
   accessStatus    ClinicAccessStatus @default(ACTIVE) @map("access_status")
   planMaxUsers    Int?               @map("plan_max_users")
   planMaxPatients Int?               @map("plan_max_patients")
@@ -168,6 +169,7 @@ model Appointment {
   endAt              DateTime          @map("end_at")
   status             AppointmentStatus @default(SCHEDULED)
   notes              String?
+  notifiedAt         DateTime?         @map("notified_at")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 

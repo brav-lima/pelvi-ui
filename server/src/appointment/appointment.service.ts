@@ -8,11 +8,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { QueryAppointmentDto } from './dto/query-appointment.dto';
-import { AppointmentStatus, TreatmentPackageStatus } from '@prisma/client';
+import { AppointmentStatus, Prisma, TreatmentPackageStatus } from '@prisma/client';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const appointmentIncludes = {
-  patient: { select: { id: true, name: true } },
+  patient: { select: { id: true, name: true, phone: true } },
   professional: {
     include: {
       person: { select: { id: true, name: true } },
@@ -27,6 +28,7 @@ export class AppointmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly treatmentPackageService: TreatmentPackageService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(organizationId: string, dto: CreateAppointmentDto) {
@@ -76,7 +78,7 @@ export class AppointmentService {
       endAt,
     );
 
-    return this.prisma.appointment.create({
+    const appointment = await this.prisma.appointment.create({
       data: {
         organizationId,
         patientId: dto.patientId,
@@ -89,6 +91,8 @@ export class AppointmentService {
       },
       include: appointmentIncludes,
     });
+
+    return appointment;
   }
 
   async findAll(organizationId: string, query: QueryAppointmentDto) {
@@ -159,6 +163,8 @@ export class AppointmentService {
       );
     }
 
+    const rescheduled = dto.startAt !== undefined;
+
     return this.prisma.appointment.update({
       where: { id },
       data: {
@@ -168,6 +174,7 @@ export class AppointmentService {
         startAt,
         endAt,
         notes: dto.notes,
+        ...(rescheduled && { notifiedAt: null }),
       },
       include: appointmentIncludes,
     });
@@ -182,9 +189,12 @@ export class AppointmentService {
     const existing = await this.findById(organizationId, id);
 
     // Use transaction if package session tracking is needed
+    type AppointmentResult = Prisma.AppointmentGetPayload<{ include: typeof appointmentIncludes }>;
+    let updated: AppointmentResult;
+
     if (existing.treatmentPackageId) {
-      return this.prisma.$transaction(async (tx) => {
-        const updated = await tx.appointment.update({
+      updated = await this.prisma.$transaction(async (tx) => {
+        const result = await tx.appointment.update({
           where: { id },
           data: { status },
           include: appointmentIncludes,
@@ -214,21 +224,59 @@ export class AppointmentService {
           );
         }
 
-        return updated;
+        return result;
+      });
+    } else {
+      updated = await this.prisma.appointment.update({
+        where: { id },
+        data: { status },
+        include: appointmentIncludes,
       });
     }
 
-    return this.prisma.appointment.update({
-      where: { id },
-      data: { status },
-      include: appointmentIncludes,
-    });
+    if (status === AppointmentStatus.CANCELED) {
+      void this.maybeNotify(organizationId, async () => {
+        const phone = updated.patient?.phone;
+        if (!phone) return;
+        const dateStr = this.formatDateTime(updated.startAt);
+        await this.notifications.sendWhatsApp(
+          phone,
+          `Olá, ${updated.patient.name}! Seu agendamento de ${dateStr} foi cancelado. Entre em contato para reagendar.`,
+        );
+      });
+    }
+
+    return updated;
   }
 
   async remove(organizationId: string, id: string) {
     await this.findById(organizationId, id);
 
     return this.prisma.appointment.delete({ where: { id } });
+  }
+
+  private async maybeNotify(
+    organizationId: string,
+    send: () => Promise<void>,
+  ): Promise<void> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { settings: true },
+    });
+    const settings = org?.settings as Record<string, unknown> | null;
+    if (settings?.whatsappNotificationsEnabled !== true) return;
+    await send();
+  }
+
+  private formatDateTime(date: Date): string {
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
   }
 
   private async checkConflict(
