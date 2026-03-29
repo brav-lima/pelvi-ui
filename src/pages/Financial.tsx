@@ -187,9 +187,9 @@ export default function Financial() {
                       <td className="py-3 px-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <span className="truncate">{record.description || '-'}</span>
-                          {record.installment && record.installmentTotal && (
+                          {record.installment && (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 shrink-0">
-                              {record.installment}/{record.installmentTotal}
+                              {record.installment.current}/{record.installment.total}
                             </Badge>
                           )}
                         </div>

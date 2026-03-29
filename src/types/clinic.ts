@@ -198,10 +198,19 @@ export interface PlanUsage {
 export type FinancialType = 'INCOME' | 'EXPENSE';
 export type FinancialStatus = 'PENDING' | 'PAID';
 
+/**
+ * Installment info for a financial record.
+ * `current` must be between 1 and `total` — validated at runtime, not enforced by the type.
+ */
+export interface InstallmentInfo {
+  current: number;
+  total: number;
+}
+
 export interface FinancialRecord {
   id: string;
   organizationId: string;
-  patientId: string;
+  patientId?: string;
   appointmentId?: string;
   amount: number;
   type: FinancialType;
@@ -209,8 +218,7 @@ export interface FinancialRecord {
   paymentMethod?: string;
   description?: string;
   dueDate?: string;
-  installment?: number;
-  installmentTotal?: number;
+  installment?: InstallmentInfo;
   createdAt: string;
   updatedAt: string;
   patient?: { id: string; name: string };

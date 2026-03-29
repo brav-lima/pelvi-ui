@@ -62,17 +62,19 @@ describe('PatientService', () => {
     });
 
     it('create deve vincular ao organizationId', async () => {
-      prisma.patient.create.mockResolvedValue({
+      const createdPatient = {
         id: 'new-patient',
         organizationId: orgA,
         name: 'Maria',
-      });
+      };
+      prisma.patient.create.mockResolvedValue(createdPatient);
 
-      await service.create(orgA, { name: 'Maria' });
+      const result = await service.create(orgA, { name: 'Maria' });
 
       expect(prisma.patient.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ organizationId: orgA }),
       });
+      expect(result).toEqual(createdPatient);
     });
 
     it('update deve verificar organizationId antes de atualizar', async () => {
@@ -83,12 +85,48 @@ describe('PatientService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('update deve atualizar quando o paciente pertence à organização', async () => {
+      prisma.patient.findFirst.mockResolvedValue({
+        id: 'patient-1',
+        organizationId: orgB,
+        name: 'Antigo',
+      } as any);
+      prisma.patient.update.mockResolvedValue({
+        id: 'patient-1',
+        organizationId: orgB,
+        name: 'Novo',
+      } as any);
+
+      const result = await service.update(orgB, 'patient-1', { name: 'Novo' });
+
+      expect(prisma.patient.update).toHaveBeenCalledWith({
+        where: { id: 'patient-1' },
+        data: expect.objectContaining({ name: 'Novo' }),
+      });
+      expect(result).toEqual({ id: 'patient-1', organizationId: orgB, name: 'Novo' });
+    });
+
     it('remove deve verificar organizationId antes de deletar', async () => {
       prisma.patient.findFirst.mockResolvedValue(null);
 
       await expect(
         service.remove(orgB, 'patient-1'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('remove deve deletar paciente quando organizationId for correto', async () => {
+      prisma.patient.findFirst.mockResolvedValue({
+        id: 'patient-1',
+        organizationId: orgB,
+        name: 'Maria',
+      } as any);
+      prisma.patient.delete.mockResolvedValue({ id: 'patient-1' } as any);
+
+      await service.remove(orgB, 'patient-1');
+
+      expect(prisma.patient.delete).toHaveBeenCalledWith({
+        where: { id: 'patient-1' },
+      });
     });
   });
 

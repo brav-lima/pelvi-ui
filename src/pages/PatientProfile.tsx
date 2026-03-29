@@ -35,6 +35,7 @@ import { AppointmentFormDialog } from '@/components/appointments/AppointmentForm
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
+import { AiAnalysisButton } from '@/components/ai/AiAnalysisDialog';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { Anamnesis, AppointmentStatus, TreatmentPackage, FinancialRecord } from '@/types/clinic';
 import {
@@ -202,10 +203,13 @@ export default function PatientProfile() {
           title={patient.name}
           description={patient.cpf ? `CPF: ${formatCPFMasked(patient.cpf)}` : undefined}
           actions={
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              <Edit className="w-4 h-4 mr-2" />
-              Editar
-            </Button>
+            <div className="flex items-center gap-2">
+              <AiAnalysisButton patientId={id!} patientName={patient.name} />
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+            </div>
           }
         />
       </div>
@@ -437,8 +441,8 @@ export default function PatientProfile() {
                                   </div>
                                   <p className="text-sm font-medium">
                                     R$ {Number(fin.amount).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
-                                    {fin.installmentTotal && fin.installmentTotal > 1
-                                      ? ` (${fin.installment}/${fin.installmentTotal})`
+                                    {fin.installment && fin.installment.total > 1
+                                      ? ` (${fin.installment.current}/${fin.installment.total})`
                                       : ''}
                                   </p>
                                   {fin.description && (

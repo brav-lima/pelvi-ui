@@ -272,21 +272,48 @@ export const treatmentPackagesApi = {
   remove: (id: string) => api.delete<void>(`/treatment-packages/${id}`),
 };
 
+type RawFinancialRecord = Omit<FinancialRecord, 'installment'> & {
+  installment?: number;
+  installmentTotal?: number;
+};
+
+function normalizeFinancialRecord(raw: RawFinancialRecord): FinancialRecord {
+  const { installment, installmentTotal, ...rest } = raw;
+  return {
+    ...rest,
+    ...(installment != null && installmentTotal != null
+      ? { installment: { current: installment, total: installmentTotal } }
+      : {}),
+  };
+}
+
+function normalizeFinancialRecords(raw: RawFinancialRecord[]): FinancialRecord[] {
+  return raw.map(normalizeFinancialRecord);
+}
+
 export const financialApi = {
-  list: (params: { month: number; year: number } | { startDate: string; endDate: string }) =>
-    api.get<FinancialRecord[]>(`/financial?${queryString(params)}`),
-  listByPatient: (patientId: string) =>
-    api.get<FinancialRecord[]>(`/financial/patient/${patientId}`),
+  list: async (params: { month: number; year: number } | { startDate: string; endDate: string }) =>
+    normalizeFinancialRecords(await api.get<RawFinancialRecord[]>(`/financial?${queryString(params)}`)),
+  listByPatient: async (patientId: string) =>
+    normalizeFinancialRecords(await api.get<RawFinancialRecord[]>(`/financial/patient/${patientId}`)),
   summary: (params: { month: number; year: number }) =>
     api.get<FinancialSummary>(`/financial/summary?${queryString(params)}`),
-  getById: (id: string) => api.get<FinancialRecord>(`/financial/${id}`),
-  create: (data: { patientId: string; amount: number; type: string; description?: string; paymentMethod?: string; appointmentId?: string; installments?: number; dueDate?: string }) =>
-    api.post<FinancialRecord | FinancialRecord[]>('/financial', data),
-  update: (id: string, data: Record<string, unknown>) =>
-    api.patch<FinancialRecord>(`/financial/${id}`, data),
+  getById: async (id: string) =>
+    normalizeFinancialRecord(await api.get<RawFinancialRecord>(`/financial/${id}`)),
+  create: async (data: { patientId?: string; amount: number; type: string; description?: string; paymentMethod?: string; appointmentId?: string; installments?: number; dueDate?: string }) => {
+    const result = await api.post<RawFinancialRecord | RawFinancialRecord[]>('/financial', data);
+    return Array.isArray(result) ? normalizeFinancialRecords(result) : normalizeFinancialRecord(result);
+  },
+  update: async (id: string, data: Record<string, unknown>) =>
+    normalizeFinancialRecord(await api.patch<RawFinancialRecord>(`/financial/${id}`, data)),
   remove: (id: string) => api.delete<void>(`/financial/${id}`),
 };
 
 export const organizationApi = {
   getPlanUsage: () => api.get<PlanUsage>('/organizations/me/plan'),
+};
+
+export const aiApi = {
+  analyzePatient: (patientId: string) =>
+    api.post<{ analysis: string }>(`/ai/patient-analysis/${patientId}`, {}),
 };
