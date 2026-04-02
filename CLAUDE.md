@@ -370,12 +370,40 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 ### Testing (Backend)
 
 - Jest + ts-jest, test files: `server/src/**/*.spec.ts`
-- Unit tests mock PrismaService and test service logic
-- Current test suites:
-  - `auth.service.spec.ts` — login flow, multi-clinic, credential validation
-  - `patient.service.spec.ts` — org isolation, search, pagination
-  - `appointment.service.spec.ts` — conflict detection, endAt calculation, status changes
+- Unit tests mock `PrismaService` — no real DB connection required
+- Coverage collected from `**/*.service.ts` only (controllers, modules, guards excluded)
+- Coverage threshold enforced: **80% statements/functions/lines, 75% branches**
+- Current coverage: ~88% statements, ~88% lines, ~89% functions, ~76% branches
+
+**Test suites (13 spec files, ~157 tests):**
+
+| Spec file | O que cobre |
+|-----------|-------------|
+| `auth.service.spec.ts` | Login, multi-clínica, selectOrganization, getProfile, updateProfile, changePassword, refreshToken |
+| `patient.service.spec.ts` | Isolamento por org, busca/paginação |
+| `appointment.service.spec.ts` | Cálculo de endAt, conflito de horário, validação de pacote, findById, update, remove, status com sessões |
+| `procedure.service.spec.ts` | CRUD completo com isolamento por org |
+| `professional.service.spec.ts` | CRUD + shape de retorno sem campos internos |
+| `anamnesis.service.spec.ts` | resolveOrgUser, merge de JSON, isolamento por org |
+| `evolution.service.spec.ts` | resolveOrgUser, vínculo com agendamento, isolamento por org |
+| `financial.service.spec.ts` | Registro único, parcelamento (valor/datas/descrição), filtros, summary |
+| `treatment-package.service.spec.ts` | Criação com transação, parcelamento, increment/decrementUsedSessions, remove com cascade |
+| `organization.service.spec.ts` | CRUD de org, addUser (limites de plano, conflitos), getPlanUsage, removeUser (soft delete) |
+| `person.service.spec.ts` | Criação com hash bcrypt, conflitos CPF/email, update, soft delete, findOrganizations |
+| `audit.service.spec.ts` | Persistência de log com e sem campos opcionais |
+| `internal.service.spec.ts` | createClinic, listClinics, updateClinicAccess |
+
+**Padrão de mock:**
+```ts
+prisma = { <model>: { create: jest.fn(), findMany: jest.fn(), ... } };
+// Para transações interativas:
+$transaction: jest.fn((fn) => fn(txMock))
+// Para transações batch:
+$transaction: jest.fn((ops) => Promise.all(ops))
+```
+
 - Run: `bun run test` (from /server) or `bun run server:test` (from root)
+- Coverage: `bun run test:cov` (from /server)
 
 ---
 

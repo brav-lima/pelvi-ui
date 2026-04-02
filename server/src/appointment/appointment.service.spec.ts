@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AppointmentService } from './appointment.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
-  let prisma: { appointment: any; procedure: any };
+  let prisma: { appointment: any; procedure: any; treatmentPackage: any; $transaction: jest.Mock };
 
   const orgId = 'org-1';
 
@@ -27,6 +27,12 @@ describe('AppointmentService', () => {
       procedure: {
         findFirst: jest.fn(),
       },
+      treatmentPackage: {
+        findFirst: jest.fn(),
+      },
+      $transaction: jest.fn((fn) => fn({
+        appointment: { update: jest.fn().mockResolvedValue({ id: 'apt-1', status: 'DONE' }) },
+      })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -192,6 +198,192 @@ describe('AppointmentService', () => {
 
       const callArgs = prisma.appointment.findMany.mock.calls[0][0];
       expect(callArgs.where.professionalId).toBe('prof-1');
+    });
+  });
+
+  describe('create (com treatment package)', () => {
+    const mockProcedure = { id: 'proc-1', organizationId: orgId, durationMinutes: 60 };
+
+    it('deve lançar NotFoundException quando pacote não pertence à organização', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.treatmentPackage.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: '2025-06-15T09:00:00Z',
+          treatmentPackageId: 'pkg-inexistente',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve lançar BadRequestException quando pacote não está ativo', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.treatmentPackage.findFirst.mockResolvedValue({
+        id: 'pkg-1',
+        status: 'COMPLETED',
+        usedSessions: 10,
+        totalSessions: 10,
+        procedures: [],
+      });
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: '2025-06-15T09:00:00Z',
+          treatmentPackageId: 'pkg-1',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('deve lançar BadRequestException quando procedimento não faz parte do pacote', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.treatmentPackage.findFirst.mockResolvedValue({
+        id: 'pkg-1',
+        status: 'ACTIVE',
+        usedSessions: 0,
+        totalSessions: 10,
+        procedures: [{ procedureId: 'proc-outro' }], // não inclui proc-1
+      });
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: '2025-06-15T09:00:00Z',
+          treatmentPackageId: 'pkg-1',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('findById', () => {
+    it('deve retornar agendamento quando pertence à organização', async () => {
+      const apt = { id: 'apt-1', organizationId: orgId };
+      prisma.appointment.findFirst.mockResolvedValue(apt);
+
+      const result = await service.findById(orgId, 'apt-1');
+
+      expect(prisma.appointment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'apt-1', organizationId: orgId } }),
+      );
+      expect(result).toEqual(apt);
+    });
+
+    it('deve lançar NotFoundException quando não encontrado', async () => {
+      prisma.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(service.findById(orgId, 'apt-outro')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    it('deve atualizar agendamento sem recalcular horário quando startAt não muda', async () => {
+      const existing = {
+        id: 'apt-1',
+        organizationId: orgId,
+        startAt: new Date('2025-06-15T09:00:00Z'),
+        endAt: new Date('2025-06-15T10:00:00Z'),
+        procedureId: 'proc-1',
+        professionalId: 'prof-1',
+      };
+      prisma.appointment.findFirst.mockResolvedValue(existing);
+      prisma.appointment.update.mockResolvedValue({ ...existing, notes: 'Nova observação' });
+
+      await service.update(orgId, 'apt-1', { notes: 'Nova observação' });
+
+      expect(prisma.procedure.findFirst).not.toHaveBeenCalled();
+      expect(prisma.appointment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'apt-1' } }),
+      );
+    });
+
+    it('deve recalcular endAt quando startAt é alterado', async () => {
+      const existing = {
+        id: 'apt-1',
+        organizationId: orgId,
+        startAt: new Date('2025-06-15T09:00:00Z'),
+        endAt: new Date('2025-06-15T10:00:00Z'),
+        procedureId: 'proc-1',
+        professionalId: 'prof-1',
+      };
+      prisma.appointment.findFirst
+        .mockResolvedValueOnce(existing)  // findById
+        .mockResolvedValueOnce(null);     // checkConflict — sem conflito
+      prisma.procedure.findFirst.mockResolvedValue({ id: 'proc-1', durationMinutes: 45 });
+      prisma.appointment.update.mockResolvedValue({ id: 'apt-1' });
+
+      await service.update(orgId, 'apt-1', { startAt: '2025-06-15T11:00:00Z' });
+
+      const updateCall = prisma.appointment.update.mock.calls[0][0];
+      expect(updateCall.data.startAt).toEqual(new Date('2025-06-15T11:00:00Z'));
+      // endAt = 11:00 + 45min = 11:45
+      expect(updateCall.data.endAt).toEqual(new Date('2025-06-15T11:45:00Z'));
+    });
+  });
+
+  describe('remove', () => {
+    it('deve deletar agendamento quando pertence à organização', async () => {
+      const existing = { id: 'apt-1', organizationId: orgId };
+      prisma.appointment.findFirst.mockResolvedValue(existing);
+      prisma.appointment.delete.mockResolvedValue(existing);
+
+      await service.remove(orgId, 'apt-1');
+
+      expect(prisma.appointment.delete).toHaveBeenCalledWith({ where: { id: 'apt-1' } });
+    });
+
+    it('deve lançar NotFoundException antes de deletar quando não encontrado', async () => {
+      prisma.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(service.remove(orgId, 'apt-inexistente')).rejects.toThrow(NotFoundException);
+      expect(prisma.appointment.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateStatus (com treatment package)', () => {
+    it('deve usar $transaction e incrementar sessões ao marcar como DONE', async () => {
+      prisma.appointment.findFirst.mockResolvedValue({
+        id: 'apt-1',
+        organizationId: orgId,
+        status: 'CONFIRMED',
+        professionalId: 'prof-1',
+        procedureId: 'proc-1',
+        treatmentPackageId: 'pkg-1',
+      });
+
+      await service.updateStatus(orgId, 'apt-1', 'DONE' as any, 'user-1');
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(treatmentPackageService.incrementUsedSessions).toHaveBeenCalledWith(
+        orgId,
+        'pkg-1',
+        expect.anything(),
+      );
+    });
+
+    it('deve decrementar sessões ao reverter de DONE para outro status', async () => {
+      prisma.appointment.findFirst.mockResolvedValue({
+        id: 'apt-1',
+        organizationId: orgId,
+        status: 'DONE',
+        professionalId: 'prof-1',
+        procedureId: 'proc-1',
+        treatmentPackageId: 'pkg-1',
+      });
+
+      await service.updateStatus(orgId, 'apt-1', 'CONFIRMED' as any, 'user-1');
+
+      expect(treatmentPackageService.decrementUsedSessions).toHaveBeenCalledWith(
+        orgId,
+        'pkg-1',
+        expect.anything(),
+      );
     });
   });
 });
