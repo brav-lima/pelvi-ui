@@ -1,0 +1,4 @@
+[install]
+# Use text-based lockfile (bun.lock) instead of binary (bun.lockb)
+# so it is cross-platform and consistent between Windows and Linux CI
+saveTextLockfile = true
