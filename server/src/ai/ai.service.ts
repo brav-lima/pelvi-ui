@@ -63,7 +63,7 @@ export class AiService {
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text ?? '';
+    return response.response.text() ?? '';
   }
 
   private buildPrompt(patient: any, anamneses: any[], evolutions: any[], appointments: any[]): string {
