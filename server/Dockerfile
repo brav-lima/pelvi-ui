@@ -30,5 +30,19 @@ RUN chmod +x docker-entrypoint.sh
 
 ENV NODE_ENV=prod
 
+# Version identification — read at runtime by GET /api/version.
+ARG APP_VERSION=dev
+ARG GIT_SHA=unknown
+ARG BUILT_AT=unknown
+ENV APP_VERSION=$APP_VERSION \
+    GIT_SHA=$GIT_SHA \
+    BUILT_AT=$BUILT_AT
+
+LABEL org.opencontainers.image.title="careflow-api" \
+      org.opencontainers.image.version=$APP_VERSION \
+      org.opencontainers.image.revision=$GIT_SHA \
+      org.opencontainers.image.created=$BUILT_AT \
+      org.opencontainers.image.source="https://github.com/brav-lima/careflow-ui"
+
 EXPOSE 3000
 ENTRYPOINT ["./docker-entrypoint.sh"]

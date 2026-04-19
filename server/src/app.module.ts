@@ -17,6 +17,7 @@ import { TreatmentPackageModule } from './treatment-package/treatment-package.mo
 import { HealthModule } from './health/health.module';
 import { InternalModule } from './internal/internal.module';
 import { AiModule } from './ai/ai.module';
+import { VersionModule } from './version/version.module';
 import { AccessStatusMiddleware } from './auth/middleware/access-status.middleware';
 
 @Module({
@@ -48,6 +49,7 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     HealthModule,
     InternalModule,
     AiModule,
+    VersionModule,
   ],
 })
 export class AppModule implements NestModule {
