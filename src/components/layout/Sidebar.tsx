@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@/types/clinic';
+import { appVersion, versionTooltip } from '@/lib/version';
 
 type Role = User['role'];
 
@@ -148,6 +149,12 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
               </>
             )}
           </Button>
+        </div>
+      )}
+
+      {!isCollapsed && (
+        <div className="px-4 pb-3 text-xs text-sidebar-foreground/40" title={versionTooltip}>
+          {appVersion}
         </div>
       )}
     </aside>
