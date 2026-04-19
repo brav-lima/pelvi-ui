@@ -8,15 +8,6 @@ import { LinkClinicUserDto } from './dto/link-clinic-user.dto'
 import { UpdateClinicUserDto } from './dto/update-clinic-user.dto'
 import { ResetClinicUserPasswordDto } from './dto/reset-clinic-user-password.dto'
 
-const personPublicSelect = {
-  id: true,
-  cpf: true,
-  name: true,
-  email: true,
-  phone: true,
-  active: true,
-} as const
-
 @Injectable()
 export class InternalService {
   constructor(private readonly prisma: PrismaService) {}
