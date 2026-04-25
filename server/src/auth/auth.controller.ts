@@ -6,7 +6,7 @@ import {
   Post,
   Req,
   Res,
-  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -18,6 +18,9 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { CurrentRefreshUser } from './decorators/current-refresh-user.decorator';
+import type { RefreshUser } from './decorators/current-refresh-user.decorator';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { JwtPayload } from './strategies/jwt.strategy';
 import { ACCESS_COOKIE_NAME } from './strategies/jwt.strategy';
 
@@ -46,6 +49,19 @@ const refreshCookieOptions = (): CookieOptions => ({
 function setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
   res.cookie(ACCESS_COOKIE_NAME, accessToken, accessCookieOptions());
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
+}
+
+function decodeJtiFromRefreshToken(token: string): string | null {
+  try {
+    const payloadSegment = token.split('.')[1];
+    if (!payloadSegment) return null;
+    const decoded = JSON.parse(
+      Buffer.from(payloadSegment, 'base64url').toString('utf8'),
+    ) as { jti?: string };
+    return decoded?.jti ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function clearAuthCookies(res: Response) {
@@ -102,28 +118,43 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @ApiOperation({
     summary: 'Renovar access token via refresh token (cookie)',
-    description: 'Lê o refresh token do cookie httpOnly e seta um novo par.',
+    description:
+      'Valida o refresh token do cookie httpOnly, revoga a linha corrente em refresh_tokens, ' +
+      'emite novo par e atualiza os cookies. Apresentar um refresh já revogado revoga toda a família.',
   })
   @ApiResponse({ status: 200, description: 'Tokens renovados com sucesso' })
-  @ApiResponse({ status: 401, description: 'Refresh token ausente, inválido ou expirado' })
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
-    if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token ausente');
-    }
-    const tokens = await this.authService.refreshAccessToken({ refreshToken });
+  @ApiResponse({ status: 401, description: 'Refresh token ausente, inválido, revogado ou expirado' })
+  async refresh(
+    @CurrentRefreshUser() refreshUser: RefreshUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.rotateRefreshToken(
+      refreshUser.personId,
+      refreshUser.organizationId,
+      refreshUser.jti,
+    );
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { ok: true };
   }
 
   @Public()
   @Post('logout')
-  @ApiOperation({ summary: 'Encerra a sessão limpando os cookies de auth' })
+  @ApiOperation({
+    summary: 'Encerra a sessão revogando o refresh corrente e limpando os cookies',
+  })
   @ApiResponse({ status: 200, description: 'Sessão encerrada' })
-  logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
+    if (refreshToken) {
+      const jti = decodeJtiFromRefreshToken(refreshToken);
+      if (jti) {
+        await this.authService.revokeRefreshToken(jti);
+      }
+    }
     clearAuthCookies(res);
     return { ok: true };
   }

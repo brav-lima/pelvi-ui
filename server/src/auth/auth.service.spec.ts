@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
@@ -8,9 +9,10 @@ import { PersonService } from '../person/person.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: { person: any; organizationUser: any };
+  let prisma: { person: any; organizationUser: any; refreshToken: any };
   let personService: { findOrganizations: jest.Mock };
-  let jwtService: { sign: jest.Mock; verify: jest.Mock };
+  let jwtService: { sign: jest.Mock };
+  let config: { getOrThrow: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -20,12 +22,18 @@ describe('AuthService', () => {
         update: jest.fn(),
       },
       organizationUser: { findUnique: jest.fn() },
+      refreshToken: {
+        findUnique: jest.fn(),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     };
     personService = { findOrganizations: jest.fn() };
     jwtService = {
       sign: jest.fn().mockReturnValue('mock-token'),
-      verify: jest.fn(),
     };
+    config = { getOrThrow: jest.fn().mockReturnValue('refresh-secret') };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -33,6 +41,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: PersonService, useValue: personService },
         { provide: JwtService, useValue: jwtService },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
 
@@ -50,7 +59,7 @@ describe('AuthService', () => {
       active: true,
     };
 
-    it('deve retornar token quando há apenas uma clínica', async () => {
+    it('deve emitir tokens e persistir hash do refresh quando há apenas uma clínica', async () => {
       prisma.person.findUnique.mockResolvedValue(mockPerson);
       personService.findOrganizations.mockResolvedValue([
         {
@@ -74,12 +83,28 @@ describe('AuthService', () => {
         { expiresIn: '15m' },
       );
       expect(jwtService.sign).toHaveBeenCalledWith(
-        { sub: 'person-1', organizationId: 'org-1', role: 'ADMIN', type: 'refresh' },
-        { expiresIn: '7d' },
+        expect.objectContaining({
+          sub: 'person-1',
+          organizationId: 'org-1',
+          role: 'ADMIN',
+          type: 'refresh',
+          jti: expect.any(String),
+        }),
+        expect.objectContaining({ secret: 'refresh-secret', expiresIn: '7d' }),
       );
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          personId: 'person-1',
+          tokenHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          expiresAt: expect.any(Date),
+        }),
+      });
+      const persistedHash = prisma.refreshToken.create.mock.calls[0][0].data.tokenHash;
+      const signedJti = jwtService.sign.mock.calls[1][0].jti;
+      expect(persistedHash).not.toBe(signedJti);
     });
 
-    it('deve retornar lista de organizações quando há múltiplas', async () => {
+    it('deve retornar lista de organizações quando há múltiplas e não persistir refresh', async () => {
       prisma.person.findUnique.mockResolvedValue(mockPerson);
       personService.findOrganizations.mockResolvedValue([
         {
@@ -102,6 +127,7 @@ describe('AuthService', () => {
       expect(result.accessToken).toBeNull();
       expect(result.refreshToken).toBeNull();
       expect(result.organizations).toHaveLength(2);
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
 
     it('deve rejeitar CPF inexistente', async () => {
@@ -142,7 +168,7 @@ describe('AuthService', () => {
   });
 
   describe('selectOrganization', () => {
-    it('deve gerar token para vínculo válido', async () => {
+    it('deve gerar e persistir refresh para vínculo válido', async () => {
       prisma.organizationUser.findUnique.mockResolvedValue({
         active: true,
         role: 'ADMIN',
@@ -156,6 +182,9 @@ describe('AuthService', () => {
       });
 
       expect(result.accessToken).toBe('mock-token');
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ personId: 'person-1' }),
+      });
     });
 
     it('deve rejeitar vínculo inativo', async () => {
@@ -263,38 +292,116 @@ describe('AuthService', () => {
     });
   });
 
-  describe('refreshAccessToken', () => {
-    it('deve retornar novos tokens quando refresh token é válido', async () => {
-      jwtService.verify.mockReturnValue({
-        sub: 'person-1',
-        organizationId: 'org-1',
+  describe('rotateRefreshToken', () => {
+    const validJti = 'jti-abc';
+    const personId = 'person-1';
+    const organizationId = 'org-1';
+    const futureExpiry = new Date(Date.now() + 60 * 60 * 1000);
+    const pastExpiry = new Date(Date.now() - 60 * 1000);
+
+    function activeStored(over: Partial<any> = {}) {
+      return {
+        id: 'rt-1',
+        personId,
+        tokenHash: 'h',
+        expiresAt: futureExpiry,
+        revokedAt: null,
+        createdAt: new Date(),
+        ...over,
+      };
+    }
+
+    it('deve revogar a linha corrente e emitir novo par no caminho feliz', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(activeStored());
+      prisma.organizationUser.findUnique.mockResolvedValue({
+        active: true,
         role: 'ADMIN',
-        type: 'refresh',
+        person: { active: true },
       });
 
-      const result = await service.refreshAccessToken({ refreshToken: 'valid-refresh' });
+      const result = await service.rotateRefreshToken(personId, organizationId, validJti);
 
+      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 'rt-1' },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
       expect(result.accessToken).toBe('mock-token');
       expect(result.refreshToken).toBe('mock-token');
     });
 
-    it('deve lançar UnauthorizedException quando token não é do tipo refresh', async () => {
-      jwtService.verify.mockReturnValue({
-        sub: 'person-1',
-        type: 'access', // tipo errado
-      });
+    it('deve revogar toda a família ao detectar reuso de refresh já revogado', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(
+        activeStored({ revokedAt: new Date() }),
+      );
 
       await expect(
-        service.refreshAccessToken({ refreshToken: 'wrong-type-token' }),
+        service.rotateRefreshToken(personId, organizationId, validJti),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { personId, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('deve rejeitar quando hash não existe no banco', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.rotateRefreshToken(personId, organizationId, validJti),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('deve rejeitar quando o token pertence a outro personId', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(
+        activeStored({ personId: 'outro-person' }),
+      );
+
+      await expect(
+        service.rotateRefreshToken(personId, organizationId, validJti),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('deve rejeitar quando o refresh está expirado', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(
+        activeStored({ expiresAt: pastExpiry }),
+      );
+
+      await expect(
+        service.rotateRefreshToken(personId, organizationId, validJti),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('deve lançar UnauthorizedException quando refresh token é inválido ou expirado', async () => {
-      jwtService.verify.mockImplementation(() => { throw new Error('jwt expired'); });
+    it('deve revogar a família quando o vínculo foi inativado mesmo com token válido', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(activeStored());
+      prisma.organizationUser.findUnique.mockResolvedValue({
+        active: false,
+        role: 'ADMIN',
+        person: { active: true },
+      });
 
       await expect(
-        service.refreshAccessToken({ refreshToken: 'expired-token' }),
+        service.rotateRefreshToken(personId, organizationId, validJti),
       ).rejects.toThrow(UnauthorizedException);
+
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { personId, revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+  });
+
+  describe('revokeRefreshToken', () => {
+    it('deve marcar revokedAt na linha correspondente ao jti (somente se ainda ativa)', async () => {
+      await service.revokeRefreshToken('jti-xyz');
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { tokenHash: expect.any(String), revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
     });
   });
 });

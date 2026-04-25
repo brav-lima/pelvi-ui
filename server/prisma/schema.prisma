@@ -56,8 +56,29 @@ model Person {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   organizationUsers OrganizationUser[]
+  refreshTokens     RefreshToken[]
 
   @@map("persons")
+}
+
+// ──────────────────────────────────────────────
+// RefreshToken — refresh tokens com rotação
+// Apenas o hash do jti é persistido; o JWT em claro vive somente no cookie httpOnly
+// ──────────────────────────────────────────────
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  personId  String    @map("person_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 // ──────────────────────────────────────────────
