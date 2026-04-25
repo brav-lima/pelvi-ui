@@ -20,100 +20,34 @@ import type {
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-const TOKEN_KEY = 'careflow_token';
-const REFRESH_TOKEN_KEY = 'careflow_refresh_token';
-
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-}
-
-export function setRefreshToken(token: string): void {
-  localStorage.setItem(REFRESH_TOKEN_KEY, token);
-}
-
-export function removeToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-}
-
 const REQUEST_TIMEOUT_MS = 30_000;
 
-// Refresh token queue to avoid multiple simultaneous refreshes
-let isRefreshing = false;
-let refreshQueue: Array<{
-  resolve: (token: string) => void;
-  reject: (err: unknown) => void;
-}> = [];
+let refreshInFlight: Promise<void> | null = null;
 
-function processQueue(error: unknown, token: string | null) {
-  refreshQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve(token!);
-    }
-  });
-  refreshQueue = [];
-}
-
-async function tryRefreshToken(): Promise<string> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    throw new ApiError(401, 'Sessão expirada');
+async function tryRefreshToken(): Promise<void> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          throw new ApiError(401, 'Sessão expirada');
+        }
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
   }
-
-  if (isRefreshing) {
-    return new Promise((resolve, reject) => {
-      refreshQueue.push({ resolve, reject });
-    });
-  }
-
-  isRefreshing = true;
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    if (!res.ok) {
-      throw new ApiError(401, 'Sessão expirada');
-    }
-
-    const data = await res.json();
-    setToken(data.accessToken);
-    setRefreshToken(data.refreshToken);
-    processQueue(null, data.accessToken);
-    return data.accessToken;
-  } catch (err) {
-    processQueue(err, null);
-    removeToken();
-    window.dispatchEvent(new CustomEvent('auth:logout'));
-    throw err;
-  } finally {
-    isRefreshing = false;
-  }
+  return refreshInFlight;
 }
 
 async function request<T>(path: string, options: RequestInit = {}, _isRetry = false): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -122,15 +56,24 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
     const res = await fetch(`${API_BASE_URL}/api${path}`, {
       ...options,
       headers,
+      credentials: 'include',
       signal: controller.signal,
     });
 
     if (!res.ok) {
-      // Try refresh on 401, but not for login/refresh endpoints or retries
-      const skipRefreshPaths = ['/auth/login', '/auth/refresh', '/auth/select-organization'];
+      const skipRefreshPaths = [
+        '/auth/login',
+        '/auth/refresh',
+        '/auth/logout',
+        '/auth/select-organization',
+      ];
       if (res.status === 401 && !_isRetry && !skipRefreshPaths.includes(path)) {
-        const newToken = await tryRefreshToken();
-        headers['Authorization'] = `Bearer ${newToken}`;
+        try {
+          await tryRefreshToken();
+        } catch {
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+          throw new ApiError(401, 'Sessão expirada');
+        }
         return request<T>(path, options, true);
       }
 
@@ -138,6 +81,9 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
       throw new ApiError(res.status, body.message || 'Erro na requisição');
     }
 
+    if (res.status === 204) {
+      return undefined as T;
+    }
     return res.json();
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
@@ -173,6 +119,8 @@ export const authApi = {
 
   selectOrganization: (personId: string, organizationId: string) =>
     api.post<SelectOrgResponse>('/auth/select-organization', { personId, organizationId }),
+
+  logout: () => api.post<{ ok: true }>('/auth/logout', {}),
 
   me: () => api.get<ProfileResponse>('/auth/me'),
   updateProfile: (data: { name?: string; email?: string; phone?: string }) =>

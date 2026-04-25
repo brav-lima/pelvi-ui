@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { User, Clinic, LoginResponseMulti } from '@/types/clinic';
-import { authApi, setToken, setRefreshToken, removeToken, getToken, ApiError } from '@/lib/api';
+import { User, Clinic, LoginResponseMulti, LoginResponseSingle } from '@/types/clinic';
+import { authApi, ApiError } from '@/lib/api';
 
 interface LoginResult {
   success: boolean;
@@ -22,6 +22,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isMultiClinicResponse(
+  response: LoginResponseSingle | LoginResponseMulti,
+): response is LoginResponseMulti {
+  return 'organizations' in response;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
@@ -32,8 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Multi-clinic flow: store personId temporarily for select-organization call
   const [pendingPersonId, setPendingPersonId] = useState<string | null>(null);
 
-  const logout = useCallback(() => {
-    removeToken();
+  const clearSession = useCallback(() => {
     queryClient.clear();
     setUser(null);
     setSelectedClinic(null);
@@ -41,25 +46,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPendingPersonId(null);
   }, [queryClient]);
 
-  // Listen for automatic logout triggered by expired refresh token
+  const logout = useCallback(() => {
+    void authApi.logout().catch(() => undefined);
+    clearSession();
+  }, [clearSession]);
+
+  // Listen for automatic logout triggered by expired/invalid session
   useEffect(() => {
-    const handleForceLogout = () => logout();
+    const handleForceLogout = () => clearSession();
     window.addEventListener('auth:logout', handleForceLogout);
     return () => window.removeEventListener('auth:logout', handleForceLogout);
-  }, [logout]);
+  }, [clearSession]);
 
-  // Restore session from stored token on mount
+  // Restore session from httpOnly cookie on mount
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
     authApi
       .me()
       .then((profile) => {
-        if (profile.person && profile.organization) {
+        if (profile.person && profile.organization && profile.role) {
           setUser({
             id: profile.person.id,
             name: profile.person.name,
@@ -68,17 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: profile.role,
           });
           setSelectedClinic(profile.organization);
-        } else {
-          logout();
         }
       })
-      .catch(() => {
-        logout();
-      })
+      .catch(() => undefined)
       .finally(() => {
         setIsLoading(false);
       });
-  }, [logout]);
+  }, []);
 
   const login = async (cpf: string, password: string): Promise<LoginResult> => {
     const cleanCpf = cpf.replace(/\D/g, '');
@@ -86,35 +86,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authApi.login(cleanCpf, password);
 
-      if (response.accessToken) {
-        // Single clinic — token received immediately
-        setToken(response.accessToken);
-        setRefreshToken(response.refreshToken);
+      if (isMultiClinicResponse(response)) {
+        // Multi-clinic — no cookies set yet, user must choose
+        setPendingPersonId(response.person.id);
         setUser({
           id: response.person.id,
           name: response.person.name,
           email: response.person.email,
           cpf: response.person.cpf,
-          role: response.role,
+          role: 'PROFESSIONAL', // temporary, will be set after org selection
         });
-        setSelectedClinic(response.organization);
-        return { success: true, multiClinic: false };
+        setClinics(response.organizations.map((ou) => ou.organization));
+        return { success: true, multiClinic: true };
       }
 
-      // Multi-clinic — no token yet, user must choose
-      const multiResponse = response as LoginResponseMulti;
-      setPendingPersonId(multiResponse.person.id);
+      // Single clinic — auth cookies were set by the server
       setUser({
-        id: multiResponse.person.id,
-        name: multiResponse.person.name,
-        email: multiResponse.person.email,
-        cpf: multiResponse.person.cpf,
-        role: 'PROFESSIONAL', // temporary, will be set after org selection
+        id: response.person.id,
+        name: response.person.name,
+        email: response.person.email,
+        cpf: response.person.cpf,
+        role: response.role,
       });
-      setClinics(
-        multiResponse.organizations.map((ou) => ou.organization),
-      );
-      return { success: true, multiClinic: true };
+      setSelectedClinic(response.organization);
+      return { success: true, multiClinic: false };
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Erro ao fazer login. Tente novamente.';
@@ -128,8 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await authApi.selectOrganization(personId, organizationId);
-      setToken(response.accessToken);
-      setRefreshToken(response.refreshToken);
       setUser({
         id: response.person.id,
         name: response.person.name,
@@ -151,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         selectedClinic,
         clinics,
-        isAuthenticated: !!user && !!getToken(),
+        isAuthenticated: !!user && !!selectedClinic,
         isLoading,
         login,
         logout,

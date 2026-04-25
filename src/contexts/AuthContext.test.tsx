@@ -9,11 +9,8 @@ vi.mock('@/lib/api', () => ({
     login: vi.fn(),
     me: vi.fn(),
     selectOrganization: vi.fn(),
+    logout: vi.fn(),
   },
-  setToken: vi.fn(),
-  setRefreshToken: vi.fn(),
-  removeToken: vi.fn(),
-  getToken: vi.fn(() => null),
   ApiError: class ApiError extends Error {
     status: number;
     constructor(message: string, status = 400) {
@@ -24,7 +21,7 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-import { authApi, getToken, setToken, setRefreshToken, removeToken, ApiError } from '@/lib/api';
+import { authApi, ApiError } from '@/lib/api';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,8 +51,6 @@ function StatusConsumer() {
 }
 
 const singleClinicResponse = {
-  accessToken: 'access-token-123',
-  refreshToken: 'refresh-token-123',
   person: { id: 'p1', name: 'João Silva', email: 'joao@test.com', cpf: '11111111111' },
   organization: { id: 'org1', name: 'Clínica Teste' },
   role: 'ADMIN',
@@ -84,10 +79,11 @@ describe('useAuth', () => {
 describe('AuthProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getToken).mockReturnValue(null);
+    vi.mocked(authApi.me).mockRejectedValue(new ApiError('Não autenticado', 401));
+    vi.mocked(authApi.logout).mockResolvedValue({ ok: true } as any);
   });
 
-  it('starts unauthenticated when no token is stored', async () => {
+  it('starts unauthenticated when /me fails (no cookie)', async () => {
     render(<StatusConsumer />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('authenticated').textContent).toBe('false');
@@ -95,8 +91,7 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('restores session on mount when a valid token exists', async () => {
-    vi.mocked(getToken).mockReturnValue('stored-token');
+  it('restores session on mount when /me returns a profile (cookie present)', async () => {
     vi.mocked(authApi.me).mockResolvedValue({
       person: { id: 'p1', name: 'Maria', email: 'maria@test.com', cpf: '22222222222' },
       organization: { id: 'org1', name: 'Clínica X' },
@@ -107,23 +102,23 @@ describe('AuthProvider', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('user').textContent).toBe('Maria');
+      expect(screen.getByTestId('authenticated').textContent).toBe('true');
     });
   });
 
-  it('logs out when token exists but /me fails', async () => {
-    vi.mocked(getToken).mockReturnValue('expired-token');
+  it('stays unauthenticated when /me fails', async () => {
     vi.mocked(authApi.me).mockRejectedValue(new Error('Unauthorized'));
 
     render(<StatusConsumer />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
       expect(screen.getByTestId('user').textContent).toBe('none');
-      expect(removeToken).toHaveBeenCalled();
+      expect(screen.getByTestId('authenticated').textContent).toBe('false');
     });
   });
 
   describe('login()', () => {
-    it('succeeds for single-clinic user: sets user, calls setToken, returns multiClinic=false', async () => {
+    it('succeeds for single-clinic user: sets user and selectedClinic', async () => {
       vi.mocked(authApi.login).mockResolvedValue(singleClinicResponse as any);
 
       let loginFn!: ReturnType<typeof useAuth>['login'];
@@ -141,8 +136,6 @@ describe('AuthProvider', () => {
       });
 
       expect(result).toEqual({ success: true, multiClinic: false });
-      expect(setToken).toHaveBeenCalledWith('access-token-123');
-      expect(setRefreshToken).toHaveBeenCalledWith('refresh-token-123');
       await waitFor(() => {
         expect(screen.getByTestId('user').textContent).toBe('João Silva');
       });
@@ -169,7 +162,6 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(screen.getByTestId('clinics').textContent).toBe('2');
       });
-      expect(setToken).not.toHaveBeenCalled(); // token only set after clinic selection
     });
 
     it('strips CPF mask before calling the API', async () => {
@@ -214,7 +206,7 @@ describe('AuthProvider', () => {
   });
 
   describe('logout()', () => {
-    it('clears user state and calls removeToken', async () => {
+    it('clears user state and calls authApi.logout', async () => {
       vi.mocked(authApi.login).mockResolvedValue(singleClinicResponse as any);
 
       let auth!: ReturnType<typeof useAuth>;
@@ -235,7 +227,7 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(screen.getByTestId('user').textContent).toBe('none');
       });
-      expect(removeToken).toHaveBeenCalled();
+      expect(authApi.logout).toHaveBeenCalled();
     });
   });
 });
