@@ -3,16 +3,26 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PersonService } from '../person/person.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
+
+const REFRESH_TTL_DAYS = 7;
+const REFRESH_TTL_MS = REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+interface IssuedTokens {
+  accessToken: string;
+  refreshToken: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -20,6 +30,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly personService: PersonService,
     private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -53,7 +64,7 @@ export class AuthService {
 
     if (organizations.length === 1) {
       const org = organizations[0];
-      const tokens = this.generateTokens(
+      const tokens = await this.issueTokens(
         person.id,
         org.organization.id,
         org.role,
@@ -102,7 +113,7 @@ export class AuthService {
       );
     }
 
-    const tokens = this.generateTokens(
+    const tokens = await this.issueTokens(
       dto.personId,
       dto.organizationId,
       link.role,
@@ -184,41 +195,94 @@ export class AuthService {
     return { message: 'Senha alterada com sucesso' };
   }
 
-  async refreshAccessToken(dto: RefreshTokenDto) {
-    try {
-      const payload = this.jwtService.verify(dto.refreshToken);
+  async rotateRefreshToken(
+    personId: string,
+    organizationId: string,
+    jti: string,
+  ): Promise<IssuedTokens> {
+    const tokenHash = this.hashJti(jti);
+    const stored = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+    });
 
-      if (payload.type !== 'refresh') {
-        throw new UnauthorizedException('Token inválido');
-      }
-
-      return this.generateTokens(
-        payload.sub,
-        payload.organizationId,
-        payload.role,
-      );
-    } catch (err) {
-      if (err instanceof UnauthorizedException) throw err;
-      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    if (!stored || stored.personId !== personId) {
+      throw new UnauthorizedException('Refresh token inválido');
     }
+
+    if (stored.revokedAt) {
+      await this.prisma.refreshToken.updateMany({
+        where: { personId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Refresh token reutilizado');
+    }
+
+    if (stored.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException('Refresh token expirado');
+    }
+
+    const link = await this.prisma.organizationUser.findUnique({
+      where: { organizationId_personId: { organizationId, personId } },
+      select: { active: true, role: true, person: { select: { active: true } } },
+    });
+    if (!link || !link.active || !link.person.active) {
+      // Active token but stale link — revoke the family for safety
+      await this.prisma.refreshToken.updateMany({
+        where: { personId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Vínculo inválido ou inativo');
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    });
+
+    return this.issueTokens(personId, organizationId, link.role);
   }
 
-  private generateTokens(
+  async revokeRefreshToken(jti: string): Promise<void> {
+    const tokenHash = this.hashJti(jti);
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  private async issueTokens(
     personId: string,
     organizationId: string,
     role: string,
-  ): { accessToken: string; refreshToken: string } {
-    const basePayload = { sub: personId, organizationId, role };
+  ): Promise<IssuedTokens> {
+    const accessPayload = { sub: personId, organizationId, role };
+    const accessToken = this.jwtService.sign(accessPayload, { expiresIn: '15m' });
 
-    const accessToken = this.jwtService.sign(basePayload, {
-      expiresIn: '15m',
+    const jti = crypto.randomUUID();
+    const refreshPayload: JwtRefreshPayload = {
+      sub: personId,
+      organizationId,
+      role,
+      jti,
+      type: 'refresh',
+    };
+    const refreshToken = this.jwtService.sign(refreshPayload, {
+      secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      expiresIn: `${REFRESH_TTL_DAYS}d`,
     });
 
-    const refreshToken = this.jwtService.sign(
-      { ...basePayload, type: 'refresh' },
-      { expiresIn: '7d' },
-    );
+    await this.prisma.refreshToken.create({
+      data: {
+        personId,
+        tokenHash: this.hashJti(jti),
+        expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+      },
+    });
 
     return { accessToken, refreshToken };
+  }
+
+  private hashJti(jti: string): string {
+    return crypto.createHash('sha256').update(jti).digest('hex');
   }
 }
