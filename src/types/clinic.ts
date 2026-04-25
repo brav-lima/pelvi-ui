@@ -13,17 +13,14 @@ export interface Clinic {
   settings?: Record<string, unknown>;
 }
 
-// Auth API response types
+// Auth API response types — tokens travel as httpOnly cookies, not in the body
 export interface LoginResponseSingle {
-  accessToken: string;
-  refreshToken: string;
   person: { id: string; cpf: string; name: string; email: string | null };
   organization: Clinic;
   role: User['role'];
 }
 
 export interface LoginResponseMulti {
-  accessToken: null;
   person: { id: string; cpf: string; name: string; email: string | null };
   organizations: Array<{
     id: string;
@@ -38,8 +35,6 @@ export interface LoginResponseMulti {
 export type LoginResponse = LoginResponseSingle | LoginResponseMulti;
 
 export interface SelectOrgResponse {
-  accessToken: string;
-  refreshToken: string;
   person: { id: string; cpf: string; name: string; email: string | null };
   organization: Clinic;
   role: User['role'];
