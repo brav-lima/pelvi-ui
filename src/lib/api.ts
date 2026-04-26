@@ -10,6 +10,7 @@ import type {
   Appointment,
   AppointmentStatus,
   Anamnesis,
+  PerinealAssessment,
   Evolution,
   FinancialRecord,
   FinancialSummary,
@@ -191,6 +192,16 @@ export const anamnesisApi = {
     api.post<Anamnesis>('/anamneses', data),
   update: (id: string, data: { data: Record<string, unknown> }) =>
     api.patch<Anamnesis>(`/anamneses/${id}`, data),
+};
+
+export const perinealAssessmentsApi = {
+  list: (patientId: string) =>
+    api.get<PerinealAssessment[]>(`/perineal-assessments?patientId=${patientId}`),
+  getById: (id: string) => api.get<PerinealAssessment>(`/perineal-assessments/${id}`),
+  create: (data: { patientId: string; data: Record<string, unknown> }) =>
+    api.post<PerinealAssessment>('/perineal-assessments', data),
+  update: (id: string, data: { data: Record<string, unknown> }) =>
+    api.patch<PerinealAssessment>(`/perineal-assessments/${id}`, data),
 };
 
 export const evolutionsApi = {
