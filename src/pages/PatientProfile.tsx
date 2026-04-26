@@ -25,8 +25,9 @@ import {
   ScrollText,
   DollarSign,
   ClipboardList,
+  Stethoscope,
 } from 'lucide-react';
-import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi, treatmentPackagesApi, financialApi } from '@/lib/api';
+import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi, treatmentPackagesApi, financialApi, perinealAssessmentsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,10 +35,11 @@ import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
+import { PerinealAssessmentWizard } from '@/components/perineal-assessment/PerinealAssessmentWizard';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
 import { AiAnalysisButton } from '@/components/ai/AiAnalysisDialog';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
-import type { Anamnesis, AppointmentStatus, TreatmentPackage, FinancialRecord } from '@/types/clinic';
+import type { Anamnesis, AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment } from '@/types/clinic';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +62,8 @@ export default function PatientProfile() {
   const [editingAnamnesis, setEditingAnamnesis] = useState<Anamnesis | undefined>();
   const [packageOpen, setPackageOpen] = useState(false);
   const [cancelingPackage, setCancelingPackage] = useState<TreatmentPackage | null>(null);
+  const [perinealOpen, setPerinealOpen] = useState(false);
+  const [editingPerineal, setEditingPerineal] = useState<PerinealAssessment | undefined>();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -98,11 +102,18 @@ export default function PatientProfile() {
     enabled: !!id,
   });
 
+  const { data: perinealAssessments = [] } = useQuery({
+    queryKey: ['patient-perineal-assessments', id],
+    queryFn: () => perinealAssessmentsApi.list(id!),
+    enabled: !!id,
+  });
+
   type TimelineItem =
     | { kind: 'appointment'; date: Date; data: (typeof appointments)[number] }
     | { kind: 'evaluation'; date: Date; data: Anamnesis }
     | { kind: 'evolution'; date: Date; data: (typeof evolutions)[number] }
-    | { kind: 'financial'; date: Date; data: FinancialRecord };
+    | { kind: 'financial'; date: Date; data: FinancialRecord }
+    | { kind: 'perineal-assessment'; date: Date; data: PerinealAssessment };
 
   const timelineItems = useMemo((): TimelineItem[] => {
     const items: TimelineItem[] = [
@@ -110,9 +121,10 @@ export default function PatientProfile() {
       ...anamneses.map((a) => ({ kind: 'evaluation' as const, date: new Date(a.createdAt), data: a })),
       ...evolutions.map((e) => ({ kind: 'evolution' as const, date: new Date(e.createdAt), data: e })),
       ...patientFinancial.map((f) => ({ kind: 'financial' as const, date: new Date(f.createdAt), data: f })),
+      ...perinealAssessments.map((p) => ({ kind: 'perineal-assessment' as const, date: new Date(p.createdAt), data: p })),
     ];
     return items.sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [appointments, anamneses, evolutions, patientFinancial]);
+  }, [appointments, anamneses, evolutions, patientFinancial, perinealAssessments]);
 
   const cancelPackageMutation = useMutation({
     mutationFn: (pkgId: string) =>
@@ -191,6 +203,25 @@ export default function PatientProfile() {
   const openEditAnamnesis = (anamnesis: Anamnesis) => {
     setEditingAnamnesis(anamnesis);
     setAnamnesisOpen(true);
+  };
+
+  const openCreatePerineal = () => {
+    setEditingPerineal(undefined);
+    setPerinealOpen(true);
+  };
+
+  const openEditPerineal = (assessment: PerinealAssessment) => {
+    setEditingPerineal(assessment);
+    setPerinealOpen(true);
+  };
+
+  const perinealPreview = (a: PerinealAssessment): string => {
+    const data = a.data as Record<string, unknown> | undefined;
+    const diag = data?.diagnostico as { classificacoes?: string[] } | undefined;
+    if (diag?.classificacoes && diag.classificacoes.length > 0) {
+      return diag.classificacoes.join(' • ');
+    }
+    return 'Avaliação registrada';
   };
 
   return (
@@ -316,6 +347,10 @@ export default function PatientProfile() {
                   <ClipboardList className="w-4 h-4" />
                   Avaliação
                 </TabsTrigger>
+                <TabsTrigger value="perineal-assessment" className="gap-2">
+                  <Stethoscope className="w-4 h-4" />
+                  Avaliação Perineal
+                </TabsTrigger>
                 <TabsTrigger value="evolutions" className="gap-2">
                   <TrendingUp className="w-4 h-4" />
                   Evoluções
@@ -392,6 +427,31 @@ export default function PatientProfile() {
                                   {preview && <p className="text-sm text-muted-foreground">{preview}</p>}
                                   {ev.professional?.person?.name && (
                                     <p className="text-xs text-muted-foreground">{ev.professional.person.name}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          if (item.kind === 'perineal-assessment') {
+                            const pa = item.data;
+                            const preview = perinealPreview(pa);
+                            return (
+                              <div key={`pa-${pa.id}`} className="relative pl-10">
+                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-cyan-500 border-2 border-background" />
+                                <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400">
+                                      <Stethoscope className="w-3 h-3" />
+                                      Avaliação Perineal
+                                    </span>
+                                    <span className="text-sm font-semibold text-foreground">
+                                      {format(item.date, 'dd/MM/yyyy')}
+                                    </span>
+                                  </div>
+                                  {preview && <p className="text-sm text-muted-foreground line-clamp-2">{preview}</p>}
+                                  {pa.professional?.person?.name && (
+                                    <p className="text-xs text-muted-foreground">{pa.professional.person.name}</p>
                                   )}
                                 </div>
                               </div>
@@ -617,6 +677,54 @@ export default function PatientProfile() {
               </Card>
             </TabsContent>
 
+            {/* === Perineal Assessment Tab === */}
+            <TabsContent value="perineal-assessment" className="mt-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Avaliações Perineais</CardTitle>
+                  <Button size="sm" onClick={openCreatePerineal}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Avaliação Perineal
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {perinealAssessments.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Nenhuma avaliação perineal registrada
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {perinealAssessments.map((assessment) => (
+                        <div
+                          key={assessment.id}
+                          className="border border-border rounded-lg p-4 flex items-center justify-between gap-4"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-md bg-cyan-100 dark:bg-cyan-900/30 shrink-0">
+                              <Stethoscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm">
+                                {format(new Date(assessment.createdAt), 'dd/MM/yyyy')}
+                                {assessment.professional?.person?.name && ` • ${assessment.professional.person.name}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {perinealPreview(assessment)}
+                              </p>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => openEditPerineal(assessment)}>
+                            <Edit className="w-4 h-4 mr-1" />
+                            Editar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* === Evolutions Tab === */}
             <TabsContent value="evolutions" className="mt-4">
               <Card>
@@ -793,6 +901,17 @@ export default function PatientProfile() {
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-anamneses', id] })}
           patientId={id}
           anamnesis={editingAnamnesis}
+        />
+      )}
+
+      {/* Create/Edit Perineal Assessment Wizard */}
+      {id && (
+        <PerinealAssessmentWizard
+          open={perinealOpen}
+          onOpenChange={setPerinealOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-perineal-assessments', id] })}
+          patientId={id}
+          assessment={editingPerineal}
         />
       )}
 
