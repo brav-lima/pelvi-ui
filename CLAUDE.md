@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CareFlow (careflow-ui) is a **multi-tenant clinic management system** (Clinic Scheduler) — a monorepo with a React frontend and NestJS backend. The UI is in Brazilian Portuguese. Full product spec lives in `docs/project-overview.md`.
+Pelvi (pelvi-ui) is a **multi-tenant clinic management system** (Clinic Scheduler) — a monorepo with a React frontend and NestJS backend. The UI is in Brazilian Portuguese. Full product spec lives in `docs/project-overview.md`.
 
 - **Frontend** (`/`) — React + TypeScript + Vite SPA (port 8080)
 - **Backend** (`/server`) — NestJS + Prisma + PostgreSQL API (port 3000)
 - **Database**: Neon (serverless PostgreSQL) with branch-based environments
-- **Deployment**: Railway (two services: `careflow-api` + `careflow-web`)
+- **Deployment**: Railway (two services: `pelvi-api` + `pelvi-web`)
 - **Package manager**: Bun (both frontend and backend)
 
 ### Domain Context
@@ -411,13 +411,13 @@ $transaction: jest.fn((ops) => Promise.all(ops))
 
 Two services deployed from the same monorepo on Railway:
 
-### Backend (`careflow-api`)
+### Backend (`pelvi-api`)
 - **Root directory**: `server`
 - **Builder**: Railpack (auto-detects NestJS)
 - **Config**: `server/railway.toml` — build command: `bun install && bunx prisma generate && bun run build`, start: `node dist/main`
 - **Env vars**: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`
 
-### Frontend (`careflow-web`)
+### Frontend (`pelvi-web`)
 - **Root directory**: `/` (repo root)
 - **Builder**: Dockerfile (`Dockerfile` at root)
 - **Stack**: Multi-stage build → Nginx serving static SPA
@@ -465,8 +465,8 @@ Test credentials (all use password `123456`):
 Backend env vars (`server/.env.dev`, `server/.env.prod`, Railway):
 - `DATABASE_URL` — Neon PostgreSQL connection string (use direct URL, not pooled, for migrations)
 - `JWT_SECRET` — JWT signing secret
-- `CORS_ORIGIN` — Comma-separated allowed origins (e.g., `https://careflow-web.up.railway.app,http://localhost:8080`)
+- `CORS_ORIGIN` — Comma-separated allowed origins (e.g., `https://pelvi-web.up.railway.app,http://localhost:8080`)
 - `PORT` — Server port (Railway sets this automatically)
 
 Frontend env vars (build-time only):
-- `VITE_API_URL` — Backend API base URL (e.g., `https://careflow-api.up.railway.app`). Defaults to `http://localhost:3000`.
+- `VITE_API_URL` — Backend API base URL (e.g., `https://pelvi-api.up.railway.app`). Defaults to `http://localhost:3000`.

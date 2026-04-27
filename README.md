@@ -1,4 +1,4 @@
-# CareFlow
+# Pelvi
 
 Sistema de gestao para clinicas de saude (fisioterapia, psicologia, medicina). Multi-tenant, com agenda, prontuario, financeiro e controle de acesso por perfil.
 
@@ -31,8 +31,8 @@ Sistema de gestao para clinicas de saude (fisioterapia, psicologia, medicina). M
 
 ```bash
 # Clonar o repositorio
-git clone https://github.com/brav999/careflow-ui.git
-cd careflow-ui
+git clone https://github.com/brav-lima/pelvi-ui.git
+cd pelvi-ui
 
 # Instalar dependencias (frontend + backend)
 bun install
@@ -107,8 +107,8 @@ Todas usam senha `123456`:
 
 Dois servicos no Railway a partir do mesmo monorepo:
 
-- **careflow-api** — NestJS, builder Railpack, root `/server`
-- **careflow-web** — Nginx servindo SPA, builder Dockerfile, root `/`
+- **pelvi-api** — NestJS, builder Railpack, root `/server`
+- **pelvi-web** — Nginx servindo SPA, builder Dockerfile, root `/`
 
 ## Documentacao
 

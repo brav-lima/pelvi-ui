@@ -115,7 +115,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* Tabular numerals — alinha valores em tabelas (Financeiro, CPF, datas) */
+  table,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 

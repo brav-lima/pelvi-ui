@@ -118,13 +118,13 @@ export default function Settings() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Para alterar seu plano ou obter suporte, entre em contato com a equipe CareFlow.
+                Para alterar seu plano ou obter suporte, entre em contato com a equipe Pelvi.
               </p>
               <a
-                href="mailto:suporte@careflow.com.br"
+                href="mailto:suporte@soupelvi.com.br"
                 className="mt-3 inline-block text-sm text-primary hover:underline"
               >
-                suporte@careflow.com.br
+                suporte@soupelvi.com.br
               </a>
             </CardContent>
           </Card>

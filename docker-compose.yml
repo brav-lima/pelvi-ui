@@ -1,17 +1,17 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: careflow-db
+    container_name: pelvi-db
     environment:
-      POSTGRES_DB: careflow
-      POSTGRES_USER: careflow
-      POSTGRES_PASSWORD: careflow
+      POSTGRES_DB: pelvi
+      POSTGRES_USER: pelvi
+      POSTGRES_PASSWORD: pelvi
     ports:
       - "5432:5432"
     volumes:
-      - careflow-db-data:/var/lib/postgresql/data
+      - pelvi-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U careflow -d careflow"]
+      test: ["CMD-SHELL", "pg_isready -U pelvi -d pelvi"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,12 +19,12 @@ services:
   api:
     build:
       context: ./server
-    container_name: careflow-api
+    container_name: pelvi-api
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://careflow:careflow@careflow-db:5432/careflow
+      DATABASE_URL: postgresql://pelvi:pelvi@pelvi-db:5432/pelvi
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       CORS_ORIGIN: http://localhost:8080
@@ -38,7 +38,7 @@ services:
       context: .
       args:
         VITE_API_URL: http://localhost:3000
-    container_name: careflow-web
+    container_name: pelvi-web
     depends_on:
       - api
     ports:
@@ -46,17 +46,17 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: careflow-pgadmin
+    container_name: pelvi-pgadmin
     depends_on:
       - db
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@careflow.com
+      PGADMIN_DEFAULT_EMAIL: admin@soupelvi.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
     volumes:
-      - careflow-pgadmin-data:/var/lib/pgadmin
+      - pelvi-pgadmin-data:/var/lib/pgadmin
 
 volumes:
-  careflow-db-data:
-  careflow-pgadmin-data:
+  pelvi-db-data:
+  pelvi-pgadmin-data:
