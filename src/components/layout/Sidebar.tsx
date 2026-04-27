@@ -71,7 +71,7 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
           </div>
           {!isCollapsed && (
             <span className="font-semibold text-sidebar-foreground text-lg">
-              CareFlow
+              Pelvi
             </span>
           )}
         </div>

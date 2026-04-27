@@ -45,7 +45,7 @@ export default function Login() {
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
             <Stethoscope className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">CareFlow</h1>
+          <h1 className="text-2xl font-bold text-foreground">Pelvi</h1>
           <p className="text-muted-foreground mt-1">Sistema de Gestão de Clínicas</p>
         </div>
 
@@ -112,7 +112,7 @@ export default function Login() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © 2024 CareFlow. Todos os direitos reservados.
+          © 2024 Pelvi. Todos os direitos reservados.
         </p>
       </div>
     </div>

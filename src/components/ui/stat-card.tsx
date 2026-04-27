@@ -22,7 +22,7 @@ export function StatCard({ title, value, description, icon: Icon, trend, classNa
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-foreground">{value}</p>
+              <p className="text-3xl font-bold text-foreground tabular-nums">{value}</p>
               {trend && (
                 <span
                   className={cn(

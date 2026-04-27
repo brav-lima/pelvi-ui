@@ -454,7 +454,7 @@ export default function Agenda() {
                     )}
                   >
                     <p className={cn(
-                      'text-sm font-medium mb-1',
+                      'text-sm font-medium mb-1 tabular-nums',
                       isToday && 'text-primary font-bold',
                       !isCurrentMonth && 'text-muted-foreground',
                     )}>
@@ -511,7 +511,7 @@ export default function Agenda() {
                         <p className="text-xs text-muted-foreground uppercase">
                           {format(d, 'EEE', { locale: ptBR })}
                         </p>
-                        <p className={cn('text-lg font-semibold mt-1', isSameDay(d, new Date()) && 'text-primary')}>
+                        <p className={cn('text-lg font-semibold mt-1 tabular-nums', isSameDay(d, new Date()) && 'text-primary')}>
                           {format(d, 'dd')}
                         </p>
                       </div>
@@ -525,7 +525,7 @@ export default function Agenda() {
                       {hourLabels.map(({ label, top }) => (
                         <div
                           key={label}
-                          className="absolute right-0 pr-2 text-xs text-muted-foreground -translate-y-1/2"
+                          className="absolute right-0 pr-2 text-xs text-muted-foreground -translate-y-1/2 tabular-nums"
                           style={{ top }}
                         >
                           {label}

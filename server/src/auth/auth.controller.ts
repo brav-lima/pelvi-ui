@@ -24,7 +24,7 @@ import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { JwtPayload } from './strategies/jwt.strategy';
 import { ACCESS_COOKIE_NAME } from './strategies/jwt.strategy';
 
-const REFRESH_COOKIE_NAME = 'careflow_refresh_token';
+const REFRESH_COOKIE_NAME = 'pelvi_refresh_token';
 const REFRESH_COOKIE_PATH = '/api/auth';
 const ACCESS_TOKEN_MAX_AGE_MS = 15 * 60 * 1000;
 const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

@@ -12,7 +12,7 @@ export interface JwtRefreshPayload {
   type: 'refresh';
 }
 
-export const REFRESH_COOKIE_NAME = 'careflow_refresh_token';
+export const REFRESH_COOKIE_NAME = 'pelvi_refresh_token';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {

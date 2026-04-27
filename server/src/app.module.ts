@@ -10,6 +10,7 @@ import { ProfessionalModule } from './professional/professional.module';
 import { ProcedureModule } from './procedure/procedure.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { AnamnesisModule } from './anamnesis/anamnesis.module';
+import { PerinealAssessmentModule } from './perineal-assessment/perineal-assessment.module';
 import { EvolutionModule } from './evolution/evolution.module';
 import { FinancialModule } from './financial/financial.module';
 import { AuditModule } from './audit/audit.module';
@@ -42,6 +43,7 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     ProcedureModule,
     AppointmentModule,
     AnamnesisModule,
+    PerinealAssessmentModule,
     EvolutionModule,
     FinancialModule,
     AuditModule,

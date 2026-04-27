@@ -147,6 +147,18 @@ export interface Anamnesis {
   professional?: { id: string; person: { name: string } };
 }
 
+export interface PerinealAssessment {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  professionalId: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  patient?: { id: string; name: string };
+  professional?: { id: string; person: { name: string } };
+}
+
 export interface Evolution {
   id: string;
   organizationId: string;

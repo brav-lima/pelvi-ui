@@ -27,11 +27,11 @@ FROM nginx:alpine
 ARG APP_VERSION=dev
 ARG GIT_SHA=unknown
 ARG BUILT_AT=unknown
-LABEL org.opencontainers.image.title="careflow-web" \
+LABEL org.opencontainers.image.title="pelvi-web" \
       org.opencontainers.image.version=$APP_VERSION \
       org.opencontainers.image.revision=$GIT_SHA \
       org.opencontainers.image.created=$BUILT_AT \
-      org.opencontainers.image.source="https://github.com/brav-lima/careflow-ui"
+      org.opencontainers.image.source="https://github.com/brav-lima/pelvi-ui"
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html

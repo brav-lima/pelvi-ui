@@ -10,7 +10,7 @@ export interface JwtPayload {
   role: string;
 }
 
-export const ACCESS_COOKIE_NAME = 'careflow_access_token';
+export const ACCESS_COOKIE_NAME = 'pelvi_access_token';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {

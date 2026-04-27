@@ -121,7 +121,7 @@ export default {
         shimmer: "shimmer 2s infinite",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ['"Plus Jakarta Sans"', "Inter", "system-ui", "sans-serif"],
       },
     },
   },

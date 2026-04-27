@@ -31,7 +31,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('CareFlow API')
+    .setTitle('Pelvi API')
     .setDescription('API do sistema de gestão de clínicas')
     .setVersion('1.0')
     .addBearerAuth()

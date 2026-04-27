@@ -26,7 +26,7 @@ export class AccessStatusMiddleware implements NestMiddleware {
 
         if (org?.accessStatus === 'BLOCKED') {
           throw new ForbiddenException(
-            'Acesso suspenso. Entre em contato com o suporte CareFlow.',
+            'Acesso suspenso. Entre em contato com o suporte Pelvi.',
           )
         }
       }
