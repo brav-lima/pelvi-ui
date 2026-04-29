@@ -82,9 +82,7 @@ export default function Settings() {
                 {data?.accessStatus === 'BLOCKED' ? (
                   <Badge variant="destructive">Suspenso</Badge>
                 ) : (
-                  <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
-                    Ativo
-                  </Badge>
+                  <Badge variant="soft-success">Ativo</Badge>
                 )}
               </div>
 

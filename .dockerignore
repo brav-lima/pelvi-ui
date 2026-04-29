@@ -1,5 +1,9 @@
 node_modules
 dist
+storybook-static
+.storybook
+src/stories
+**/*.stories.@(ts|tsx|js|jsx|mdx)
 .git
 .gitignore
 *.md

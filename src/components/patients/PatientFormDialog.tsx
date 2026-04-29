@@ -170,9 +170,14 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
           {/* Nome */}
           <div className="space-y-2">
             <Label htmlFor="name">Nome *</Label>
-            <Input id="name" {...form.register('name')} />
+            <Input
+              id="name"
+              error={!!form.formState.errors.name}
+              aria-describedby={form.formState.errors.name ? 'name-error' : undefined}
+              {...form.register('name')}
+            />
             {form.formState.errors.name && (
-              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+              <p id="name-error" className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
 
@@ -197,9 +202,15 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...form.register('email')} />
+              <Input
+                id="email"
+                type="email"
+                error={!!form.formState.errors.email}
+                aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
+                {...form.register('email')}
+              />
               {form.formState.errors.email && (
-                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+                <p id="email-error" className="text-sm text-destructive">{form.formState.errors.email.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -300,14 +311,13 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
             <Textarea id="notes" rows={3} {...form.register('notes')} />
           </div>
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button type="submit" loading={loading}>
               {isEditing ? 'Salvar' : 'Cadastrar'}
             </Button>
           </DialogFooter>

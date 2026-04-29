@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { professionalsApi } from '@/lib/api';
 import type { Professional } from '@/types/clinic';
@@ -78,8 +77,7 @@ export function ProfessionalEditDialog({ open, onOpenChange, onSuccess, professi
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          <Button onClick={handleSubmit} loading={loading}>
             Salvar
           </Button>
         </DialogFooter>

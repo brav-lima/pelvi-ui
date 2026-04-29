@@ -12,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authApi, ApiError } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -132,17 +131,28 @@ function ProfileForm({
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
       <div className="space-y-2">
         <Label htmlFor="profile-name">Nome</Label>
-        <Input id="profile-name" {...form.register('name')} />
+        <Input
+          id="profile-name"
+          error={!!form.formState.errors.name}
+          aria-describedby={form.formState.errors.name ? 'profile-name-error' : undefined}
+          {...form.register('name')}
+        />
         {form.formState.errors.name && (
-          <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+          <p id="profile-name-error" className="text-sm text-destructive">{form.formState.errors.name.message}</p>
         )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="profile-email">Email</Label>
-        <Input id="profile-email" type="email" {...form.register('email')} />
+        <Input
+          id="profile-email"
+          type="email"
+          error={!!form.formState.errors.email}
+          aria-describedby={form.formState.errors.email ? 'profile-email-error' : undefined}
+          {...form.register('email')}
+        />
         {form.formState.errors.email && (
-          <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+          <p id="profile-email-error" className="text-sm text-destructive">{form.formState.errors.email.message}</p>
         )}
       </div>
 
@@ -157,8 +167,7 @@ function ProfileForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        <Button type="submit" loading={loading}>
           Salvar
         </Button>
       </div>
@@ -202,31 +211,51 @@ function PasswordForm({ onSuccess }: { onSuccess: () => void }) {
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
       <div className="space-y-2">
         <Label htmlFor="current-password">Senha Atual</Label>
-        <Input id="current-password" type="password" {...form.register('currentPassword')} />
+        <Input
+          id="current-password"
+          type="password"
+          autoComplete="current-password"
+          error={!!form.formState.errors.currentPassword}
+          aria-describedby={form.formState.errors.currentPassword ? 'current-password-error' : undefined}
+          {...form.register('currentPassword')}
+        />
         {form.formState.errors.currentPassword && (
-          <p className="text-sm text-destructive">{form.formState.errors.currentPassword.message}</p>
+          <p id="current-password-error" className="text-sm text-destructive">{form.formState.errors.currentPassword.message}</p>
         )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="new-password">Nova Senha</Label>
-        <Input id="new-password" type="password" {...form.register('newPassword')} />
+        <Input
+          id="new-password"
+          type="password"
+          autoComplete="new-password"
+          error={!!form.formState.errors.newPassword}
+          aria-describedby={form.formState.errors.newPassword ? 'new-password-error' : undefined}
+          {...form.register('newPassword')}
+        />
         {form.formState.errors.newPassword && (
-          <p className="text-sm text-destructive">{form.formState.errors.newPassword.message}</p>
+          <p id="new-password-error" className="text-sm text-destructive">{form.formState.errors.newPassword.message}</p>
         )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-        <Input id="confirm-password" type="password" {...form.register('confirmPassword')} />
+        <Input
+          id="confirm-password"
+          type="password"
+          autoComplete="new-password"
+          error={!!form.formState.errors.confirmPassword}
+          aria-describedby={form.formState.errors.confirmPassword ? 'confirm-password-error' : undefined}
+          {...form.register('confirmPassword')}
+        />
         {form.formState.errors.confirmPassword && (
-          <p className="text-sm text-destructive">{form.formState.errors.confirmPassword.message}</p>
+          <p id="confirm-password-error" className="text-sm text-destructive">{form.formState.errors.confirmPassword.message}</p>
         )}
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        <Button type="submit" loading={loading}>
           Alterar Senha
         </Button>
       </div>

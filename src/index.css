@@ -43,6 +43,21 @@
 
     --radius: 0.625rem;
 
+    /* Elevação — quatro camadas: 1 inset/sutíl, 2 card, 3 popover/dropdown, 4 modal */
+    --shadow-1: 0 1px 2px 0 hsl(220 20% 10% / 0.04);
+    --shadow-2: 0 1px 3px 0 hsl(220 20% 10% / 0.06), 0 1px 2px -1px hsl(220 20% 10% / 0.06);
+    --shadow-3: 0 4px 6px -1px hsl(220 20% 10% / 0.08), 0 2px 4px -2px hsl(220 20% 10% / 0.06);
+    --shadow-4: 0 10px 25px -5px hsl(220 20% 10% / 0.12), 0 8px 10px -6px hsl(220 20% 10% / 0.08);
+
+    /* Motion — durações */
+    --duration-fast: 150ms;
+    --duration-base: 200ms;
+    --duration-slow: 300ms;
+
+    /* Motion — easings */
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 20% 30%;
     --sidebar-primary: 173 58% 39%;
@@ -105,6 +120,18 @@
     --sidebar-accent-foreground: 173 50% 70%;
     --sidebar-border: 220 15% 18%;
     --sidebar-ring: 173 58% 45%;
+
+    --chart-1: 173 58% 55%;
+    --chart-2: 199 75% 55%;
+    --chart-3: 142 60% 55%;
+    --chart-4: 38 80% 55%;
+    --chart-5: 280 55% 65%;
+
+    /* Sombras com mais opacidade para compensar o fundo escuro */
+    --shadow-1: 0 1px 2px 0 hsl(0 0% 0% / 0.30);
+    --shadow-2: 0 1px 3px 0 hsl(0 0% 0% / 0.40), 0 1px 2px -1px hsl(0 0% 0% / 0.30);
+    --shadow-3: 0 4px 6px -1px hsl(0 0% 0% / 0.45), 0 2px 4px -2px hsl(0 0% 0% / 0.35);
+    --shadow-4: 0 10px 25px -5px hsl(0 0% 0% / 0.55), 0 8px 10px -6px hsl(0 0% 0% / 0.40);
   }
 }
 

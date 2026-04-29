@@ -2,10 +2,11 @@ import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import storybook from "eslint-plugin-storybook";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "server", ".claude"] },
+  { ignores: ["dist", "storybook-static", "server", ".claude"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -32,4 +33,6 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
+  // Storybook stories: enforce best practices via eslint-plugin-storybook
+  ...storybook.configs["flat/recommended"],
 );

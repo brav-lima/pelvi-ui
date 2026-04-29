@@ -97,7 +97,7 @@ export function AiAnalysisButton({ patientId, patientName }: Props) {
             <div className="flex justify-end pt-3 border-t">
               <Button variant="outline" size="sm" onClick={handleCopy}>
                 {copied ? (
-                  <><Check className="w-4 h-4 mr-2 text-green-500" />Copiado</>
+                  <><Check className="w-4 h-4 mr-2 text-success" />Copiado</>
                 ) : (
                   <><Copy className="w-4 h-4 mr-2" />Copiar análise</>
                 )}

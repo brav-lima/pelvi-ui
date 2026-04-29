@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
@@ -162,7 +161,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label>Paciente *</Label>
+            <Label htmlFor="apt-patient">Paciente *</Label>
             <Select
               value={form.watch('patientId') || ''}
               onValueChange={(v) => {
@@ -171,7 +170,11 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
                 form.setValue('procedureId', '');
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger
+                id="apt-patient"
+                error={!!form.formState.errors.patientId}
+                aria-describedby={form.formState.errors.patientId ? 'apt-patient-error' : undefined}
+              >
                 <SelectValue placeholder="Selecione um paciente" />
               </SelectTrigger>
               <SelectContent>
@@ -181,17 +184,21 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
               </SelectContent>
             </Select>
             {form.formState.errors.patientId && (
-              <p className="text-sm text-destructive">{form.formState.errors.patientId.message}</p>
+              <p id="apt-patient-error" className="text-sm text-destructive">{form.formState.errors.patientId.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label>Profissional *</Label>
+            <Label htmlFor="apt-professional">Profissional *</Label>
             <Select
               value={form.watch('professionalId') || ''}
               onValueChange={(v) => form.setValue('professionalId', v, { shouldValidate: true })}
             >
-              <SelectTrigger>
+              <SelectTrigger
+                id="apt-professional"
+                error={!!form.formState.errors.professionalId}
+                aria-describedby={form.formState.errors.professionalId ? 'apt-professional-error' : undefined}
+              >
                 <SelectValue placeholder="Selecione um profissional" />
               </SelectTrigger>
               <SelectContent>
@@ -201,7 +208,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
               </SelectContent>
             </Select>
             {form.formState.errors.professionalId && (
-              <p className="text-sm text-destructive">{form.formState.errors.professionalId.message}</p>
+              <p id="apt-professional-error" className="text-sm text-destructive">{form.formState.errors.professionalId.message}</p>
             )}
           </div>
 
@@ -232,12 +239,16 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           )}
 
           <div className="space-y-2">
-            <Label>Procedimento *</Label>
+            <Label htmlFor="apt-procedure">Procedimento *</Label>
             <Select
               value={form.watch('procedureId') || ''}
               onValueChange={(v) => form.setValue('procedureId', v, { shouldValidate: true })}
             >
-              <SelectTrigger>
+              <SelectTrigger
+                id="apt-procedure"
+                error={!!form.formState.errors.procedureId}
+                aria-describedby={form.formState.errors.procedureId ? 'apt-procedure-error' : undefined}
+              >
                 <SelectValue placeholder="Selecione um procedimento" />
               </SelectTrigger>
               <SelectContent>
@@ -249,26 +260,36 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
               </SelectContent>
             </Select>
             {form.formState.errors.procedureId && (
-              <p className="text-sm text-destructive">{form.formState.errors.procedureId.message}</p>
+              <p id="apt-procedure-error" className="text-sm text-destructive">{form.formState.errors.procedureId.message}</p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Data *</Label>
-              <Input id="date" type="date" {...form.register('date')} />
+              <Input
+                id="date"
+                type="date"
+                error={!!form.formState.errors.date}
+                aria-describedby={form.formState.errors.date ? 'date-error' : undefined}
+                {...form.register('date')}
+              />
               {form.formState.errors.date && (
-                <p className="text-sm text-destructive">{form.formState.errors.date.message}</p>
+                <p id="date-error" className="text-sm text-destructive">{form.formState.errors.date.message}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Horário *</Label>
+              <Label htmlFor="apt-time">Horário *</Label>
               <Select
                 value={form.watch('time') || ''}
                 onValueChange={(v) => form.setValue('time', v, { shouldValidate: true })}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  id="apt-time"
+                  error={!!form.formState.errors.time}
+                  aria-describedby={form.formState.errors.time ? 'apt-time-error' : undefined}
+                >
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
@@ -278,7 +299,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
                 </SelectContent>
               </Select>
               {form.formState.errors.time && (
-                <p className="text-sm text-destructive">{form.formState.errors.time.message}</p>
+                <p id="apt-time-error" className="text-sm text-destructive">{form.formState.errors.time.message}</p>
               )}
             </div>
           </div>
@@ -288,14 +309,13 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             <Textarea id="notes" rows={3} placeholder="Observações sobre a consulta..." {...form.register('notes')} />
           </div>
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button type="submit" loading={loading}>
               Agendar
             </Button>
           </DialogFooter>
