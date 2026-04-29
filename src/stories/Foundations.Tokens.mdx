@@ -1,0 +1,47 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Tokens" />
+
+# Tokens
+
+Source of truth: [`docs/design-system.md`](https://github.com/) e `src/index.css`.
+
+Use sempre os tokens semânticos — nunca cores Tailwind hardcoded (`bg-blue-500`, `text-emerald-600`).
+
+## Cores
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "16px", margin: "24px 0" }}>
+  {[
+    "background", "foreground", "card", "card-foreground",
+    "primary", "primary-foreground", "accent", "accent-foreground",
+    "secondary", "secondary-foreground", "muted", "muted-foreground",
+    "border", "input", "ring", "popover",
+    "destructive", "destructive-foreground",
+    "success", "success-foreground",
+    "warning", "warning-foreground",
+    "info", "info-foreground",
+    "chart-1", "chart-2", "chart-3", "chart-4", "chart-5",
+  ].map((name) => (
+    <div key={name} style={{ border: "1px solid hsl(var(--border))", borderRadius: 10, overflow: "hidden", background: "hsl(var(--card))" }}>
+      <div style={{ height: 80, background: `hsl(var(--${name}))` }} />
+      <div style={{ padding: "8px 12px", fontSize: 12, color: "hsl(var(--card-foreground))" }}>
+        <div style={{ fontWeight: 600 }}>{name}</div>
+        <div style={{ color: "hsl(var(--muted-foreground))" }}>--{name}</div>
+      </div>
+    </div>
+  ))}
+</div>
+
+Use a barra de tema (toolbar > Theme) para alternar entre Light e Dark.
+
+## Tipografia
+
+A família primária é **Plus Jakarta Sans**. Veja a story `Foundations/Typography`.
+
+## Spacing & Radius
+
+Veja `Foundations/Spacing` e `Foundations/Radius`.
+
+## Elevação
+
+Tokens `shadow-1..4`. Use `shadow-1` em Card, `shadow-3` em Popover/Dropdown, `shadow-4` em Modal/Sheet.
