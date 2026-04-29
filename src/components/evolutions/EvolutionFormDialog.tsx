@@ -13,7 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { evolutionsApi } from '@/lib/api';
 
@@ -79,21 +78,22 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId }
               id="description"
               rows={8}
               placeholder="Descreva a evolução clínica do paciente..."
+              error={!!form.formState.errors.description}
+              aria-describedby={form.formState.errors.description ? 'evo-desc-error' : undefined}
               {...form.register('description')}
             />
             {form.formState.errors.description && (
-              <p className="text-sm text-destructive">{form.formState.errors.description.message}</p>
+              <p id="evo-desc-error" className="text-sm text-destructive">{form.formState.errors.description.message}</p>
             )}
           </div>
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button type="submit" loading={loading}>
               Registrar
             </Button>
           </DialogFooter>

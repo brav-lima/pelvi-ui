@@ -57,7 +57,7 @@ export default function Login() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="space-y-2">
                 <Label htmlFor="cpf">CPF</Label>
                 <Input
@@ -67,7 +67,10 @@ export default function Login() {
                   value={cpf}
                   onChange={(e) => setCpf(maskCPF(e.target.value))}
                   required
+                  error={!!error}
+                  aria-describedby={error ? 'login-error' : undefined}
                   className="h-11"
+                  autoComplete="username"
                 />
               </div>
 
@@ -81,12 +84,16 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    error={!!error}
+                    aria-describedby={error ? 'login-error' : undefined}
                     className="h-11 pr-10"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -94,10 +101,10 @@ export default function Login() {
               </div>
 
               {error && (
-                <p className="text-sm text-destructive text-center">{error}</p>
+                <p id="login-error" role="alert" className="text-sm text-destructive text-center">{error}</p>
               )}
 
-              <Button type="submit" className="w-full h-11" disabled={loading}>
+              <Button type="submit" className="w-full h-11" loading={loading}>
                 {loading ? 'Entrando...' : 'Entrar'}
               </Button>
 

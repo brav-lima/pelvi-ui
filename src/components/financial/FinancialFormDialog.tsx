@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { financialApi, patientsApi } from '@/lib/api';
 import { maskCurrency, parseCurrency, formatCurrency } from '@/lib/formatters';
@@ -189,9 +188,13 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
                 placeholder="0,00"
                 value={form.watch('amount') || ''}
                 onChange={(e) => form.setValue('amount', maskCurrency(e.target.value), { shouldValidate: true })}
+                error={!!form.formState.errors.amount}
+                aria-describedby={form.formState.errors.amount ? 'amount-error' : undefined}
+                inputMode="decimal"
+                className="tabular-nums"
               />
               {form.formState.errors.amount && (
-                <p className="text-sm text-destructive">{form.formState.errors.amount.message}</p>
+                <p id="amount-error" className="text-sm text-destructive">{form.formState.errors.amount.message}</p>
               )}
             </div>
 
@@ -328,14 +331,13 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
             </div>
           )}
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button type="submit" loading={loading}>
               {isInstallment ? `Registrar ${watchInstallments}x` : 'Registrar'}
             </Button>
           </DialogFooter>

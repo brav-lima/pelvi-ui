@@ -51,6 +51,22 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+/**
+ * Paleta de categorias da timeline e do listing de avaliação perineal.
+ * Mapeia cada tipo de evento para um token `chart-X` (que tem variantes
+ * light + dark definidas em src/index.css).
+ *
+ * IMPORTANTE: Tailwind precisa enxergar as classes como literais em tempo
+ * de build. Mantenha as strings completas — não construa via template.
+ */
+const TIMELINE_CATEGORY = {
+  appointment: { dot: 'bg-chart-2', pill: 'bg-chart-2/10 text-chart-2 border-chart-2/20' },
+  evaluation:  { dot: 'bg-chart-5', pill: 'bg-chart-5/10 text-chart-5 border-chart-5/20' },
+  perineal:    { dot: 'bg-chart-1', pill: 'bg-chart-1/10 text-chart-1 border-chart-1/20', avatar: 'bg-chart-1/10 text-chart-1' },
+  evolution:   { dot: 'bg-chart-3', pill: 'bg-chart-3/10 text-chart-3 border-chart-3/20' },
+  financial:   { dot: 'bg-chart-4', pill: 'bg-chart-4/10 text-chart-4 border-chart-4/20' },
+} as const;
+
 export default function PatientProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -382,10 +398,10 @@ export default function PatientProfile() {
                             const apt = item.data;
                             return (
                               <div key={`apt-${apt.id}`} className="relative pl-10">
-                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-background" />
+                                <div className={`absolute left-2.5 w-3 h-3 rounded-full ${TIMELINE_CATEGORY.appointment.dot} border-2 border-background`} />
                                 <div className="p-3 rounded-lg bg-muted/50 space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${TIMELINE_CATEGORY.appointment.pill}`}>
                                       <Calendar className="w-3 h-3" />
                                       Consulta
                                     </span>
@@ -413,10 +429,10 @@ export default function PatientProfile() {
                               : '';
                             return (
                               <div key={`eval-${ev.id}`} className="relative pl-10">
-                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-purple-500 border-2 border-background" />
+                                <div className={`absolute left-2.5 w-3 h-3 rounded-full ${TIMELINE_CATEGORY.evaluation.dot} border-2 border-background`} />
                                 <div className="p-3 rounded-lg bg-muted/50 space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${TIMELINE_CATEGORY.evaluation.pill}`}>
                                       <ClipboardList className="w-3 h-3" />
                                       Avaliação
                                     </span>
@@ -438,10 +454,10 @@ export default function PatientProfile() {
                             const preview = perinealPreview(pa);
                             return (
                               <div key={`pa-${pa.id}`} className="relative pl-10">
-                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-cyan-500 border-2 border-background" />
+                                <div className={`absolute left-2.5 w-3 h-3 rounded-full ${TIMELINE_CATEGORY.perineal.dot} border-2 border-background`} />
                                 <div className="p-3 rounded-lg bg-muted/50 space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400">
+                                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${TIMELINE_CATEGORY.perineal.pill}`}>
                                       <Stethoscope className="w-3 h-3" />
                                       Avaliação Perineal
                                     </span>
@@ -462,10 +478,10 @@ export default function PatientProfile() {
                             const evo = item.data;
                             return (
                               <div key={`evo-${evo.id}`} className="relative pl-10">
-                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-green-500 border-2 border-background" />
+                                <div className={`absolute left-2.5 w-3 h-3 rounded-full ${TIMELINE_CATEGORY.evolution.dot} border-2 border-background`} />
                                 <div className="p-3 rounded-lg bg-muted/50 space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${TIMELINE_CATEGORY.evolution.pill}`}>
                                       <TrendingUp className="w-3 h-3" />
                                       Evolução
                                     </span>
@@ -487,10 +503,10 @@ export default function PatientProfile() {
                             const isIncome = fin.type === 'INCOME';
                             return (
                               <div key={`fin-${fin.id}`} className="relative pl-10">
-                                <div className="absolute left-2.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-background" />
+                                <div className={`absolute left-2.5 w-3 h-3 rounded-full ${TIMELINE_CATEGORY.financial.dot} border-2 border-background`} />
                                 <div className="p-3 rounded-lg bg-muted/50 space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${TIMELINE_CATEGORY.financial.pill}`}>
                                       <DollarSign className="w-3 h-3" />
                                       {isIncome ? 'Receita' : 'Despesa'}
                                     </span>
@@ -700,8 +716,8 @@ export default function PatientProfile() {
                           className="border border-border rounded-lg p-4 flex items-center justify-between gap-4"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-md bg-cyan-100 dark:bg-cyan-900/30 shrink-0">
-                              <Stethoscope className="w-5 h-5 text-cyan-700 dark:text-cyan-400" />
+                            <div className={`flex items-center justify-center w-10 h-10 rounded-md ${TIMELINE_CATEGORY.perineal.avatar} shrink-0`}>
+                              <Stethoscope className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
                               <p className="font-medium text-sm">

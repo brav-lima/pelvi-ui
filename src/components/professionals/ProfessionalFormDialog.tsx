@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { personsApi, professionalsApi, ApiError } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -107,9 +106,15 @@ export function ProfessionalFormDialog({ open, onOpenChange, onSuccess }: Profes
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="prof-name">Nome *</Label>
-            <Input id="prof-name" placeholder="Nome completo" {...form.register('name')} />
+            <Input
+              id="prof-name"
+              placeholder="Nome completo"
+              error={!!form.formState.errors.name}
+              aria-describedby={form.formState.errors.name ? 'prof-name-error' : undefined}
+              {...form.register('name')}
+            />
             {form.formState.errors.name && (
-              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+              <p id="prof-name-error" className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
 
@@ -121,9 +126,13 @@ export function ProfessionalFormDialog({ open, onOpenChange, onSuccess }: Profes
                 placeholder="000.000.000-00"
                 value={form.watch('cpf') || ''}
                 onChange={(e) => form.setValue('cpf', maskCPF(e.target.value), { shouldValidate: true })}
+                error={!!form.formState.errors.cpf}
+                aria-describedby={form.formState.errors.cpf ? 'prof-cpf-error' : undefined}
+                inputMode="numeric"
+                className="tabular-nums"
               />
               {form.formState.errors.cpf && (
-                <p className="text-sm text-destructive">{form.formState.errors.cpf.message}</p>
+                <p id="prof-cpf-error" className="text-sm text-destructive">{form.formState.errors.cpf.message}</p>
               )}
             </div>
 
@@ -140,28 +149,47 @@ export function ProfessionalFormDialog({ open, onOpenChange, onSuccess }: Profes
 
           <div className="space-y-2">
             <Label htmlFor="prof-email">Email *</Label>
-            <Input id="prof-email" type="email" placeholder="email@exemplo.com" {...form.register('email')} />
+            <Input
+              id="prof-email"
+              type="email"
+              placeholder="email@exemplo.com"
+              error={!!form.formState.errors.email}
+              aria-describedby={form.formState.errors.email ? 'prof-email-error' : undefined}
+              {...form.register('email')}
+            />
             {form.formState.errors.email && (
-              <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+              <p id="prof-email-error" className="text-sm text-destructive">{form.formState.errors.email.message}</p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="prof-password">Senha *</Label>
-              <Input id="prof-password" type="password" placeholder="Mínimo 6 caracteres" {...form.register('password')} />
+              <Input
+                id="prof-password"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                error={!!form.formState.errors.password}
+                aria-describedby={form.formState.errors.password ? 'prof-password-error' : undefined}
+                autoComplete="new-password"
+                {...form.register('password')}
+              />
               {form.formState.errors.password && (
-                <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+                <p id="prof-password-error" className="text-sm text-destructive">{form.formState.errors.password.message}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label>Cargo *</Label>
+              <Label htmlFor="prof-role">Cargo *</Label>
               <Select
                 value={form.watch('role') || ''}
                 onValueChange={(v) => form.setValue('role', v, { shouldValidate: true })}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  id="prof-role"
+                  error={!!form.formState.errors.role}
+                  aria-describedby={form.formState.errors.role ? 'prof-role-error' : undefined}
+                >
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
@@ -171,7 +199,7 @@ export function ProfessionalFormDialog({ open, onOpenChange, onSuccess }: Profes
                 </SelectContent>
               </Select>
               {form.formState.errors.role && (
-                <p className="text-sm text-destructive">{form.formState.errors.role.message}</p>
+                <p id="prof-role-error" className="text-sm text-destructive">{form.formState.errors.role.message}</p>
               )}
             </div>
           </div>
@@ -180,8 +208,7 @@ export function ProfessionalFormDialog({ open, onOpenChange, onSuccess }: Profes
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button type="submit" loading={loading}>
               Cadastrar
             </Button>
           </DialogFooter>

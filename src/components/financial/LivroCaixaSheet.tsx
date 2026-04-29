@@ -201,11 +201,11 @@ export function LivroCaixaSheet({ open, onOpenChange, initialYear }: LivroCaixaS
 
           {!isLoading && records.length > 0 && (
             <div className="flex items-center gap-3 ml-auto text-xs tabular-nums">
-              <span className="text-emerald-600">+R$ {formatCurrency(yearPaidIncome)}</span>
+              <span className="text-success">+R$ {formatCurrency(yearPaidIncome)}</span>
               <span className="text-muted-foreground">·</span>
-              <span className="text-rose-600">−R$ {formatCurrency(yearPaidExpenses)}</span>
+              <span className="text-destructive">−R$ {formatCurrency(yearPaidExpenses)}</span>
               <span className="text-muted-foreground">·</span>
-              <span className={`font-semibold ${yearBalance >= 0 ? 'text-foreground' : 'text-rose-600'}`}>
+              <span className={`font-semibold ${yearBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                 = R$ {formatCurrency(yearBalance)}
               </span>
             </div>
@@ -232,7 +232,7 @@ export function LivroCaixaSheet({ open, onOpenChange, initialYear }: LivroCaixaS
                 <span className="text-xs font-bold uppercase tracking-widest">{month.label}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   Saldo anterior:{' '}
-                  <span className={`font-semibold ${month.openingBalance >= 0 ? 'text-foreground' : 'text-rose-600'}`}>
+                  <span className={`font-semibold ${month.openingBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                     R$ {formatCurrency(month.openingBalance)}
                   </span>
                 </span>
@@ -260,11 +260,11 @@ export function LivroCaixaSheet({ open, onOpenChange, initialYear }: LivroCaixaS
                     >
                       {/* Type icon */}
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                        record.type === 'INCOME' ? 'bg-emerald-500/10' : 'bg-rose-500/10'
+                        record.type === 'INCOME' ? 'bg-success/10' : 'bg-destructive/10'
                       }`}>
                         {record.type === 'INCOME'
-                          ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
-                          : <ArrowDownRight className="w-3.5 h-3.5 text-rose-500" />
+                          ? <ArrowUpRight className="w-3.5 h-3.5 text-success" />
+                          : <ArrowDownRight className="w-3.5 h-3.5 text-destructive" />
                         }
                       </div>
 
@@ -298,7 +298,7 @@ export function LivroCaixaSheet({ open, onOpenChange, initialYear }: LivroCaixaS
                       {/* Amount + running balance */}
                       <div className="text-right shrink-0 tabular-nums">
                         <p className={`text-sm font-semibold leading-tight ${
-                          record.type === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'
+                          record.type === 'INCOME' ? 'text-success' : 'text-destructive'
                         }`}>
                           {record.type === 'INCOME' ? '+' : '−'}R$ {formatCurrency(record.amount)}
                         </p>
@@ -317,13 +317,13 @@ export function LivroCaixaSheet({ open, onOpenChange, initialYear }: LivroCaixaS
               {/* Month footer */}
               <div className="px-6 py-3 bg-muted/20 border-b-2 border-border space-y-1.5">
                 <div className="flex items-center justify-between text-xs tabular-nums">
-                  <span className="text-emerald-600">
+                  <span className="text-success">
                     Entradas: +R$ {formatCurrency(month.paidIncome)}
                   </span>
-                  <span className="text-rose-600">
+                  <span className="text-destructive">
                     Saídas: −R$ {formatCurrency(month.paidExpenses)}
                   </span>
-                  <span className={`font-bold ${month.closingBalance >= 0 ? 'text-foreground' : 'text-rose-600'}`}>
+                  <span className={`font-bold ${month.closingBalance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                     Saldo: R$ {formatCurrency(month.closingBalance)}
                   </span>
                 </div>

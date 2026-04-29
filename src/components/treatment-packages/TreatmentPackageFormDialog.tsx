@@ -23,7 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { treatmentPackagesApi, proceduresApi } from '@/lib/api';
 import { maskCurrency, parseCurrency, formatCurrency } from '@/lib/formatters';
@@ -169,10 +168,12 @@ export function TreatmentPackageFormDialog({
             <Input
               id="pkg-name"
               placeholder="Ex: 10 Sessões de Fisioterapia"
+              error={!!form.formState.errors.name}
+              aria-describedby={form.formState.errors.name ? 'pkg-name-error' : undefined}
               {...form.register('name')}
             />
             {form.formState.errors.name && (
-              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+              <p id="pkg-name-error" className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
 
@@ -212,10 +213,14 @@ export function TreatmentPackageFormDialog({
                 id="totalSessions"
                 type="number"
                 min={1}
+                error={!!form.formState.errors.totalSessions}
+                aria-describedby={form.formState.errors.totalSessions ? 'pkg-sessions-error' : undefined}
+                inputMode="numeric"
+                className="tabular-nums"
                 {...form.register('totalSessions', { valueAsNumber: true })}
               />
               {form.formState.errors.totalSessions && (
-                <p className="text-sm text-destructive">{form.formState.errors.totalSessions.message}</p>
+                <p id="pkg-sessions-error" className="text-sm text-destructive">{form.formState.errors.totalSessions.message}</p>
               )}
             </div>
 
@@ -228,9 +233,13 @@ export function TreatmentPackageFormDialog({
                 onChange={(e) =>
                   form.setValue('totalPrice', maskCurrency(e.target.value), { shouldValidate: true })
                 }
+                error={!!form.formState.errors.totalPrice}
+                aria-describedby={form.formState.errors.totalPrice ? 'pkg-price-error' : undefined}
+                inputMode="decimal"
+                className="tabular-nums"
               />
               {form.formState.errors.totalPrice && (
-                <p className="text-sm text-destructive">{form.formState.errors.totalPrice.message}</p>
+                <p id="pkg-price-error" className="text-sm text-destructive">{form.formState.errors.totalPrice.message}</p>
               )}
             </div>
           </div>
@@ -318,14 +327,13 @@ export function TreatmentPackageFormDialog({
             />
           </div>
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button type="submit" loading={loading}>
               {isInstallment ? `Criar Pacote (${watchInstallments}x)` : 'Criar Pacote'}
             </Button>
           </DialogFooter>

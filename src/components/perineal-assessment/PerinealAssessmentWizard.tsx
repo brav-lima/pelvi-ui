@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { perinealAssessmentsApi } from '@/lib/api';
 import type { PerinealAssessment } from '@/types/clinic';
@@ -163,8 +163,7 @@ export function PerinealAssessmentWizard({
                 </Button>
               )}
               {isLast && (
-                <Button type="submit" disabled={loading}>
-                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                <Button type="submit" loading={loading}>
                   {isEditing ? 'Salvar alterações' : 'Registrar avaliação'}
                 </Button>
               )}

@@ -1,39 +1,69 @@
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import type {
+  AppointmentStatus,
+  FinancialStatus,
+  FinancialType,
+  TreatmentPackageStatus,
+} from '@/types/clinic';
+
+/**
+ * Union de todos os status de domínio aceitos pelo StatusBadge.
+ * Adicionar um novo status ao backend? Inclua-o no type union do domínio
+ * (em src/types/clinic.ts) e adicione a entrada correspondente em
+ * `STATUS_MAP` aqui — o TS vai cobrar isso em compile-time.
+ */
+export type DomainStatus =
+  | AppointmentStatus
+  | FinancialStatus
+  | FinancialType
+  | TreatmentPackageStatus;
+
+type StatusVariant =
+  | 'soft-info'
+  | 'soft-success'
+  | 'soft-warning'
+  | 'soft-destructive'
+  | 'soft-muted';
+
+interface StatusConfig {
+  label: string;
+  variant: StatusVariant;
+}
+
+// Single source of truth — colisões entre domínios são resolvidas aqui
+// (CANCELED é compartilhado entre Appointment e TreatmentPackage; o label é o mesmo).
+const STATUS_MAP: Record<DomainStatus, StatusConfig> = {
+  // Appointment
+  SCHEDULED: { label: 'Agendado',   variant: 'soft-info' },
+  CONFIRMED: { label: 'Confirmado', variant: 'soft-success' },
+  CANCELED:  { label: 'Cancelado',  variant: 'soft-destructive' },
+  DONE:      { label: 'Concluído',  variant: 'soft-muted' },
+
+  // Treatment package
+  ACTIVE:    { label: 'Ativo',      variant: 'soft-success' },
+  COMPLETED: { label: 'Concluído',  variant: 'soft-muted' },
+
+  // Financial status
+  PENDING:   { label: 'Pendente',   variant: 'soft-warning' },
+  PAID:      { label: 'Pago',       variant: 'soft-success' },
+
+  // Financial type
+  INCOME:    { label: 'Receita',    variant: 'soft-success' },
+  EXPENSE:   { label: 'Despesa',    variant: 'soft-destructive' },
+};
 
 interface StatusBadgeProps {
-  status: string;
+  status: DomainStatus;
   className?: string;
 }
 
-const statusConfig: Record<string, { label: string; style: string }> = {
-  // Appointment statuses (uppercase from backend)
-  SCHEDULED: { label: 'Agendado', style: 'status-scheduled' },
-  CONFIRMED: { label: 'Confirmado', style: 'status-confirmed' },
-  CANCELED: { label: 'Cancelado', style: 'status-canceled' },
-  DONE: { label: 'Concluido', style: 'status-done' },
-  // Treatment package statuses
-  ACTIVE: { label: 'Ativo', style: 'status-confirmed' },
-  COMPLETED: { label: 'Concluído', style: 'status-done' },
-  // Financial statuses
-  PENDING: { label: 'Pendente', style: 'status-pending' },
-  PAID: { label: 'Pago', style: 'status-confirmed' },
-  // Financial types
-  INCOME: { label: 'Receita', style: 'status-confirmed' },
-  EXPENSE: { label: 'Despesa', style: 'status-canceled' },
-};
-
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status] || { label: status, style: '' };
+  const config = STATUS_MAP[status];
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-        config.style,
-        className,
-      )}
-    >
+    <Badge variant={config.variant} className={cn(className)}>
       {config.label}
-    </span>
+    </Badge>
   );
 }

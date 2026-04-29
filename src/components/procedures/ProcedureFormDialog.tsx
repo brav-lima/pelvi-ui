@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { proceduresApi } from '@/lib/api';
 import { maskCurrency, parseCurrency, formatCurrency } from '@/lib/formatters';
@@ -98,20 +97,30 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome *</Label>
-            <Input id="name" placeholder="Ex: Consulta Inicial" {...form.register('name')} />
+            <Input
+              id="name"
+              placeholder="Ex: Consulta Inicial"
+              error={!!form.formState.errors.name}
+              aria-describedby={form.formState.errors.name ? 'proc-name-error' : undefined}
+              {...form.register('name')}
+            />
             {form.formState.errors.name && (
-              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+              <p id="proc-name-error" className="text-sm text-destructive">{form.formState.errors.name.message}</p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Duração *</Label>
+              <Label htmlFor="proc-duration">Duração *</Label>
               <Select
                 value={form.watch('durationMinutes') || ''}
                 onValueChange={(v) => form.setValue('durationMinutes', v, { shouldValidate: true })}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  id="proc-duration"
+                  error={!!form.formState.errors.durationMinutes}
+                  aria-describedby={form.formState.errors.durationMinutes ? 'proc-duration-error' : undefined}
+                >
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
@@ -124,7 +133,7 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
                 </SelectContent>
               </Select>
               {form.formState.errors.durationMinutes && (
-                <p className="text-sm text-destructive">{form.formState.errors.durationMinutes.message}</p>
+                <p id="proc-duration-error" className="text-sm text-destructive">{form.formState.errors.durationMinutes.message}</p>
               )}
             </div>
 
@@ -135,21 +144,24 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
                 placeholder="0,00"
                 value={form.watch('price') || ''}
                 onChange={(e) => form.setValue('price', maskCurrency(e.target.value), { shouldValidate: true })}
+                error={!!form.formState.errors.price}
+                aria-describedby={form.formState.errors.price ? 'proc-price-error' : undefined}
+                inputMode="decimal"
+                className="tabular-nums"
               />
               {form.formState.errors.price && (
-                <p className="text-sm text-destructive">{form.formState.errors.price.message}</p>
+                <p id="proc-price-error" className="text-sm text-destructive">{form.formState.errors.price.message}</p>
               )}
             </div>
           </div>
 
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button type="submit" loading={loading}>
               {isEditing ? 'Salvar' : 'Cadastrar'}
             </Button>
           </DialogFooter>

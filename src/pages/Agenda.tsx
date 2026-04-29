@@ -463,22 +463,22 @@ export default function Agenda() {
                     {dayAppts.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {scheduled > 0 && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-info/20 border-info/30 text-info">
+                          <Badge variant="soft-info" className="text-[10px] px-1 py-0 h-4 tabular-nums">
                             {scheduled}
                           </Badge>
                         )}
                         {confirmed > 0 && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-success/20 border-success/30 text-success">
+                          <Badge variant="soft-success" className="text-[10px] px-1 py-0 h-4 tabular-nums">
                             {confirmed}
                           </Badge>
                         )}
                         {done > 0 && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-muted border-border text-muted-foreground">
+                          <Badge variant="soft-muted" className="text-[10px] px-1 py-0 h-4 tabular-nums">
                             {done}
                           </Badge>
                         )}
                         {canceled > 0 && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-destructive/20 border-destructive/30 text-destructive">
+                          <Badge variant="soft-destructive" className="text-[10px] px-1 py-0 h-4 tabular-nums">
                             {canceled}
                           </Badge>
                         )}
