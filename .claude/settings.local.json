@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"getGenerativeModel\\\\|generateContent\\\\|GenerateContentResponse\" server/node_modules/@google/genai/dist/*.d.ts)",
+      "Bash(bunx node:*)",
+      "Bash(bun install:*)",
+      "Bash(bun -e \"import { GoogleGenAI } from '@google/genai'; const ai = new GoogleGenAI\\({apiKey:'x'}\\); console.log\\(Object.keys\\(ai\\)\\); console.log\\('models.generateContent:', typeof ai.models?.generateContent\\); console.log\\('getGenerativeModel:', typeof ai.getGenerativeModel\\);\")",
+      "Read(//c/Users/bravi/AppData/Roaming/npm/**)",
+      "Read(//c/Users/bravi/.bun/**)",
+      "Bash(powershell.exe -Command 'Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter '\\\\''claude*'\\\\'' -ErrorAction SilentlyContinue -Depth 4 | Select-Object FullName')",
+      "Bash(npm list:*)",
+      "Bash(bun pm:*)",
+      "Bash(gh issue *)"
+    ]
+  }
+}

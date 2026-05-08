@@ -6,7 +6,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo "${YELLOW}▶ Lint...${NC}"
-if ! bun run lint --quiet; then
+if ! bun run --cwd frontend lint --quiet; then
   echo "${RED}✗ Lint falhou. Corrija os erros antes de commitar.${NC}"
   exit 1
 fi
@@ -14,7 +14,7 @@ echo "${GREEN}✓ Lint OK${NC}"
 echo ""
 
 echo "${YELLOW}▶ Testes...${NC}"
-if ! bun run test; then
+if ! bun run --cwd frontend test; then
   echo "${RED}✗ Testes falharam. Corrija antes de commitar.${NC}"
   exit 1
 fi

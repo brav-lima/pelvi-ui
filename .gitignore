@@ -13,9 +13,10 @@ dist-ssr
 storybook-static
 *.local
 
-# Server
-server/dist
-server/generated
+# Backend
+backend/dist
+backend/generated
+backend/coverage
 .env
 .env.local
 
