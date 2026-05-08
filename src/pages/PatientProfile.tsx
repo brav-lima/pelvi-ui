@@ -37,7 +37,6 @@ import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
 import { PerinealAssessmentWizard } from '@/components/perineal-assessment/PerinealAssessmentWizard';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
-import { AiAnalysisButton } from '@/components/ai/AiAnalysisDialog';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { Anamnesis, AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment } from '@/types/clinic';
 import {
@@ -251,7 +250,6 @@ export default function PatientProfile() {
           description={patient.cpf ? `CPF: ${formatCPFMasked(patient.cpf)}` : undefined}
           actions={
             <div className="flex items-center gap-2">
-              <AiAnalysisButton patientId={id!} patientName={patient.name} />
               <Button variant="outline" onClick={() => setEditOpen(true)}>
                 <Edit className="w-4 h-4 mr-2" />
                 Editar
