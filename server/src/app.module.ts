@@ -17,7 +17,6 @@ import { AuditModule } from './audit/audit.module';
 import { TreatmentPackageModule } from './treatment-package/treatment-package.module';
 import { HealthModule } from './health/health.module';
 import { InternalModule } from './internal/internal.module';
-import { AiModule } from './ai/ai.module';
 import { VersionModule } from './version/version.module';
 import { AccessStatusMiddleware } from './auth/middleware/access-status.middleware';
 
@@ -50,7 +49,6 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     TreatmentPackageModule,
     HealthModule,
     InternalModule,
-    AiModule,
     VersionModule,
   ],
 })

@@ -271,8 +271,3 @@ export const financialApi = {
 export const organizationApi = {
   getPlanUsage: () => api.get<PlanUsage>('/organizations/me/plan'),
 };
-
-export const aiApi = {
-  analyzePatient: (patientId: string) =>
-    api.post<{ analysis: string }>(`/ai/patient-analysis/${patientId}`, {}),
-};
