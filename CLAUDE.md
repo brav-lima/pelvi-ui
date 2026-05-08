@@ -114,7 +114,7 @@ Routes are defined in `src/App.tsx`. All pages are lazy-loaded via `React.lazy()
 
 ### State Management
 
-- **Auth state**: React Context (`src/contexts/AuthContext.tsx`) — `useAuth()` hook. Real JWT auth via `src/lib/api.ts`. Token persisted in `localStorage`. Session restoration on mount via `GET /api/auth/me`. `logout()` clears token + state. "Trocar Clinica" calls logout + navigates to `/login`.
+- **Auth state**: React Context (`src/contexts/AuthContext.tsx`) — `useAuth()` hook. Auth via httpOnly cookies (JWT access token + refresh token). Session restoration on mount via `GET /api/auth/me`. `logout()` calls `POST /api/auth/logout` (clears cookies server-side) + clears React state. "Trocar Clinica" calls logout + navigates to `/login`.
 - **Theme state**: React Context (`src/contexts/ThemeContext.tsx`) — light/dark toggle
 - **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query. Module-specific API clients in `src/lib/api.ts`.
 - **Component state**: local `useState`
@@ -123,8 +123,9 @@ Routes are defined in `src/App.tsx`. All pages are lazy-loaded via `React.lazy()
 ### API Client (`src/lib/api.ts`)
 
 Centralized HTTP client with:
-- `getToken()` / `setToken()` / `removeToken()` — JWT persistence in localStorage
-- Generic `request<T>()` — auto-injects Bearer token, handles errors
+- `request<T>()` — sends `credentials: 'include'` on every request (cookies travel automatically), no manual token injection
+- 401 interceptor: calls `tryRefreshToken()` (deduped via `refreshInFlight` promise) then retries once; if refresh fails, dispatches `auth:logout` event and throws
+- `tryRefreshToken()` — `POST /api/auth/refresh` with `credentials: 'include'`; skipped for `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/select-organization`
 - `ApiError` class with status code
 - `api` object with `get`, `post`, `patch`, `delete` methods
 - `queryString()` helper for URL params
