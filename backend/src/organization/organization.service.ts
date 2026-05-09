@@ -22,7 +22,7 @@ export class OrganizationService {
   async create(dto: CreateOrganizationDto) {
     if (dto.cnpj) {
       const existing = await this.prisma.organization.findUnique({
-        where: { cnpj: dto.cnpj },
+        where: { document: dto.cnpj },
       });
       if (existing) {
         throw new ConflictException('CNPJ já cadastrado');
@@ -32,7 +32,7 @@ export class OrganizationService {
     return this.prisma.organization.create({
       data: {
         name: dto.name,
-        cnpj: dto.cnpj,
+        document: dto.cnpj,
         settings: dto.settings as Prisma.InputJsonValue | undefined,
       },
     });
@@ -61,7 +61,7 @@ export class OrganizationService {
 
     if (dto.cnpj) {
       const existing = await this.prisma.organization.findFirst({
-        where: { cnpj: dto.cnpj, NOT: { id } },
+        where: { document: dto.cnpj, NOT: { id } },
       });
       if (existing) {
         throw new ConflictException('CNPJ já cadastrado');
@@ -72,7 +72,7 @@ export class OrganizationService {
       where: { id },
       data: {
         name: dto.name,
-        cnpj: dto.cnpj,
+        document: dto.cnpj,
         settings: dto.settings as Prisma.InputJsonValue | undefined,
       },
     });

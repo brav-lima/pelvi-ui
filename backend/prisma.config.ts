@@ -10,8 +10,9 @@ export default defineConfig({
     path: "prisma/migrations",
     seed: "bun prisma/seed.ts",
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   datasource: {
     url: process.env["DATABASE_URL"],
     directUrl: process.env["DIRECT_URL"],
-  },
+  } as any,
 });

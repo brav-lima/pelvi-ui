@@ -8,21 +8,21 @@ async function main() {
 
   // ── Organizations ──
   const clinicA = await prisma.organization.upsert({
-    where: { cnpj: '12345678000100' },
+    where: { document: '12345678000100' },
     update: {},
     create: {
       name: 'Clínica Bem Estar',
-      cnpj: '12345678000100',
+      document: '12345678000100',
       settings: { timezone: 'America/Sao_Paulo' },
     },
   });
 
   const clinicB = await prisma.organization.upsert({
-    where: { cnpj: '98765432000100' },
+    where: { document: '98765432000100' },
     update: {},
     create: {
       name: 'Centro de Fisioterapia Saúde',
-      cnpj: '98765432000100',
+      document: '98765432000100',
       settings: { timezone: 'America/Sao_Paulo' },
     },
   });
