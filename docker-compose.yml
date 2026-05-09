@@ -1,5 +1,5 @@
 services:
-  db:
+  postgres:
     image: postgres:16-alpine
     container_name: pelvi-db
     environment:
@@ -9,26 +9,28 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pelvi-db-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pelvi -d pelvi"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
 
   api:
     build:
       context: ./backend
-    container_name: pelvi-api
+    container_name: pelvi-core-api
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://pelvi:pelvi@pelvi-db:5432/pelvi
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://pelvi:pelvi@postgres:5432/pelvi}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://pelvi:pelvi@postgres:5432/pelvi}
+      JWT_SECRET: ${JWT_SECRET:-clinic-dev-jwt-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-clinic-dev-refresh-secret-change-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-shared-internal-api-key-change-me-min-32-chars}
       CORS_ORIGIN: http://localhost:8080
-      NODE_ENV: prod
+      NODE_ENV: dev
       PORT: 3000
     ports:
       - "3000:3000"
@@ -44,19 +46,5 @@ services:
     ports:
       - "8080:80"
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: pelvi-pgadmin
-    depends_on:
-      - db
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@soupelvi.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    volumes:
-      - pelvi-pgadmin-data:/var/lib/pgadmin
-
 volumes:
-  pelvi-db-data:
-  pelvi-pgadmin-data:
+  postgres_data:

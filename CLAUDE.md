@@ -4,89 +4,91 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pelvi (pelvi-ui) is a **multi-tenant clinic management system** (Clinic Scheduler) — a monorepo with a React frontend and NestJS backend. The UI is in Brazilian Portuguese. Full product spec lives in `docs/project-overview.md`.
+Pelvi (pelvi-ui) is a **multi-tenant clinic management system** — a monorepo with a React frontend and NestJS backend. The UI is in Brazilian Portuguese. Full product spec lives in `docs/project-overview.md`.
 
-- **Frontend** (`/`) — React + TypeScript + Vite SPA (port 8080)
-- **Backend** (`/server`) — NestJS + Prisma + PostgreSQL API (port 3000)
+- **Frontend** (`frontend/`) — React + TypeScript + Vite SPA (port 8080)
+- **Backend** (`backend/`) — NestJS + Prisma + PostgreSQL API (port 3000)
 - **Database**: Neon (serverless PostgreSQL) with branch-based environments
 - **Deployment**: Railway (two services: `pelvi-api` + `pelvi-web`)
 - **Package manager**: Bun (both frontend and backend)
 
 ### Domain Context
 
-The system targets small/medium clinics (physiotherapy, psychology, medical) with these core modules:
+Targets small/medium clinics (physiotherapy, psychology, medical) with these modules:
 
 - **Authentication** — Login via CPF + password. One CPF can be linked to multiple clinics (multi-tenant). After login, user selects clinic context (or auto-enters if only one).
 - **Agenda** — Clinic schedule with day/week/month views. Duration-proportional blocks, drag-and-drop rescheduling (@dnd-kit), per-professional filter. Statuses: SCHEDULED, CONFIRMED, CANCELED, DONE.
-- **Patients** — Per-clinic patient registry with profile containing basic data, appointment history, anamnesis, and evolutions. Paginated listing with server-side search. Card/list toggle view.
+- **Patients** — Per-clinic patient registry with profile containing basic data, appointment history, anamnesis, evolutions, perineal assessments, and treatment packages. Paginated listing with server-side search. Card/list toggle view.
 - **Professionals** — Staff management with roles (ADMIN, PROFESSIONAL, RECEPTIONIST). Card/list toggle view.
 - **Procedures** — Clinic services with name, durationMinutes, price, active/inactive toggle. Card/list toggle view.
 - **Anamnesis** — Free-form JSON patient records (flexible structure per clinic).
 - **Evolutions** — Continuous clinical evolution notes displayed as a timeline.
+- **Perineal Assessment** — Multi-step wizard (6 steps) for perineal/pelvic floor clinical evaluation. Flexible JSON data stored per assessment.
+- **Treatment Packages** — Named packages of procedures with session tracking (totalSessions / usedSessions). Statuses: ACTIVE, COMPLETED, CANCELED.
 - **Financial** — Income/expense tracking linked to patients and appointments. Monthly summary with totals. "Dar baixa" (mark as paid) inline. Statuses: PENDING, PAID.
 
 ### Multi-Tenant Model
 
-Data is isolated by `organization_id` (clinic). The conceptual domain model (see `docs/project-overview.md` section 5) uses:
+Data is isolated by `organization_id` (clinic). The conceptual domain model uses:
 - `Organization` (clinic) — the tenant
 - `Person` (global, identified by CPF) — linked to clinics via `OrganizationUser` (role + permissions)
 - All other entities (`Patient`, `Appointment`, `Procedure`, etc.) belong to an organization
 
-### Design Principles
-
-- Usability, domain clarity, and evolutionary architecture over premature complexity
-- Backend-authoritative (frontend is a SPA consuming an API)
-- SaaS-ready foundation
-
 ## Commands
 
-### Frontend (from repo root)
+### From repo root
 
 ```bash
-bun run dev           # Start dev server on localhost:8080
-bun run build         # Production build
-bun run lint          # ESLint
-bun run test          # Run tests once (vitest run)
-bun run test:watch    # Run tests in watch mode (vitest)
+bun run frontend:dev    # Start frontend dev server on localhost:8080
+bun run frontend:build  # Frontend production build
+bun run frontend:test   # Frontend tests (vitest run)
+bun run backend:dev     # Start backend on localhost:3000 (watch mode)
+bun run backend:build   # Backend production build
+bun run backend:test    # Backend tests (jest)
+```
+
+### Frontend (from `frontend/`)
+
+```bash
+bun run dev             # Start dev server
+bun run lint            # ESLint
+bun run test            # Run tests once (vitest run)
+bun run test:watch      # Watch mode
+bun run storybook       # Storybook dev server on port 6006
+bun run build-storybook # Build Storybook
 ```
 
 Run a single test file:
 ```bash
-bunx vitest run src/test/example.test.ts
+bunx vitest run src/pages/Login.test.tsx
 ```
 
-### Backend (from repo root)
+### Backend (from `backend/`)
 
 ```bash
-bun run server:dev    # Start dev server on localhost:3000 (watch mode)
-bun run server:build  # Production build
-bun run server:test   # Run tests
+bun run start:dev                                    # NestJS watch mode
+bun run test                                         # Unit tests (jest)
+bun run test:cov                                     # Coverage report
+bun run seed                                         # Seed database
+bunx prisma validate                                 # Validate schema
+bunx prisma migrate dev --name <name>                # Create/apply migration (dev)
+NODE_ENV=prod bunx prisma migrate deploy             # Apply migrations (prod)
+bunx prisma generate                                 # Regenerate Prisma Client
 ```
 
-### Backend (from /server directory)
+### Local dev with Docker Compose
 
 ```bash
-bun run start:dev         # NestJS watch mode
-bun run build             # Compile to dist/
-bun run start:prod        # Run compiled build
-bun run test              # Run unit tests (jest)
-bun run test:e2e          # Run e2e tests
-bunx prisma validate      # Validate schema
-bunx prisma migrate dev --name <name>   # Create/apply migrations (dev)
-NODE_ENV=prod bunx prisma migrate deploy  # Apply migrations (prod)
-bunx prisma generate      # Regenerate Prisma Client
-bunx prisma db seed       # Seed database with fake data
+docker compose up       # Starts postgres + backend + frontend (full stack)
 ```
+
+Uses `docker-compose.yml` at repo root. Requires env vars: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_KEY` (defaults provided for dev).
 
 ---
 
-## Frontend Architecture
+## Frontend Architecture (`frontend/`)
 
-### Integration Status
-
-The frontend is **fully integrated** with the real backend API. There is no mock data — all pages fetch from the NestJS API via `src/lib/api.ts` using TanStack React Query.
-
-### Provider Hierarchy (App.tsx)
+### Provider Hierarchy (`frontend/src/App.tsx`)
 
 ```
 QueryClientProvider (TanStack React Query)
@@ -97,141 +99,117 @@ QueryClientProvider (TanStack React Query)
           → Suspense (lazy-loaded pages with PageLoader fallback)
 ```
 
-### Routing & Code Splitting
-
-Routes are defined in `src/App.tsx`. All pages are lazy-loaded via `React.lazy()` + `Suspense` for code splitting (main bundle ~397KB, pages loaded on demand). Two route groups:
+All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 
 - **Unauthenticated**: `/login`, `/select-clinic` — no layout wrapper
 - **Authenticated**: All other pages wrapped in `MainLayout` — redirects to `/login` if not authenticated, to `/select-clinic` if no clinic selected
 
 ### Layout System
 
-`MainLayout` (`src/components/layout/MainLayout.tsx`) provides the authenticated shell:
+`MainLayout` (`frontend/src/components/layout/MainLayout.tsx`):
 - `Sidebar` — collapsible left nav (desktop), Sheet overlay (mobile < 768px)
 - `TopBar` — clinic info (CNPJ formatted), notifications, theme toggle, user menu (Trocar Clinica, Sair), hamburger menu (mobile)
-- `<Outlet />` — renders the matched child route
-- Responsive: sidebar hidden on mobile, hamburger button in TopBar opens Sheet
 
 ### State Management
 
-- **Auth state**: React Context (`src/contexts/AuthContext.tsx`) — `useAuth()` hook. Auth via httpOnly cookies (JWT access token + refresh token). Session restoration on mount via `GET /api/auth/me`. `logout()` calls `POST /api/auth/logout` (clears cookies server-side) + clears React state. "Trocar Clinica" calls logout + navigates to `/login`.
-- **Theme state**: React Context (`src/contexts/ThemeContext.tsx`) — light/dark toggle
-- **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query. Module-specific API clients in `src/lib/api.ts`.
-- **Component state**: local `useState`
+- **Auth state**: React Context (`frontend/src/contexts/AuthContext.tsx`) — `useAuth()` hook. Auth via httpOnly cookies (JWT access token + refresh token). Session restoration on mount via `GET /api/auth/me`. `logout()` calls `POST /api/auth/logout` (clears cookies server-side) + clears React state.
+- **Theme state**: React Context (`frontend/src/contexts/ThemeContext.tsx`) — light/dark toggle
+- **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query.
 - **View preferences**: Card/list toggle persisted in `localStorage` (`patients-view`, `procedures-view`, `professionals-view`)
 
-### API Client (`src/lib/api.ts`)
+### API Client (`frontend/src/lib/api.ts`)
 
-Centralized HTTP client with:
 - `request<T>()` — sends `credentials: 'include'` on every request (cookies travel automatically), no manual token injection
 - 401 interceptor: calls `tryRefreshToken()` (deduped via `refreshInFlight` promise) then retries once; if refresh fails, dispatches `auth:logout` event and throws
-- `tryRefreshToken()` — `POST /api/auth/refresh` with `credentials: 'include'`; skipped for `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/select-organization`
-- `ApiError` class with status code
-- `api` object with `get`, `post`, `patch`, `delete` methods
-- `queryString()` helper for URL params
-- Module-specific API objects: `authApi`, `patientsApi`, `proceduresApi`, `professionalsApi`, `appointmentsApi`, `anamnesisApi`, `evolutionsApi`, `financialApi`
+- `tryRefreshToken()` — `POST /api/auth/refresh`; skipped for login/refresh/logout/select-organization routes
+- Module-specific API objects: `authApi`, `patientsApi`, `proceduresApi`, `personsApi`, `professionalsApi`, `appointmentsApi`, `anamnesisApi`, `perinealAssessmentsApi`, `evolutionsApi`, `treatmentPackagesApi`, `financialApi`, `organizationApi`
 
 ### Key Directories
 
 | Path | Purpose |
 |------|---------|
-| `src/pages/` | Route page components (one per route, lazy-loaded) |
-| `src/components/ui/` | shadcn/ui components + custom UI primitives |
-| `src/components/layout/` | MainLayout, Sidebar, TopBar |
-| `src/components/patients/` | PatientFormDialog (create/edit patient) |
-| `src/components/appointments/` | AppointmentFormDialog |
-| `src/components/procedures/` | ProcedureFormDialog |
-| `src/components/financial/` | FinancialFormDialog |
-| `src/components/anamnesis/` | AnamnesisFormDialog |
-| `src/components/evolutions/` | EvolutionFormDialog |
-| `src/components/auth/` | RoleGuard, ProtectedRoute, useHasRole |
-| `src/contexts/` | AuthContext, ThemeContext |
-| `src/types/clinic.ts` | All domain type definitions (aligned with backend models) |
-| `src/lib/api.ts` | API client (fetch wrapper + module APIs) |
-| `src/lib/formatters.ts` | Input masks (CPF, phone, currency) + display formatters |
-| `src/hooks/` | Custom hooks (use-mobile, use-toast) |
-| `src/lib/utils.ts` | `cn()` utility for Tailwind class merging |
+| `frontend/src/pages/` | Route page components (one per route, lazy-loaded) |
+| `frontend/src/components/ui/` | shadcn/ui components + custom UI primitives |
+| `frontend/src/components/layout/` | MainLayout, Sidebar, TopBar |
+| `frontend/src/components/perineal-assessment/` | PerinealAssessmentWizard (6-step form), schema, options |
+| `frontend/src/components/treatment-packages/` | TreatmentPackageFormDialog |
+| `frontend/src/components/auth/` | RoleGuard, ProtectedRoute, useHasRole |
+| `frontend/src/contexts/` | AuthContext, ThemeContext |
+| `frontend/src/types/clinic.ts` | All domain type definitions (aligned with backend models) |
+| `frontend/src/lib/api.ts` | API client (fetch wrapper + module APIs) |
+| `frontend/src/lib/formatters.ts` | Input masks (CPF, phone, currency) + display formatters |
 
 ### Pages Overview
 
-| Page | File | Data Source | Features |
-|------|------|-------------|----------|
-| Dashboard | `Dashboard.tsx` | `appointmentsApi`, `patientsApi`, `financialApi` | Stats cards (formatted currency), today's schedule, upcoming appointments |
-| Agenda | `Agenda.tsx` | `appointmentsApi`, `professionalsApi` | Day/week/month views, duration-proportional blocks, drag-and-drop (@dnd-kit), professional filter, status actions, detail modal |
-| Pacientes | `Patients.tsx` | `patientsApi` | Paginated list, server-side search (debounced), card/list toggle (localStorage), CPF/phone formatted, create dialog |
-| Perfil Paciente | `PatientProfile.tsx` | `patientsApi`, `appointmentsApi`, `anamnesisApi`, `evolutionsApi` | Patient info card (formatted CPF/phone), tabs (Consultas, Anamnese, Evolucoes), inline status actions, all create/edit dialogs |
-| Profissionais | `Professionals.tsx` | `professionalsApi` | Card/list toggle (localStorage), avatar, role badge, formatted phone |
-| Procedimentos | `Procedures.tsx` | `proceduresApi` | Card/list toggle (localStorage), active toggle, formatted currency, delete with confirmation |
-| Anamnese | `Anamnesis.tsx` | `patientsApi`, `anamnesisApi` | Patient list (formatted CPF) + anamnesis viewer (flexible JSON rendering), create/edit dialog |
-| Evolucoes | `Evolutions.tsx` | `patientsApi`, `evolutionsApi` | Patient list + evolution timeline, create dialog |
-| Financeiro | `Financial.tsx` | `financialApi` | Stats cards (formatted currency), records table, "dar baixa" (mark as paid) with confirmation, delete with confirmation |
-| Login | `Login.tsx` | `authApi` | CPF with mask (XXX.XXX.XXX-XX), password, handles single/multi-clinic responses |
-| Selecionar Clinica | `SelectClinic.tsx` | `authApi` | Clinic selection for multi-tenant users, formatted CNPJ |
+| Page | File | Notes |
+|------|------|-------|
+| Dashboard | `Dashboard.tsx` | Stats cards, today's schedule, upcoming appointments |
+| Agenda | `Agenda.tsx` | Day/week/month views, drag-and-drop (@dnd-kit), professional filter |
+| Pacientes | `Patients.tsx` | Paginated list, server-side search (debounced), card/list toggle |
+| Perfil Paciente | `PatientProfile.tsx` | Tabs: Consultas, Anamnese, Evolucoes, Avaliação Perineal, Pacotes |
+| Profissionais | `Professionals.tsx` | Card/list toggle, avatar, role badge |
+| Procedimentos | `Procedures.tsx` | Active toggle, formatted currency, delete confirmation |
+| Anamnese | `Anamnesis.tsx` | Patient list + anamnesis viewer (flexible JSON rendering) |
+| Evolucoes | `Evolutions.tsx` | Patient list + evolution timeline |
+| Financeiro | `Financial.tsx` | Stats cards, records table, "dar baixa" inline |
+| Configurações | `Settings.tsx` | Clinic settings (ADMIN only) |
+| Login | `Login.tsx` | CPF mask, handles single/multi-clinic responses |
+| Selecionar Clinica | `SelectClinic.tsx` | Clinic selection for multi-tenant users |
 
 ### UI Components
 
-Uses [shadcn/ui](https://ui.shadcn.com) (default style, CSS variables, slate base color). Config in `components.json`. Add new components via:
+Uses [shadcn/ui](https://ui.shadcn.com) (default style, CSS variables, slate base color). Config in `frontend/components.json`.
 
 ```bash
-bunx shadcn-ui@latest add <component-name>
+cd frontend && bunx shadcn-ui@latest add <component-name>
 ```
 
 Custom UI components beyond shadcn: `page-header`, `stat-card`, `status-badge`, `empty-state`.
 
-### Formatting & Masks (`src/lib/formatters.ts`)
+### Formatting & Masks (`frontend/src/lib/formatters.ts`)
 
-Centralized formatting utilities used across forms and display:
 - **Input masks**: `maskCPF()`, `maskPhone()`, `maskCurrency()` — for controlled inputs
 - **Display formatters**: `formatCPF()`, `formatCNPJ()`, `formatPhone()`, `formatCurrency()` — for rendering
-- **Parse**: `parseCurrency("1.234,56")` → `1234.56` — for converting masked values back to numbers before API calls
+- **Parse**: `parseCurrency("1.234,56")` → `1234.56` — convert masked values back to numbers before API calls
 
-### Role-Based Access (`src/components/auth/`)
+### Role-Based Access (`frontend/src/components/auth/`)
 
 - `<RoleGuard roles={[...]}> ` — renders children only if user has allowed role
 - `useHasRole(...roles)` — boolean hook for inline checks
 - `<ProtectedRoute roles={[...]}> ` — wraps route, redirects to `/dashboard` if unauthorized
 - Rules: ADMIN (full access), PROFESSIONAL (clinical pages), RECEPTIONIST (dashboard, agenda, patients)
 
-### Drag and Drop
-
-`@dnd-kit/core` + `@dnd-kit/utilities` for agenda rescheduling. `DndContext` wraps day/week grid. Draggable appointment cards, droppable time slots. Disabled for CANCELED/DONE appointments.
-
 ### Import Alias
 
-All imports from `src/` use the `@/` path alias (e.g., `import { Button } from '@/components/ui/button'`).
-
-### Styling
-
-- Tailwind CSS with CSS custom properties for theming (defined in `src/index.css`)
-- Dark mode via class strategy (`.dark` on `<html>`)
-- Use `cn()` from `@/lib/utils` for conditional class merging
+All imports from `frontend/src/` use the `@/` path alias.
 
 ### TypeScript Config
 
-Loose mode: `noImplicitAny: false`, `strictNullChecks: false`. See `tsconfig.json`.
+Loose mode: `noImplicitAny: false`, `strictNullChecks: false`. See `frontend/tsconfig.json`.
 
-### Testing
+### Testing (Frontend)
 
 - Vitest + jsdom + @testing-library/react
-- Setup file: `src/test/setup.ts` (imports jest-dom matchers, polyfills `matchMedia`)
+- Setup file: `frontend/src/test/setup.ts`
 - Test globals enabled (no need to import `describe`, `it`, `expect`)
-- Test files: `src/**/*.{test,spec}.{ts,tsx}`
+- Test files: `frontend/src/**/*.{test,spec}.{ts,tsx}`
 
 ### Domain Model (Frontend)
 
-Types in `src/types/clinic.ts`, aligned with backend Prisma models:
+Types in `frontend/src/types/clinic.ts`:
 
 - **Auth types**: `LoginResponseSingle`, `LoginResponseMulti`, `SelectOrgResponse`, `ProfileResponse`
 - **User** — `{ id, name, email, cpf, role }` (roles: ADMIN, PROFESSIONAL, RECEPTIONIST)
 - **Clinic** — `{ id, name, cnpj?, settings? }`
-- **Professional** — `{ id, organizationId, personId, role, active, person: { id, name, email, phone, cpf } }` (OrganizationUser + Person join)
+- **Professional** — `{ id, organizationId, personId, role, active, person: { id, name, email, phone, cpf } }`
 - **Patient** — `{ id, name, cpf?, birthDate?, email?, phone?, gender?, address?, notes?, createdAt, updatedAt }`
 - **PaginatedResponse<T>** — `{ data: T[], meta: { total, page, limit, totalPages } }`
 - **Procedure** — `{ id, name, durationMinutes, price, active, createdAt, updatedAt }`
 - **Appointment** — `{ id, patientId, professionalId, procedureId, startAt, endAt, status, notes?, patient?, professional?, procedure? }`
 - **AppointmentStatus** — `'SCHEDULED' | 'CONFIRMED' | 'CANCELED' | 'DONE'`
-- **Anamnesis** — `{ id, patientId, professionalId, data: Record<string, unknown>, createdAt, updatedAt, patient?, professional? }`
-- **Evolution** — `{ id, patientId, professionalId, appointmentId?, description, createdAt, updatedAt, patient?, professional? }`
+- **PerinealAssessment** — `{ id, patientId, professionalId, data: Record<string, unknown>, createdAt, updatedAt }`
+- **TreatmentPackage** — `{ id, patientId, name, totalSessions, usedSessions, totalPrice, status, notes?, procedures?, createdAt, updatedAt }`
+- **TreatmentPackageStatus** — `'ACTIVE' | 'COMPLETED' | 'CANCELED'`
 - **FinancialRecord** — `{ id, patientId, appointmentId?, amount, type, status, paymentMethod?, description?, createdAt, updatedAt, patient? }`
 - **FinancialType** — `'INCOME' | 'EXPENSE'`; **FinancialStatus** — `'PENDING' | 'PAID'`
 
@@ -239,17 +217,17 @@ All IDs are strings. Dates are ISO datetime strings from the backend.
 
 ---
 
-## Backend Architecture (`/server`)
+## Backend Architecture (`backend/`)
 
 NestJS + Prisma + PostgreSQL. Strict TypeScript (`noImplicitAny: true`, `strictNullChecks: true`).
 
 ### Module Structure
 
-Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts`, `{name}.service.ts`, `dto/*.dto.ts`:
+Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.service.ts`, `dto/*.dto.ts`:
 
 | Module | Route prefix | Purpose |
 |--------|-------------|---------|
-| `auth` | `/api/auth` | Login (CPF+password), select-organization, JWT, profile |
+| `auth` | `/api/auth` | Login (CPF+password), select-organization, JWT, profile, refresh token rotation |
 | `organization` | `/api/organizations` | Tenant/clinic CRUD + user linking (OrganizationUser) |
 | `person` | `/api/persons` | Global user CRUD (CPF-identified) |
 | `patient` | `/api/patients` | Per-clinic patient CRUD (paginated, searchable) |
@@ -257,36 +235,44 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 | `procedure` | `/api/procedures` | Clinic services CRUD (name, duration, price) |
 | `appointment` | `/api/appointments` | Schedule CRUD, conflict detection, status changes |
 | `anamnesis` | `/api/anamneses` | Patient anamnesis (flexible JSON structure) |
+| `perineal-assessment` | `/api/perineal-assessments` | Pelvic floor clinical evaluation (flexible JSON data) |
 | `evolution` | `/api/evolutions` | Clinical evolution notes (timeline) |
+| `treatment-package` | `/api/treatment-packages` | Session packages with procedure links |
 | `financial` | `/api/financial` | Income/expense CRUD + monthly summary |
+| `internal` | `/api/internal` | Internal ops (clinic/user management via `x-internal-api-key` header guard) |
+| `audit` | — | AuditLog persistence (called internally by other services) |
+| `health` | `/api/health` | Health check endpoint |
+| `version` | `/api/version` | Version endpoint |
 
 ### Key Directories (Backend)
 
 | Path | Purpose |
 |------|---------|
-| `server/src/` | NestJS source code |
-| `server/src/prisma/` | PrismaModule + PrismaService (global) |
-| `server/src/auth/` | Auth module (login, JWT, guards, decorators) |
-| `server/src/auth/guards/` | JwtAuthGuard (global), RolesGuard (global) |
-| `server/src/auth/decorators/` | @Public, @Roles, @CurrentUser, @OrgId |
-| `server/src/auth/strategies/` | JwtStrategy (passport) |
-| `server/src/common/filters/` | AllExceptionsFilter (global error handling) |
-| `server/src/{module}/` | Domain modules (controller, service, module) |
-| `server/src/{module}/dto/` | Request validation DTOs (class-validator) |
-| `server/prisma/schema.prisma` | Database schema (all entities) |
-| `server/prisma/seed.ts` | Database seed with fake data |
-| `server/prisma.config.ts` | Prisma config (loads `.env.{NODE_ENV}`, defaults to `.env.dev`) |
-| `server/dist/` | Compiled output (gitignored) |
+| `backend/src/` | NestJS source code |
+| `backend/src/prisma/` | PrismaModule + PrismaService (global) |
+| `backend/src/auth/` | Auth module (login, JWT, guards, decorators, refresh token rotation) |
+| `backend/src/auth/guards/` | JwtAuthGuard (global), RolesGuard (global) |
+| `backend/src/auth/decorators/` | @Public, @Roles, @CurrentUser, @OrgId |
+| `backend/src/auth/strategies/` | JwtStrategy (reads from `pelvi_access_token` cookie or Bearer header) |
+| `backend/src/common/filters/` | AllExceptionsFilter (global error handling) |
+| `backend/src/internal/guards/` | InternalApiKeyGuard (`x-internal-api-key` header) |
+| `backend/src/{module}/` | Domain modules (controller, service, module) |
+| `backend/src/{module}/dto/` | Request validation DTOs (class-validator) |
+| `backend/prisma/schema.prisma` | Database schema (all entities) |
+| `backend/prisma/seed.ts` | Database seed with fake data |
+| `backend/prisma.config.ts` | Prisma config (loads `.env.{NODE_ENV}`, defaults to `.env.dev`) |
 
 ### Authentication & Authorization
 
-- **Login flow**: POST `/api/auth/login` { cpf, password } → if 1 clinic: returns JWT; if N clinics: returns list, then POST `/api/auth/select-organization` to choose
+- **Login flow**: POST `/api/auth/login` { cpf, password } → if 1 clinic: sets cookies + returns user; if N clinics: returns list, then POST `/api/auth/select-organization`
 - **JWT payload**: `{ sub: personId, organizationId, role }`
+- **Cookies**: `pelvi_access_token` (access JWT, httpOnly) + `pelvi_refresh_token` (httpOnly, rotated on use)
+- **Refresh token rotation**: `RefreshToken` model stores hashed tokens; old token invalidated on each refresh
 - **Global guards** (registered via `APP_GUARD` in AuthModule):
   - `JwtAuthGuard` — validates JWT on every request; skip with `@Public()` decorator
   - `RolesGuard` — checks `@Roles(Role.ADMIN, ...)` metadata; allows all if no roles specified
-- **Decorators** (in `server/src/auth/decorators/`):
-  - `@Public()` — marks endpoint as unauthenticated (login, select-org)
+- **Decorators**:
+  - `@Public()` — marks endpoint as unauthenticated
   - `@Roles(Role.ADMIN)` — restricts by role
   - `@CurrentUser()` — extracts full `JwtPayload` from request
   - `@OrgId()` — extracts `organizationId` string from JWT (convenience)
@@ -294,9 +280,11 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 
 ### API Routes Reference
 
-**Auth** (public):
+**Auth** (public unless noted):
 - `POST /api/auth/login` — login via CPF + password
 - `POST /api/auth/select-organization` — choose clinic (multi-tenant)
+- `POST /api/auth/refresh` — rotate refresh token, issue new access token
+- `POST /api/auth/logout` — clear cookies + invalidate refresh token
 - `GET /api/auth/me` — authenticated user profile
 
 **Patients** (JWT required):
@@ -323,7 +311,7 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 - `GET /api/appointments?startDate=&endDate=&professionalId=` — list by date range
 - `GET /api/appointments/:id` — get by ID
 - `PATCH /api/appointments/:id` — update
-- `PATCH /api/appointments/:id/status` — change status (SCHEDULED/CONFIRMED/CANCELED/DONE)
+- `PATCH /api/appointments/:id/status` — change status
 - `DELETE /api/appointments/:id` — remove
 
 **Anamneses** (JWT required):
@@ -332,57 +320,75 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 - `GET /api/anamneses/:id` — get by ID
 - `PATCH /api/anamneses/:id` — update
 
+**Perineal Assessments** (JWT required):
+- `POST /api/perineal-assessments` — create
+- `GET /api/perineal-assessments?patientId=` — list by patient
+- `GET /api/perineal-assessments/:id` — get by ID
+- `PATCH /api/perineal-assessments/:id` — update
+
 **Evolutions** (JWT required):
 - `POST /api/evolutions` — create (optional appointment link)
 - `GET /api/evolutions?patientId=` — list by patient (timeline, desc)
 - `GET /api/evolutions/:id` — get by ID
 
+**Treatment Packages** (JWT required):
+- `POST /api/treatment-packages` — create package with procedures (transactional)
+- `GET /api/treatment-packages?patientId=` — list by patient
+- `GET /api/treatment-packages/:id` — get by ID
+- `PATCH /api/treatment-packages/:id` — update
+- `DELETE /api/treatment-packages/:id` — remove (cascades procedures)
+
 **Financial** (JWT required):
-- `POST /api/financial` — create record (INCOME/EXPENSE)
+- `POST /api/financial` — create record (INCOME/EXPENSE, supports installments)
 - `GET /api/financial?month=&year=` — list by month
 - `GET /api/financial/summary?month=&year=` — monthly summary (totalReceived, totalPending, totalExpenses, balance)
 - `GET /api/financial/:id` — get by ID
-- `PATCH /api/financial/:id` — update (amount, status, etc.)
+- `PATCH /api/financial/:id` — update
 - `DELETE /api/financial/:id` — remove
+
+**Internal** (`x-internal-api-key` header required):
+- `GET /api/internal/clinics` — list clinics
+- `POST /api/internal/clinics` — create clinic
+- `PATCH /api/internal/clinics/:clinicId/access` — update clinic access status
+- `POST /api/internal/persons` — create person
+- `POST /api/internal/clinics/:clinicId/users` — link user to clinic
+- `GET /api/internal/clinics/:clinicId/users` — list clinic users
+- `PATCH /api/internal/clinics/:clinicId/users/:organizationUserId` — update user
+- `POST /api/internal/clinics/:clinicId/users/:organizationUserId/reset-password` — reset password
 
 ### Prisma
 
-- Schema: `server/prisma/schema.prisma` — defines all models with `organizationId` for multi-tenant isolation
-- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, Anamnesis, Evolution, FinancialRecord
-- Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus (SCHEDULED, CONFIRMED, CANCELED, DONE), FinancialType (INCOME, EXPENSE), FinancialStatus (PENDING, PAID)
-- Generator: `prisma-client-js` — generates to `node_modules/@prisma/client`
-- Config: `server/prisma.config.ts` — loads `.env.{NODE_ENV}` (defaults to `.env.dev`)
+- Schema: `backend/prisma/schema.prisma`
+- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, Anamnesis, PerinealAssessment, Evolution, TreatmentPackage, TreatmentPackageProcedure, FinancialRecord, RefreshToken, AuditLog
+- Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus, FinancialType, FinancialStatus, TreatmentPackageStatus (ACTIVE, COMPLETED, CANCELED), ClinicAccessStatus
+- Config: `backend/prisma.config.ts` — loads `.env.{NODE_ENV}` (defaults to `.env.dev`)
 - `PrismaModule` is global — inject `PrismaService` in any service without importing the module
-- Database schema reference: `docs/schema.md`
-- Prisma version: 7.x (connection URL configured in `prisma.config.ts`, NOT in `schema.prisma`)
-- Seed: `server/prisma/seed.ts` — run with `bunx prisma db seed`
+- Prisma version: 7.x (connection URL in `prisma.config.ts`, NOT in `schema.prisma`)
+- Seed: `bun run seed` from `backend/`
 
 ### Key Config
 
 - Global prefix: `/api`
-- CORS: configurable via `CORS_ORIGIN` env var (comma-separated origins), defaults to `http://localhost:8080`
+- CORS: `CORS_ORIGIN` env var (comma-separated origins), defaults to `http://localhost:8080`
 - `ValidationPipe` enabled globally (class-validator, whitelist + transform)
 - `AllExceptionsFilter` enabled globally — standardized error responses: `{ statusCode, message, timestamp, path }`
 - `JwtAuthGuard` + `RolesGuard` enabled globally via `APP_GUARD`
-- `ConfigModule` loaded globally (reads `.env`)
-- Swagger docs at `/docs` with Bearer auth support
-- NestJS Swagger CLI plugin enabled (auto-generates `@ApiProperty` from DTOs)
+- Swagger docs at `/docs`
 
 ### Testing (Backend)
 
-- Jest + ts-jest, test files: `server/src/**/*.spec.ts`
+- Jest + ts-jest, test files: `backend/src/**/*.spec.ts`
 - Unit tests mock `PrismaService` — no real DB connection required
-- Coverage collected from `**/*.service.ts` only (controllers, modules, guards excluded)
+- Coverage collected from `**/*.service.ts` only
 - Coverage threshold enforced: **80% statements/functions/lines, 75% branches**
-- Current coverage: ~88% statements, ~88% lines, ~89% functions, ~76% branches
 
-**Test suites (13 spec files, ~157 tests):**
+**Test suites:**
 
 | Spec file | O que cobre |
 |-----------|-------------|
 | `auth.service.spec.ts` | Login, multi-clínica, selectOrganization, getProfile, updateProfile, changePassword, refreshToken |
 | `patient.service.spec.ts` | Isolamento por org, busca/paginação |
-| `appointment.service.spec.ts` | Cálculo de endAt, conflito de horário, validação de pacote, findById, update, remove, status com sessões |
+| `appointment.service.spec.ts` | Cálculo de endAt, conflito de horário, validação de pacote, status com sessões |
 | `procedure.service.spec.ts` | CRUD completo com isolamento por org |
 | `professional.service.spec.ts` | CRUD + shape de retorno sem campos internos |
 | `anamnesis.service.spec.ts` | resolveOrgUser, merge de JSON, isolamento por org |
@@ -394,17 +400,14 @@ Each domain module follows the pattern `{name}.module.ts`, `{name}.controller.ts
 | `audit.service.spec.ts` | Persistência de log com e sem campos opcionais |
 | `internal.service.spec.ts` | createClinic, listClinics, updateClinicAccess |
 
-**Padrão de mock:**
+**Mock pattern:**
 ```ts
 prisma = { <model>: { create: jest.fn(), findMany: jest.fn(), ... } };
-// Para transações interativas:
+// Interactive transactions:
 $transaction: jest.fn((fn) => fn(txMock))
-// Para transações batch:
+// Batch transactions:
 $transaction: jest.fn((ops) => Promise.all(ops))
 ```
-
-- Run: `bun run test` (from /server) or `bun run server:test` (from root)
-- Coverage: `bun run test:cov` (from /server)
 
 ---
 
@@ -413,30 +416,18 @@ $transaction: jest.fn((ops) => Promise.all(ops))
 Two services deployed from the same monorepo on Railway:
 
 ### Backend (`pelvi-api`)
-- **Root directory**: `server`
-- **Builder**: Railpack (auto-detects NestJS)
-- **Config**: `server/railway.toml` — build command: `bun install && bunx prisma generate && bun run build`, start: `node dist/main`
-- **Env vars**: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`
+- **Root directory**: `backend`
+- **Builder**: Dockerfile (`backend/Dockerfile`)
+- **Config**: `backend/railway.toml`
+- **Env vars**: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_KEY`, `CORS_ORIGIN`, `PORT`
 
 ### Frontend (`pelvi-web`)
-- **Root directory**: `/` (repo root)
-- **Builder**: Dockerfile (`Dockerfile` at root)
+- **Root directory**: `frontend`
+- **Builder**: Dockerfile (`frontend/Dockerfile`)
 - **Stack**: Multi-stage build → Nginx serving static SPA
-- **Config**: `railway.toml` + `Dockerfile` + `nginx.conf`
+- **Config**: `frontend/railway.toml` + `frontend/Dockerfile` + `frontend/nginx.conf`
 - **Build arg**: `VITE_API_URL` — backend API URL injected at build time
 - **Nginx**: SPA routing (`try_files $uri $uri/ /index.html`), gzip, cache headers for static assets
-
-### Key Deployment Files
-
-| File | Purpose |
-|------|---------|
-| `Dockerfile` | Frontend multi-stage (bun build → nginx) |
-| `nginx.conf` | Nginx config for SPA routing + caching |
-| `railway.toml` | Frontend Railway config (Dockerfile builder) |
-| `server/Dockerfile` | Backend multi-stage (bun build → node dist/main) |
-| `server/railway.toml` | Backend Railway config (Railpack builder) |
-| `.dockerignore` | Root Docker ignore |
-| `server/.dockerignore` | Backend Docker ignore |
 
 ---
 
@@ -444,13 +435,12 @@ Two services deployed from the same monorepo on Railway:
 
 - **Provider**: Neon (serverless PostgreSQL)
 - **Branching**: Uses Neon branches to mirror environments (`dev`, `prod`)
-- **Env files**: `server/.env.dev` and `server/.env.prod` (encrypted via dotenvx)
-- `prisma.config.ts` loads `.env.{NODE_ENV}` — defaults to `.env.dev` when `NODE_ENV` is not set
-- Migrations: run `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod
+- **Env files**: `backend/.env.dev` and `backend/.env.prod` (encrypted via dotenvx)
+- Migrations: `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod (from `backend/`)
 
 ### Seed Data
 
-Run `bunx prisma db seed` from `/server` to populate with test data:
+Run `bun run seed` from `backend/`:
 - 2 clinics (Clinica Bem Estar, Centro de Fisioterapia Saude)
 - 4 users: Admin (multi-clinic), Fisioterapeuta, Psicologo, Recepcionista
 - 3 procedures, 5 patients, 7 appointments, 5 financial records, 2 anamneses, 2 evolutions
@@ -463,11 +453,13 @@ Test credentials (all use password `123456`):
 
 ### Environment Variables
 
-Backend env vars (`server/.env.dev`, `server/.env.prod`, Railway):
+Backend (`backend/.env.dev`, `backend/.env.prod`, Railway):
 - `DATABASE_URL` — Neon PostgreSQL connection string (use direct URL, not pooled, for migrations)
 - `JWT_SECRET` — JWT signing secret
-- `CORS_ORIGIN` — Comma-separated allowed origins (e.g., `https://pelvi-web.up.railway.app,http://localhost:8080`)
-- `PORT` — Server port (Railway sets this automatically)
+- `JWT_REFRESH_SECRET` — Refresh token signing secret (separate from access token secret)
+- `INTERNAL_API_KEY` — API key for internal routes (min 32 chars)
+- `CORS_ORIGIN` — Comma-separated allowed origins
+- `PORT` — Server port (Railway sets automatically)
 
-Frontend env vars (build-time only):
-- `VITE_API_URL` — Backend API base URL (e.g., `https://pelvi-api.up.railway.app`). Defaults to `http://localhost:3000`.
+Frontend (build-time only):
+- `VITE_API_URL` — Backend API base URL. Defaults to `http://localhost:3000`.

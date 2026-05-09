@@ -14,14 +14,15 @@ export class InternalService {
 
   async createClinic(dto: CreateClinicDto) {
     const existing = await this.prisma.organization.findUnique({
-      where: { cnpj: dto.document },
+      where: { document: dto.document },
     })
     if (existing) throw new ConflictException('Organização já existe')
 
     const clinic = await this.prisma.organization.create({
       data: {
         name: dto.name,
-        cnpj: dto.document,
+        document: dto.document,
+        documentType: dto.documentType,
         email: dto.email,
         phone: dto.phone,
       },
@@ -32,13 +33,14 @@ export class InternalService {
 
   async listClinics() {
     const clinics = await this.prisma.organization.findMany({
-      select: { id: true, name: true, cnpj: true, email: true, phone: true, accessStatus: true },
+      select: { id: true, name: true, document: true, documentType: true, email: true, phone: true, accessStatus: true },
       orderBy: { name: 'asc' },
     })
     return clinics.map((c) => ({
       clinicId: c.id,
       name: c.name,
-      document: c.cnpj,
+      document: c.document,
+      documentType: c.documentType,
       email: c.email,
       phone: c.phone,
       accessStatus: c.accessStatus,
