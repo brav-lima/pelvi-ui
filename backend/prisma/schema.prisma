@@ -15,10 +15,16 @@ enum ClinicAccessStatus {
   BLOCKED
 }
 
+enum DocumentType {
+  CNPJ
+  CPF
+}
+
 model Organization {
   id           String             @id @default(uuid())
   name         String
-  cnpj         String?            @unique
+  document     String?            @unique @map("cnpj")
+  documentType DocumentType?      @map("document_type")
   email        String?
   phone        String?
   settings        Json?

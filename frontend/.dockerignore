@@ -3,7 +3,11 @@ dist
 storybook-static
 .storybook
 src/stories
-**/*.stories.@(ts|tsx|js|jsx|mdx)
+**/*.stories.ts
+**/*.stories.tsx
+**/*.stories.js
+**/*.stories.jsx
+**/*.stories.mdx
 .git
 .gitignore
 *.md
