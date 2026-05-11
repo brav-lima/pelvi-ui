@@ -1,8 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import { PrismaNeon } from '@prisma/adapter-neon';
 
 @Injectable()
 export class PrismaService
@@ -10,11 +9,12 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor(config: ConfigService) {
-    const pool = new Pool({
-      connectionString: config.getOrThrow<string>('DATABASE_URL'),
-    });
-    const adapter = new PrismaPg(pool);
-    super({ adapter });
+    const url = config.getOrThrow<string>('DATABASE_URL');
+    if (url.includes('neon.tech')) {
+      super({ adapter: new PrismaNeon({ connectionString: url }) });
+    } else {
+      super({ datasourceUrl: url });
+    }
   }
 
   async onModuleInit() {
