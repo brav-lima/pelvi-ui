@@ -9,12 +9,7 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor(config: ConfigService) {
-    const url = config.getOrThrow<string>('DATABASE_URL');
-    if (url.includes('neon.tech')) {
-      super({ adapter: new PrismaNeon({ connectionString: url }) });
-    } else {
-      super({ datasourceUrl: url });
-    }
+    super({ adapter: new PrismaNeon({ connectionString: config.getOrThrow<string>('DATABASE_URL') }) });
   }
 
   async onModuleInit() {
