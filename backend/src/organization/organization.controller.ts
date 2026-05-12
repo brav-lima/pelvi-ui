@@ -36,29 +36,43 @@ export class OrganizationController {
 
   // ── Organization CRUD ──
 
-  @Post()
-  create(@Body() dto: CreateOrganizationDto) {
-    return this.organizationService.create(dto);
-  }
-
   @Get()
-  findAll() {
-    return this.organizationService.findAll();
+  findAll(@OrgId() orgId: string) {
+    return this.organizationService.findById(orgId);
   }
 
   @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.organizationService.findById(id);
+  findById(
+    @OrgId() orgId: string,
+    @Param('id') id: string,
+  ) {
+    if (id !== orgId) {
+      throw new ForbiddenException('Você não pode acessar outra organização');
+    }
+    return this.organizationService.findById(orgId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateOrganizationDto) {
-    return this.organizationService.update(id, dto);
+  update(
+    @OrgId() orgId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrganizationDto,
+  ) {
+    if (id !== orgId) {
+      throw new ForbiddenException('Você não pode modificar outra organização');
+    }
+    return this.organizationService.update(orgId, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.organizationService.remove(id);
+  remove(
+    @OrgId() orgId: string,
+    @Param('id') id: string,
+  ) {
+    if (id !== orgId) {
+      throw new ForbiddenException('Você não pode remover outra organização');
+    }
+    return this.organizationService.remove(orgId);
   }
 
   // ── OrganizationUser (vínculos) ──

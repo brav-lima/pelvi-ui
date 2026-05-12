@@ -191,28 +191,24 @@ export class FinancialService {
       createdAt: { gte: startDate, lt: endDate },
     };
 
-    const [incomeRecords, expenseRecords] = await Promise.all([
-      this.prisma.financialRecord.findMany({
-        where: { ...where, type: FinancialType.INCOME },
-        select: { amount: true, status: true },
+    const [received, pending, expenses] = await Promise.all([
+      this.prisma.financialRecord.aggregate({
+        where: { ...where, type: FinancialType.INCOME, status: FinancialStatus.PAID },
+        _sum: { amount: true },
       }),
-      this.prisma.financialRecord.findMany({
-        where: { ...where, type: FinancialType.EXPENSE },
-        select: { amount: true, status: true },
+      this.prisma.financialRecord.aggregate({
+        where: { ...where, type: FinancialType.INCOME, status: FinancialStatus.PENDING },
+        _sum: { amount: true },
+      }),
+      this.prisma.financialRecord.aggregate({
+        where: { ...where, type: FinancialType.EXPENSE, status: FinancialStatus.PAID },
+        _sum: { amount: true },
       }),
     ]);
 
-    const totalReceived = incomeRecords
-      .filter((r) => r.status === FinancialStatus.PAID)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
-
-    const totalPending = incomeRecords
-      .filter((r) => r.status === FinancialStatus.PENDING)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
-
-    const totalExpenses = expenseRecords
-      .filter((r) => r.status === FinancialStatus.PAID)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
+    const totalReceived = Number(received._sum.amount ?? 0);
+    const totalPending = Number(pending._sum.amount ?? 0);
+    const totalExpenses = Number(expenses._sum.amount ?? 0);
 
     return {
       month: query.month,

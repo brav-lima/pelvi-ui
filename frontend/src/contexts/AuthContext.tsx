@@ -35,15 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Multi-clinic flow: store personId temporarily for select-organization call
-  const [pendingPersonId, setPendingPersonId] = useState<string | null>(null);
+  // Multi-clinic flow: store pre-auth token for select-organization call
+  const [pendingPreAuthToken, setPendingPreAuthToken] = useState<string | null>(null);
 
   const clearSession = useCallback(() => {
     queryClient.clear();
     setUser(null);
     setSelectedClinic(null);
     setClinics([]);
-    setPendingPersonId(null);
+    setPendingPreAuthToken(null);
   }, [queryClient]);
 
   const logout = useCallback(() => {
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (isMultiClinicResponse(response)) {
         // Multi-clinic — no cookies set yet, user must choose
-        setPendingPersonId(response.person.id);
+        setPendingPreAuthToken(response.preAuthToken);
         setUser({
           id: response.person.id,
           name: response.person.name,
@@ -118,11 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const selectClinic = async (organizationId: string): Promise<boolean> => {
-    if (!pendingPersonId && !user) return false;
-    const personId = pendingPersonId || user!.id;
+    if (!pendingPreAuthToken) return false;
 
     try {
-      const response = await authApi.selectOrganization(personId, organizationId);
+      const response = await authApi.selectOrganization(pendingPreAuthToken, organizationId);
       setUser({
         id: response.person.id,
         name: response.person.name,
@@ -131,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: response.role,
       });
       setSelectedClinic(response.organization);
-      setPendingPersonId(null);
+      setPendingPreAuthToken(null);
       return true;
     } catch {
       return false;

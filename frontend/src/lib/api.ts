@@ -118,8 +118,8 @@ export const authApi = {
   login: (cpf: string, password: string) =>
     api.post<LoginResponse>('/auth/login', { cpf, password }),
 
-  selectOrganization: (personId: string, organizationId: string) =>
-    api.post<SelectOrgResponse>('/auth/select-organization', { personId, organizationId }),
+  selectOrganization: (preAuthToken: string, organizationId: string) =>
+    api.post<SelectOrgResponse>('/auth/select-organization', { preAuthToken, organizationId }),
 
   logout: () => api.post<{ ok: true }>('/auth/logout', {}),
 

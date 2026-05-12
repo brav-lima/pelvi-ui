@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { PerinealAssessmentService } from './perineal-assessment.service';
 import { CreatePerinealAssessmentDto } from './dto/create-perineal-assessment.dto';
 import { UpdatePerinealAssessmentDto } from './dto/update-perineal-assessment.dto';
@@ -9,6 +10,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiBearerAuth()
 @ApiTags('Perineal Assessments')
+@Throttle({ default: { ttl: 60000, limit: 30 } })
 @Controller('perineal-assessments')
 export class PerinealAssessmentController {
   constructor(

@@ -32,6 +32,7 @@ describe('AuthService', () => {
     personService = { findOrganizations: jest.fn() };
     jwtService = {
       sign: jest.fn().mockReturnValue('mock-token'),
+      verify: jest.fn().mockReturnValue({ sub: 'person-1', type: 'pre-auth' }),
     };
     config = { getOrThrow: jest.fn().mockReturnValue('refresh-secret') };
 
@@ -126,6 +127,7 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBeNull();
       expect(result.refreshToken).toBeNull();
+      expect((result as any).preAuthToken).toBe('mock-token');
       expect(result.organizations).toHaveLength(2);
       expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
@@ -168,7 +170,10 @@ describe('AuthService', () => {
   });
 
   describe('selectOrganization', () => {
+    const validPreAuthToken = 'valid-pre-auth-token';
+
     it('deve gerar e persistir refresh para vínculo válido', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'person-1', type: 'pre-auth' });
       prisma.organizationUser.findUnique.mockResolvedValue({
         active: true,
         role: 'ADMIN',
@@ -177,7 +182,7 @@ describe('AuthService', () => {
       });
 
       const result = await service.selectOrganization({
-        personId: 'person-1',
+        preAuthToken: validPreAuthToken,
         organizationId: 'org-1',
       });
 
@@ -188,6 +193,7 @@ describe('AuthService', () => {
     });
 
     it('deve rejeitar vínculo inativo', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'person-1', type: 'pre-auth' });
       prisma.organizationUser.findUnique.mockResolvedValue({
         active: false,
         role: 'ADMIN',
@@ -197,7 +203,29 @@ describe('AuthService', () => {
 
       await expect(
         service.selectOrganization({
-          personId: 'person-1',
+          preAuthToken: validPreAuthToken,
+          organizationId: 'org-1',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('deve rejeitar token de pré-autenticação inválido', async () => {
+      jwtService.verify.mockImplementation(() => { throw new Error('invalid token'); });
+
+      await expect(
+        service.selectOrganization({
+          preAuthToken: 'invalid-token',
+          organizationId: 'org-1',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('deve rejeitar token com type incorreto', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'person-1', type: 'access' });
+
+      await expect(
+        service.selectOrganization({
+          preAuthToken: 'wrong-type-token',
           organizationId: 'org-1',
         }),
       ).rejects.toThrow(UnauthorizedException);

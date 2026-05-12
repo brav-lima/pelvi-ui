@@ -18,6 +18,7 @@ describe('FinancialService', () => {
         findFirst: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        aggregate: jest.fn(),
       },
       // Batch $transaction: recebe array de promises e executa todas
       $transaction: jest.fn((ops) => Promise.all(ops)),
@@ -247,15 +248,10 @@ describe('FinancialService', () => {
 
   describe('summary', () => {
     it('deve calcular totais corretamente separando INCOME e EXPENSE', async () => {
-      prisma.financialRecord.findMany
-        .mockResolvedValueOnce([
-          { amount: 500, status: FinancialStatus.PAID },
-          { amount: 200, status: FinancialStatus.PAID },
-          { amount: 100, status: FinancialStatus.PENDING },
-        ])
-        .mockResolvedValueOnce([
-          { amount: 150, status: FinancialStatus.PAID },
-        ]);
+      prisma.financialRecord.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: 700 } })  // received (INCOME + PAID)
+        .mockResolvedValueOnce({ _sum: { amount: 100 } })  // pending (INCOME + PENDING)
+        .mockResolvedValueOnce({ _sum: { amount: 150 } }); // expenses (EXPENSE + PAID)
 
       const result = await service.summary(orgId, { month: 3, year: 2025 });
 
@@ -266,9 +262,10 @@ describe('FinancialService', () => {
     });
 
     it('deve retornar zeros quando não há registros no mês', async () => {
-      prisma.financialRecord.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
+      prisma.financialRecord.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } });
 
       const result = await service.summary(orgId, { month: 1, year: 2025 });
 
@@ -279,11 +276,11 @@ describe('FinancialService', () => {
     });
 
     it('deve filtrar pelo mês e ano corretos', async () => {
-      prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.aggregate.mockResolvedValue({ _sum: { amount: null } });
 
       await service.summary(orgId, { month: 6, year: 2025 });
 
-      const firstCall = prisma.financialRecord.findMany.mock.calls[0][0];
+      const firstCall = prisma.financialRecord.aggregate.mock.calls[0][0];
       expect(firstCall.where.createdAt.gte).toEqual(new Date(2025, 5, 1));  // junho
       expect(firstCall.where.createdAt.lt).toEqual(new Date(2025, 6, 1));   // julho
     });
