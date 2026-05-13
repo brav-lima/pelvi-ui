@@ -43,6 +43,9 @@
 
     --radius: 0.625rem;
 
+    --font-sans:    "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+
     /* Elevação — quatro camadas: 1 inset/sutíl, 2 card, 3 popover/dropdown, 4 modal */
     --shadow-1: 0 1px 2px 0 hsl(220 20% 10% / 0.04);
     --shadow-2: 0 1px 3px 0 hsl(220 20% 10% / 0.06), 0 1px 2px -1px hsl(220 20% 10% / 0.06);
@@ -142,7 +145,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
 
   /* Tabular numerals — alinha valores em tabelas (Financeiro, CPF, datas) */
