@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FinancialStatus, FinancialType } from '@prisma/client';
+import { FinancialStatus, FinancialType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinancialDto } from './dto/create-financial.dto';
 import { UpdateFinancialDto } from './dto/update-financial.dto';
@@ -104,7 +104,7 @@ export class FinancialService {
       appointment: { select: { id: true, startAt: true } },
     };
 
-    let where: Parameters<typeof this.prisma.financialRecord.findMany>[0]['where'];
+    let where: Prisma.FinancialRecordWhereInput;
 
     if (query.startDate || query.endDate) {
       const start = query.startDate ? new Date(query.startDate) : undefined;
@@ -139,9 +139,10 @@ export class FinancialService {
       };
     }
 
-    const orderBy = query.startDate || query.endDate
-      ? ([{ dueDate: 'asc' }, { createdAt: 'asc' }] as const)
-      : ([{ createdAt: 'desc' }] as const);
+    const orderBy: Prisma.FinancialRecordOrderByWithRelationInput[] =
+      query.startDate || query.endDate
+        ? [{ dueDate: 'asc' }, { createdAt: 'asc' }]
+        : [{ createdAt: 'desc' }];
 
     const [data, total] = await Promise.all([
       this.prisma.financialRecord.findMany({ where, orderBy, include, skip, take: limit }),
