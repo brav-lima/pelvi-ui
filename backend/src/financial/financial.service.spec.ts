@@ -15,6 +15,7 @@ describe('FinancialService', () => {
       financialRecord: {
         create: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
@@ -151,8 +152,9 @@ describe('FinancialService', () => {
   describe('findAll', () => {
     it('deve filtrar por startDate e endDate quando informados', async () => {
       prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.count.mockResolvedValue(0);
 
-      await service.findAll(orgId, { startDate: '2025-01-01', endDate: '2025-01-31' });
+      const result = await service.findAll(orgId, { startDate: '2025-01-01', endDate: '2025-01-31' });
 
       expect(prisma.financialRecord.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -162,10 +164,12 @@ describe('FinancialService', () => {
           }),
         }),
       );
+      expect(result.meta).toEqual({ total: 0, page: 1, limit: 50, totalPages: 0 });
     });
 
     it('deve filtrar por mês/ano quando startDate não informado', async () => {
       prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.count.mockResolvedValue(0);
 
       await service.findAll(orgId, { month: 3, year: 2025 });
 
@@ -173,6 +177,18 @@ describe('FinancialService', () => {
       expect(callArgs.where.organizationId).toBe(orgId);
       expect(callArgs.where.createdAt.gte).toEqual(new Date(2025, 2, 1));  // março
       expect(callArgs.where.createdAt.lt).toEqual(new Date(2025, 3, 1));   // abril
+    });
+
+    it('deve respeitar page e limit passados', async () => {
+      prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.count.mockResolvedValue(60);
+
+      const result = await service.findAll(orgId, { month: 1, year: 2025, page: 2, limit: 20 });
+
+      const callArgs = prisma.financialRecord.findMany.mock.calls[0][0];
+      expect(callArgs.skip).toBe(20);
+      expect(callArgs.take).toBe(20);
+      expect(result.meta).toEqual({ total: 60, page: 2, limit: 20, totalPages: 3 });
     });
   });
 

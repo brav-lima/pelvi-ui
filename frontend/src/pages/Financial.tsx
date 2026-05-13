@@ -40,10 +40,11 @@ export default function Financial() {
   const windowStart = format(subDays(now, 10), 'yyyy-MM-dd');
   const windowEnd = format(addDays(now, 10), 'yyyy-MM-dd');
 
-  const { data: records = [], isLoading: loadingRecords } = useQuery({
+  const { data: recordsPage, isLoading: loadingRecords } = useQuery({
     queryKey: ['financial', 'window', windowStart, windowEnd],
     queryFn: () => financialApi.list({ startDate: windowStart, endDate: windowEnd }),
   });
+  const records = recordsPage?.data ?? [];
 
   const { data: summary } = useQuery({
     queryKey: ['financial-summary', month, year],

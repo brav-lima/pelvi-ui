@@ -299,10 +299,30 @@ export class AuthService {
       },
     });
 
+    this.pruneStaleRefreshTokens(personId);
+
     return { accessToken, refreshToken };
   }
 
   private hashJti(jti: string): string {
     return crypto.createHash('sha256').update(jti).digest('hex');
+  }
+
+  // Fire-and-forget: remove expired + revoked tokens older than 30 days for this person
+  private pruneStaleRefreshTokens(personId: string): void {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    this.prisma.refreshToken
+      .deleteMany({
+        where: {
+          personId,
+          OR: [
+            { expiresAt: { lt: new Date() } },
+            { revokedAt: { lt: cutoff } },
+          ],
+        },
+      })
+      .catch(() => {
+        // Non-critical cleanup — must not block the auth flow
+      });
   }
 }

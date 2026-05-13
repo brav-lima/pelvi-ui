@@ -160,12 +160,13 @@ export function LivroCaixaSheet({ open, onOpenChange, initialYear }: LivroCaixaS
   const currentYear = new Date().getFullYear();
   const years = [currentYear - 2, currentYear - 1, currentYear];
 
-  const { data: records = [], isLoading } = useQuery({
+  const { data: recordsPage, isLoading } = useQuery({
     queryKey: ['financial', 'livro', year],
     queryFn: () =>
-      financialApi.list({ startDate: `${year}-01-01`, endDate: `${year}-12-31` }),
+      financialApi.list({ startDate: `${year}-01-01`, endDate: `${year}-12-31`, limit: 1000 }),
     enabled: open,
   });
+  const records = recordsPage?.data ?? [];
 
   const monthGroups = useMemo(() => buildCashBook(records), [records]);
 
