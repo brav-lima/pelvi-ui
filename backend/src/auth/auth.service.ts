@@ -81,17 +81,20 @@ export class AuthService {
     return {
       accessToken: null,
       refreshToken: null,
+      preAuthToken: this.issuePreAuthToken(person.id),
       person: personData,
       organizations,
     };
   }
 
   async selectOrganization(dto: SelectOrganizationDto) {
+    const personId = this.verifyPreAuthToken(dto.preAuthToken);
+
     const link = await this.prisma.organizationUser.findUnique({
       where: {
         organizationId_personId: {
           organizationId: dto.organizationId,
-          personId: dto.personId,
+          personId,
         },
       },
       include: {
@@ -114,7 +117,7 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokens(
-      dto.personId,
+      personId,
       dto.organizationId,
       link.role,
     );
@@ -250,6 +253,23 @@ export class AuthService {
     });
   }
 
+  private issuePreAuthToken(personId: string): string {
+    return this.jwtService.sign({ sub: personId, type: 'pre-auth' }, { expiresIn: '5m' });
+  }
+
+  private verifyPreAuthToken(token: string): string {
+    try {
+      const payload = this.jwtService.verify<{ sub?: string; type?: string }>(token);
+      if (!payload.sub || payload.type !== 'pre-auth') {
+        throw new UnauthorizedException('Token de pré-autenticação inválido');
+      }
+      return payload.sub;
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throw new UnauthorizedException('Token de pré-autenticação inválido ou expirado');
+    }
+  }
+
   private async issueTokens(
     personId: string,
     organizationId: string,
@@ -279,10 +299,30 @@ export class AuthService {
       },
     });
 
+    this.pruneStaleRefreshTokens(personId);
+
     return { accessToken, refreshToken };
   }
 
   private hashJti(jti: string): string {
     return crypto.createHash('sha256').update(jti).digest('hex');
+  }
+
+  // Fire-and-forget: remove expired + revoked tokens older than 30 days for this person
+  private pruneStaleRefreshTokens(personId: string): void {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    this.prisma.refreshToken
+      .deleteMany({
+        where: {
+          personId,
+          OR: [
+            { expiresAt: { lt: new Date() } },
+            { revokedAt: { lt: cutoff } },
+          ],
+        },
+      })
+      .catch(() => {
+        // Non-critical cleanup — must not block the auth flow
+      });
   }
 }

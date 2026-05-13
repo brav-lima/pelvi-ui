@@ -15,9 +15,11 @@ describe('FinancialService', () => {
       financialRecord: {
         create: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        aggregate: jest.fn(),
       },
       // Batch $transaction: recebe array de promises e executa todas
       $transaction: jest.fn((ops) => Promise.all(ops)),
@@ -150,8 +152,9 @@ describe('FinancialService', () => {
   describe('findAll', () => {
     it('deve filtrar por startDate e endDate quando informados', async () => {
       prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.count.mockResolvedValue(0);
 
-      await service.findAll(orgId, { startDate: '2025-01-01', endDate: '2025-01-31' });
+      const result = await service.findAll(orgId, { startDate: '2025-01-01', endDate: '2025-01-31' });
 
       expect(prisma.financialRecord.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -161,10 +164,12 @@ describe('FinancialService', () => {
           }),
         }),
       );
+      expect(result.meta).toEqual({ total: 0, page: 1, limit: 50, totalPages: 0 });
     });
 
     it('deve filtrar por mês/ano quando startDate não informado', async () => {
       prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.count.mockResolvedValue(0);
 
       await service.findAll(orgId, { month: 3, year: 2025 });
 
@@ -172,6 +177,18 @@ describe('FinancialService', () => {
       expect(callArgs.where.organizationId).toBe(orgId);
       expect(callArgs.where.createdAt.gte).toEqual(new Date(2025, 2, 1));  // março
       expect(callArgs.where.createdAt.lt).toEqual(new Date(2025, 3, 1));   // abril
+    });
+
+    it('deve respeitar page e limit passados', async () => {
+      prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.count.mockResolvedValue(60);
+
+      const result = await service.findAll(orgId, { month: 1, year: 2025, page: 2, limit: 20 });
+
+      const callArgs = prisma.financialRecord.findMany.mock.calls[0][0];
+      expect(callArgs.skip).toBe(20);
+      expect(callArgs.take).toBe(20);
+      expect(result.meta).toEqual({ total: 60, page: 2, limit: 20, totalPages: 3 });
     });
   });
 
@@ -247,15 +264,10 @@ describe('FinancialService', () => {
 
   describe('summary', () => {
     it('deve calcular totais corretamente separando INCOME e EXPENSE', async () => {
-      prisma.financialRecord.findMany
-        .mockResolvedValueOnce([
-          { amount: 500, status: FinancialStatus.PAID },
-          { amount: 200, status: FinancialStatus.PAID },
-          { amount: 100, status: FinancialStatus.PENDING },
-        ])
-        .mockResolvedValueOnce([
-          { amount: 150, status: FinancialStatus.PAID },
-        ]);
+      prisma.financialRecord.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: 700 } })  // received (INCOME + PAID)
+        .mockResolvedValueOnce({ _sum: { amount: 100 } })  // pending (INCOME + PENDING)
+        .mockResolvedValueOnce({ _sum: { amount: 150 } }); // expenses (EXPENSE + PAID)
 
       const result = await service.summary(orgId, { month: 3, year: 2025 });
 
@@ -266,9 +278,10 @@ describe('FinancialService', () => {
     });
 
     it('deve retornar zeros quando não há registros no mês', async () => {
-      prisma.financialRecord.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
+      prisma.financialRecord.aggregate
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } })
+        .mockResolvedValueOnce({ _sum: { amount: null } });
 
       const result = await service.summary(orgId, { month: 1, year: 2025 });
 
@@ -279,11 +292,11 @@ describe('FinancialService', () => {
     });
 
     it('deve filtrar pelo mês e ano corretos', async () => {
-      prisma.financialRecord.findMany.mockResolvedValue([]);
+      prisma.financialRecord.aggregate.mockResolvedValue({ _sum: { amount: null } });
 
       await service.summary(orgId, { month: 6, year: 2025 });
 
-      const firstCall = prisma.financialRecord.findMany.mock.calls[0][0];
+      const firstCall = prisma.financialRecord.aggregate.mock.calls[0][0];
       expect(firstCall.where.createdAt.gte).toEqual(new Date(2025, 5, 1));  // junho
       expect(firstCall.where.createdAt.lt).toEqual(new Date(2025, 6, 1));   // julho
     });

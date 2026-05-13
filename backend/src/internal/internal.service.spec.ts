@@ -11,7 +11,8 @@ describe('InternalService', () => {
   const mockClinic = {
     id: 'org-1',
     name: 'Clínica A',
-    cnpj: '12345678000199',
+    document: '12345678000199',
+    documentType: 'CNPJ',
     email: 'a@clinica.com',
     phone: '11999990000',
     accessStatus: 'ACTIVE',
@@ -83,7 +84,7 @@ describe('InternalService', () => {
 
       expect(prisma.organization.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ name: dto.name, cnpj: dto.document }),
+          data: expect.objectContaining({ name: dto.name, document: dto.document }),
         }),
       );
       expect(result).toEqual({ clinicId: mockClinic.id });
@@ -101,6 +102,7 @@ describe('InternalService', () => {
           clinicId: 'org-1',
           name: 'Clínica A',
           document: '12345678000199',
+          documentType: 'CNPJ',
           email: 'a@clinica.com',
           phone: '11999990000',
           accessStatus: 'ACTIVE',

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FinancialStatus, FinancialType } from '@prisma/client';
+import { FinancialStatus, FinancialType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinancialDto } from './dto/create-financial.dto';
 import { UpdateFinancialDto } from './dto/update-financial.dto';
@@ -95,56 +95,64 @@ export class FinancialService {
   }
 
   async findAll(organizationId: string, query: QueryFinancialDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 50;
+    const skip = (page - 1) * limit;
+
     const include = {
       patient: { select: { id: true, name: true } },
       appointment: { select: { id: true, startAt: true } },
     };
 
+    let where: Prisma.FinancialRecordWhereInput;
+
     if (query.startDate || query.endDate) {
       const start = query.startDate ? new Date(query.startDate) : undefined;
-      // Include the full end day
       const end = query.endDate
         ? new Date(query.endDate + 'T23:59:59.999Z')
         : undefined;
 
-      return this.prisma.financialRecord.findMany({
-        where: {
-          organizationId,
-          OR: [
-            // Records with an explicit due date in range
-            {
-              dueDate: {
-                ...(start && { gte: start }),
-                ...(end && { lte: end }),
-              },
+      where = {
+        organizationId,
+        OR: [
+          {
+            dueDate: {
+              ...(start && { gte: start }),
+              ...(end && { lte: end }),
             },
-            // Records without a due date, fall back to createdAt
-            {
-              dueDate: null,
-              createdAt: {
-                ...(start && { gte: start }),
-                ...(end && { lte: end }),
-              },
+          },
+          {
+            dueDate: null,
+            createdAt: {
+              ...(start && { gte: start }),
+              ...(end && { lte: end }),
             },
-          ],
-        },
-        orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
-        include,
-      });
-    }
-
-    // Default: filter by month/year using createdAt
-    const startDate = new Date(query.year!, query.month! - 1, 1);
-    const endDate = new Date(query.year!, query.month!, 1);
-
-    return this.prisma.financialRecord.findMany({
-      where: {
+          },
+        ],
+      };
+    } else {
+      const startDate = new Date(query.year!, query.month! - 1, 1);
+      const endDate = new Date(query.year!, query.month!, 1);
+      where = {
         organizationId,
         createdAt: { gte: startDate, lt: endDate },
-      },
-      orderBy: { createdAt: 'desc' },
-      include,
-    });
+      };
+    }
+
+    const orderBy: Prisma.FinancialRecordOrderByWithRelationInput[] =
+      query.startDate || query.endDate
+        ? [{ dueDate: 'asc' }, { createdAt: 'asc' }]
+        : [{ createdAt: 'desc' }];
+
+    const [data, total] = await Promise.all([
+      this.prisma.financialRecord.findMany({ where, orderBy, include, skip, take: limit }),
+      this.prisma.financialRecord.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findById(organizationId: string, id: string) {
@@ -191,28 +199,24 @@ export class FinancialService {
       createdAt: { gte: startDate, lt: endDate },
     };
 
-    const [incomeRecords, expenseRecords] = await Promise.all([
-      this.prisma.financialRecord.findMany({
-        where: { ...where, type: FinancialType.INCOME },
-        select: { amount: true, status: true },
+    const [received, pending, expenses] = await Promise.all([
+      this.prisma.financialRecord.aggregate({
+        where: { ...where, type: FinancialType.INCOME, status: FinancialStatus.PAID },
+        _sum: { amount: true },
       }),
-      this.prisma.financialRecord.findMany({
-        where: { ...where, type: FinancialType.EXPENSE },
-        select: { amount: true, status: true },
+      this.prisma.financialRecord.aggregate({
+        where: { ...where, type: FinancialType.INCOME, status: FinancialStatus.PENDING },
+        _sum: { amount: true },
+      }),
+      this.prisma.financialRecord.aggregate({
+        where: { ...where, type: FinancialType.EXPENSE, status: FinancialStatus.PAID },
+        _sum: { amount: true },
       }),
     ]);
 
-    const totalReceived = incomeRecords
-      .filter((r) => r.status === FinancialStatus.PAID)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
-
-    const totalPending = incomeRecords
-      .filter((r) => r.status === FinancialStatus.PENDING)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
-
-    const totalExpenses = expenseRecords
-      .filter((r) => r.status === FinancialStatus.PAID)
-      .reduce((sum, r) => sum + Number(r.amount), 0);
+    const totalReceived = Number(received._sum.amount ?? 0);
+    const totalPending = Number(pending._sum.amount ?? 0);
+    const totalExpenses = Number(expenses._sum.amount ?? 0);
 
     return {
       month: query.month,

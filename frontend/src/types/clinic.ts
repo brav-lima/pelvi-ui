@@ -21,6 +21,7 @@ export interface LoginResponseSingle {
 }
 
 export interface LoginResponseMulti {
+  preAuthToken: string;
   person: { id: string; cpf: string; name: string; email: string | null };
   organizations: Array<{
     id: string;

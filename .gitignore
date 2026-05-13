@@ -19,6 +19,8 @@ backend/generated
 backend/coverage
 .env
 .env.local
+backend/.env.dev
+backend/.env.prod
 
 # Editor directories and files
 .vscode/*

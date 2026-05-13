@@ -42,6 +42,10 @@ import { financialApi } from '@/lib/api';
 import { LivroCaixaSheet } from '@/components/financial/LivroCaixaSheet';
 import { formatCurrency } from '@/lib/formatters';
 
+function pagedResponse(data: unknown[]) {
+  return { data, meta: { total: data.length, page: 1, limit: 1000, totalPages: 1 } } as any;
+}
+
 // ── Mock data ──────────────────────────────────────────────────────────────────
 
 // Feb 10 — paid income with patient
@@ -99,7 +103,7 @@ function renderSheet(props: Partial<{ open: boolean; initialYear: number }> = {}
 describe('LivroCaixaSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(financialApi.list).mockResolvedValue([]);
+    vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([]));
   });
 
   // ── Visibilidade ─────────────────────────────────────────────────────────────
@@ -140,6 +144,7 @@ describe('LivroCaixaSheet', () => {
         expect(financialApi.list).toHaveBeenCalledWith({
           startDate: '2025-01-01',
           endDate: '2025-12-31',
+          limit: 1000,
         });
       });
     });
@@ -150,6 +155,7 @@ describe('LivroCaixaSheet', () => {
         expect(financialApi.list).toHaveBeenCalledWith({
           startDate: '2026-01-01',
           endDate: '2026-12-31',
+          limit: 1000,
         });
       });
 
@@ -159,6 +165,7 @@ describe('LivroCaixaSheet', () => {
         expect(financialApi.list).toHaveBeenCalledWith({
           startDate: '2025-01-01',
           endDate: '2025-12-31',
+          limit: 1000,
         });
       });
     });
@@ -168,7 +175,7 @@ describe('LivroCaixaSheet', () => {
 
   describe('agrupamento por mês e dia', () => {
     it('exibe cabeçalho do mês com nome e ano', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient]));
       renderSheet();
       // The label text is 'Fevereiro 2026'; uppercase is applied via CSS class
       await waitFor(() => {
@@ -177,7 +184,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('exibe separador de dia com a data formatada', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText('10/02')).toBeInTheDocument();
@@ -185,7 +192,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('agrupa registros de meses diferentes em seções separadas', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient, paidIncomeMar] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient, paidIncomeMar]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText('Fevereiro 2026')).toBeInTheDocument();
@@ -198,7 +205,7 @@ describe('LivroCaixaSheet', () => {
 
   describe('lançamentos individuais', () => {
     it('exibe nome do paciente como link para receita com paciente vinculado', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient]));
       renderSheet();
       await waitFor(() => {
         const link = screen.getByRole('link', { name: 'João Silva' });
@@ -207,7 +214,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('exibe descrição quando não há paciente vinculado', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidExpense] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidExpense]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText('Aluguel sala')).toBeInTheDocument();
@@ -215,7 +222,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('exibe valor positivo para receita e negativo para despesa', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient, paidExpense] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient, paidExpense]));
       renderSheet();
       // The income amount appears both in the entry row and in the year totals bar
       await waitFor(() => {
@@ -227,7 +234,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('exibe badge "pendente" para registros com status PENDING', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([pendingIncome] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([pendingIncome]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText('pendente')).toBeInTheDocument();
@@ -241,7 +248,7 @@ describe('LivroCaixaSheet', () => {
     it('calcula e exibe o saldo após cada lançamento pago', async () => {
       // paidIncomePatient (500) → balance 500
       // paidExpense (300) → balance 200
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient, paidExpense] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient, paidExpense]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText(`R$ ${formatCurrency(500)}`)).toBeInTheDocument(); // after income
@@ -250,7 +257,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('exibe "—" no saldo para lançamentos pendentes', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([pendingIncome] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([pendingIncome]));
       renderSheet();
       await waitFor(() => {
         // The "—" appears as the balance for a pending entry
@@ -262,9 +269,9 @@ describe('LivroCaixaSheet', () => {
     it('saldo anterior do segundo mês reflete os pagamentos do primeiro', async () => {
       // Feb: +500 (paid) -300 (paid) → closing = 200
       // Mar opening = 200, +800 (paid) → closing = 1000
-      vi.mocked(financialApi.list).mockResolvedValue([
-        paidIncomePatient, paidExpense, paidIncomeMar,
-      ] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(
+        pagedResponse([paidIncomePatient, paidExpense, paidIncomeMar]),
+      );
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText('Março 2026')).toBeInTheDocument();
@@ -279,7 +286,7 @@ describe('LivroCaixaSheet', () => {
 
   describe('rodapé do mês', () => {
     it('exibe totais de entradas e saídas pagas', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient, paidExpense] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient, paidExpense]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText(`Entradas: +R$ ${formatCurrency(500)}`)).toBeInTheDocument();
@@ -288,7 +295,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('exibe linha de pendências quando há registros pendentes', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient, pendingIncome] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient, pendingIncome]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText(/a receber R\$/)).toBeInTheDocument();
@@ -296,7 +303,7 @@ describe('LivroCaixaSheet', () => {
     });
 
     it('não exibe linha de pendências quando todos os registros estão pagos', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient, paidExpense] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient, paidExpense]));
       renderSheet();
       await waitFor(() => {
         expect(screen.getByText('Fevereiro 2026')).toBeInTheDocument();
@@ -310,7 +317,7 @@ describe('LivroCaixaSheet', () => {
 
   describe('totais anuais', () => {
     it('exibe resumo anual (entradas, saídas, saldo) na barra de filtro', async () => {
-      vi.mocked(financialApi.list).mockResolvedValue([paidIncomePatient, paidExpense] as any);
+      vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([paidIncomePatient, paidExpense]));
       renderSheet();
       await waitFor(() => {
         // +R$ 500,00 appears in both the year bar and the individual entry; at least one should exist

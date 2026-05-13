@@ -12,10 +12,14 @@ export class AccessStatusMiddleware implements NestMiddleware {
 
   async use(req: Request, _res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization
-    if (!authHeader?.startsWith('Bearer ')) return next()
+    const token =
+      authHeader?.startsWith('Bearer ')
+        ? authHeader.split(' ')[1]
+        : (req.cookies?.['pelvi_access_token'] as string | undefined)
+
+    if (!token) return next()
 
     try {
-      const token = authHeader.split(' ')[1]
       const payload = this.jwt.verify(token) as { organizationId?: string }
 
       if (payload.organizationId) {

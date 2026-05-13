@@ -118,8 +118,8 @@ export const authApi = {
   login: (cpf: string, password: string) =>
     api.post<LoginResponse>('/auth/login', { cpf, password }),
 
-  selectOrganization: (personId: string, organizationId: string) =>
-    api.post<SelectOrgResponse>('/auth/select-organization', { personId, organizationId }),
+  selectOrganization: (preAuthToken: string, organizationId: string) =>
+    api.post<SelectOrgResponse>('/auth/select-organization', { preAuthToken, organizationId }),
 
   logout: () => api.post<{ ok: true }>('/auth/logout', {}),
 
@@ -251,8 +251,10 @@ function normalizeFinancialRecords(raw: RawFinancialRecord[]): FinancialRecord[]
 }
 
 export const financialApi = {
-  list: async (params: { month: number; year: number } | { startDate: string; endDate: string }) =>
-    normalizeFinancialRecords(await api.get<RawFinancialRecord[]>(`/financial?${queryString(params)}`)),
+  list: async (params: ({ month: number; year: number } | { startDate: string; endDate: string }) & { page?: number; limit?: number }) => {
+    const raw = await api.get<{ data: RawFinancialRecord[]; meta: PaginatedResponse<unknown>['meta'] }>(`/financial?${queryString(params)}`);
+    return { data: normalizeFinancialRecords(raw.data), meta: raw.meta };
+  },
   listByPatient: async (patientId: string) =>
     normalizeFinancialRecords(await api.get<RawFinancialRecord[]>(`/financial/patient/${patientId}`)),
   summary: (params: { month: number; year: number }) =>

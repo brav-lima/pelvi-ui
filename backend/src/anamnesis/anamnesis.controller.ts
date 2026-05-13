@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AnamnesisService } from './anamnesis.service';
 import { CreateAnamnesisDto } from './dto/create-anamnesis.dto';
 import { UpdateAnamnesisDto } from './dto/update-anamnesis.dto';
@@ -9,6 +10,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiBearerAuth()
 @ApiTags('Anamneses')
+@Throttle({ default: { ttl: 60000, limit: 30 } })
 @Controller('anamneses')
 export class AnamnesisController {
   constructor(private readonly anamnesisService: AnamnesisService) {}

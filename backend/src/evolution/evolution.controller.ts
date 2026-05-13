@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { EvolutionService } from './evolution.service';
 import { CreateEvolutionDto } from './dto/create-evolution.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
@@ -8,6 +9,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @ApiBearerAuth()
 @ApiTags('Evolutions')
+@Throttle({ default: { ttl: 60000, limit: 30 } })
 @Controller('evolutions')
 export class EvolutionController {
   constructor(private readonly evolutionService: EvolutionService) {}
