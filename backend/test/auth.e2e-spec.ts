@@ -106,7 +106,7 @@ describe('Auth (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/auth/select-organization')
-        .send({ preAuthToken, organizationId: '00000000-0000-0000-0000-000000000000' })
+        .send({ preAuthToken, organizationId: '00000000-0000-4000-8000-000000000000' })
         .expect(401);
     });
   });

@@ -1,6 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerStorage } from '@nestjs/throttler';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../../src/app.module';
 import { AllExceptionsFilter } from '../../src/common/filters/http-exception.filter';
@@ -13,8 +13,10 @@ export async function createTestApp(): Promise<INestApplication> {
   })
     .overrideProvider(PrismaService)
     .useClass(PrismaTestService)
-    .overrideGuard(ThrottlerGuard)
-    .useValue({ canActivate: () => true })
+    .overrideProvider(ThrottlerStorage)
+    .useValue({
+      increment: async () => ({ totalHits: 1, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0 }),
+    })
     .compile();
 
   const app = moduleRef.createNestApplication();
