@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Patch,
   Post,
   Req,
@@ -65,10 +67,12 @@ function decodeJtiFromRefreshToken(token: string): string | null {
 }
 
 function clearAuthCookies(res: Response) {
-  res.clearCookie(ACCESS_COOKIE_NAME, { httpOnly: true, sameSite: 'strict' });
-  res.clearCookie(REFRESH_COOKIE_NAME, {
+  res.cookie(ACCESS_COOKIE_NAME, '', { httpOnly: true, secure: isProd(), sameSite: 'strict', maxAge: 0 });
+  res.cookie(REFRESH_COOKIE_NAME, '', {
     httpOnly: true,
+    secure: isProd(),
     sameSite: 'strict',
+    maxAge: 0,
     path: REFRESH_COOKIE_PATH,
   });
 }
@@ -80,6 +84,7 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
   @Post('login')
   @ApiOperation({
     summary: 'Login via CPF + senha',
@@ -100,6 +105,7 @@ export class AuthController {
   }
 
   @Public()
+  @HttpCode(HttpStatus.OK)
   @Post('select-organization')
   @ApiOperation({
     summary: 'Selecionar organização após login multi-clínica',
@@ -118,6 +124,7 @@ export class AuthController {
   }
 
   @Public()
+  @HttpCode(HttpStatus.OK)
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @ApiOperation({
@@ -142,6 +149,7 @@ export class AuthController {
   }
 
   @Public()
+  @HttpCode(HttpStatus.OK)
   @Post('logout')
   @ApiOperation({
     summary: 'Encerra a sessão revogando o refresh corrente e limpando os cookies',
