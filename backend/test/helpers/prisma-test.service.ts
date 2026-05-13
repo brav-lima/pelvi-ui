@@ -1,13 +1,16 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { PrismaNeon } from '@prisma/adapter-neon';
 import { PrismaClient } from '@prisma/client';
 
-// Standard PrismaClient without the Neon WebSocket adapter — safe for Node.js e2e tests.
-// schema.prisma omits the datasource url (it's in prisma.config.ts), so Prisma 7 requires
-// the URL to be passed explicitly via datasources rather than relying on env fallback.
+// Prisma 7 adapter-mode clients only accept `adapter` in the constructor.
+// We reuse PrismaNeon (same as production) but read DATABASE_URL directly from
+// process.env — ConfigModule has already loaded .env.test before this runs.
 @Injectable()
 export class PrismaTestService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
-    super({ datasources: { db: { url: process.env.DATABASE_URL } } });
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error('DATABASE_URL must be set in .env.test before running e2e tests');
+    super({ adapter: new PrismaNeon({ connectionString: url }) });
   }
 
   async onModuleInit() {
