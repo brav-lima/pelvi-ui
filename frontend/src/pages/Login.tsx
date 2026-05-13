@@ -119,7 +119,7 @@ export default function Login() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © 2024 Pelvi. Todos os direitos reservados.
+          © 2026 Pelvi. Todos os direitos reservados.
         </p>
       </div>
     </div>

@@ -36,7 +36,7 @@ export function MainLayout() {
       {/* Mobile sidebar (Sheet overlay) */}
       {isMobile && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="p-0 w-64">
+          <SheetContent side="left" className="p-0 w-60">
             <Sidebar mobile onNavigate={() => setSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
