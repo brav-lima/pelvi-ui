@@ -113,7 +113,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     .toUpperCase() || 'U';
 
   return (
-    <header className="flex items-center justify-between h-16 px-4 md:px-6 bg-card border-b border-border">
+    <header className="flex items-center justify-between h-14 px-4 md:px-6 bg-card border-b border-border">
       {/* Left side */}
       <div className="flex items-center gap-3">
         {/* Hamburger (mobile) */}

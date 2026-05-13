@@ -18,6 +18,27 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@/types/clinic';
 import { appVersion, versionTooltip } from '@/lib/version';
 
+const AVATAR_COLORS = [
+  ['hsl(16 55% 93%)', 'hsl(16 65% 28%)'],
+  ['hsl(142 55% 93%)', 'hsl(142 60% 22%)'],
+  ['hsl(199 75% 93%)', 'hsl(199 70% 28%)'],
+  ['hsl(38 80% 93%)', 'hsl(30 75% 30%)'],
+  ['hsl(285 50% 94%)', 'hsl(285 50% 32%)'],
+  ['hsl(30 14% 92%)', 'hsl(220 14% 28%)'],
+] as const;
+
+function hashColor(name: string): readonly [string, string] {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = ((h * 31 + name.charCodeAt(i)) >>> 0);
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrador',
+  PROFESSIONAL: 'Profissional',
+  RECEPTIONIST: 'Recepcionista',
+};
+
 type Role = User['role'];
 
 interface NavItem {
@@ -60,11 +81,11 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
       className={cn(
         'flex flex-col bg-sidebar transition-all duration-300 h-full',
         !mobile && 'border-r border-sidebar-border',
-        isCollapsed ? 'w-16' : 'w-64',
+        isCollapsed ? 'w-16' : 'w-60',
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
+      <div className="flex items-center h-14 px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
             <Stethoscope className="w-5 h-5 text-primary-foreground" />
@@ -78,7 +99,13 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 p-3 overflow-y-auto scrollbar-thin">
+        {!isCollapsed && (
+          <p className="text-[10.5px] font-medium text-sidebar-foreground/40 uppercase tracking-widest px-3 mb-1.5">
+            Principal
+          </p>
+        )}
+        <div className="space-y-1">
         {visibleNavigation.map((item) => {
           const isActive = location.pathname === item.href ||
             (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
@@ -101,6 +128,7 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
             </NavLink>
           );
         })}
+        </div>
       </nav>
 
       {/* Opções — só para ADMIN */}
@@ -154,9 +182,43 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
         </div>
       )}
 
-      {!isCollapsed && (
-        <div className="px-4 pb-3 text-xs text-sidebar-foreground/40" title={versionTooltip}>
-          {appVersion}
+      {/* User footer */}
+      {user && (
+        <div className="border-t border-sidebar-border p-3">
+          {isCollapsed ? (
+            <div
+              className="mx-auto rounded-full flex items-center justify-center text-[10px] font-semibold"
+              style={{
+                width: 32, height: 32,
+                background: hashColor(user.name)[0],
+                color: hashColor(user.name)[1],
+              }}
+              title={`${user.name} — ${ROLE_LABELS[user.role] ?? user.role}`}
+            >
+              {user.name.split(' ').filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase()}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5" title={versionTooltip}>
+              <div
+                className="rounded-full flex items-center justify-center text-[10.5px] font-semibold shrink-0"
+                style={{
+                  width: 32, height: 32,
+                  background: hashColor(user.name)[0],
+                  color: hashColor(user.name)[1],
+                }}
+              >
+                {user.name.split(' ').filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12.5px] font-medium text-sidebar-foreground leading-4 truncate">
+                  {user.name}
+                </p>
+                <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wide font-medium mt-0.5">
+                  {ROLE_LABELS[user.role] ?? user.role}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </aside>
