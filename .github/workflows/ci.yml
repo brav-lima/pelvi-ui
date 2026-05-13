@@ -74,3 +74,57 @@ jobs:
 
       - name: Tests
         run: bun run test
+
+  backend-e2e:
+    name: Backend (e2e integration tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pelvi_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-backend-${{ hashFiles('backend/bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-backend-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Create .env.test
+        run: |
+          printf 'DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pelvi_test\n' > .env.test
+          printf 'JWT_SECRET=ci-test-jwt-secret-min-32-chars-long-here\n' >> .env.test
+          printf 'JWT_REFRESH_SECRET=ci-test-refresh-secret-min-32-chars-long\n' >> .env.test
+          printf 'CORS_ORIGIN=http://localhost:8080\n' >> .env.test
+          printf 'INTERNAL_API_KEY=ci-test-internal-api-key-min-32-chars-long\n' >> .env.test
+
+      - name: Generate Prisma Client
+        run: bunx prisma generate
+
+      - name: Apply migrations
+        run: NODE_ENV=test bunx prisma migrate deploy
+
+      - name: E2E Tests
+        run: bun run test:e2e
