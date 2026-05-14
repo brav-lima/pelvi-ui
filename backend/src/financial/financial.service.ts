@@ -85,7 +85,7 @@ export class FinancialService {
 
   async findByPatient(organizationId: string, patientId: string) {
     return this.prisma.financialRecord.findMany({
-      where: { organizationId, patientId },
+      where: { organizationId, patientId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: {
         patient: { select: { id: true, name: true } },
@@ -114,6 +114,7 @@ export class FinancialService {
 
       where = {
         organizationId,
+        deletedAt: null,
         OR: [
           {
             dueDate: {
@@ -135,6 +136,7 @@ export class FinancialService {
       const endDate = new Date(query.year!, query.month!, 1);
       where = {
         organizationId,
+        deletedAt: null,
         createdAt: { gte: startDate, lt: endDate },
       };
     }
@@ -157,7 +159,7 @@ export class FinancialService {
 
   async findById(organizationId: string, id: string) {
     const record = await this.prisma.financialRecord.findFirst({
-      where: { id, organizationId },
+      where: { id, organizationId, deletedAt: null },
       include: {
         patient: { select: { id: true, name: true } },
         appointment: { select: { id: true, startAt: true } },
@@ -187,7 +189,10 @@ export class FinancialService {
   async remove(organizationId: string, id: string) {
     await this.findById(organizationId, id);
 
-    return this.prisma.financialRecord.delete({ where: { id } });
+    return this.prisma.financialRecord.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 
   async summary(organizationId: string, query: QueryFinancialDto) {
@@ -196,6 +201,7 @@ export class FinancialService {
 
     const where = {
       organizationId,
+      deletedAt: null,
       createdAt: { gte: startDate, lt: endDate },
     };
 

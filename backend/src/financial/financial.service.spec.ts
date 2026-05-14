@@ -200,7 +200,9 @@ describe('FinancialService', () => {
       const result = await service.findById(orgId, 'fin-1');
 
       expect(prisma.financialRecord.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'fin-1', organizationId: orgId } }),
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'fin-1', organizationId: orgId }),
+        }),
       );
       expect(result).toEqual(record);
     });
@@ -241,14 +243,19 @@ describe('FinancialService', () => {
   });
 
   describe('remove', () => {
-    it('deve deletar registro quando pertence à organização', async () => {
+    it('deve aplicar soft delete quando pertence à organização', async () => {
       const existing = { id: 'fin-1', organizationId: orgId };
       prisma.financialRecord.findFirst.mockResolvedValue(existing);
-      prisma.financialRecord.delete.mockResolvedValue(existing);
+      prisma.financialRecord.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
 
       await service.remove(orgId, 'fin-1');
 
-      expect(prisma.financialRecord.delete).toHaveBeenCalledWith({ where: { id: 'fin-1' } });
+      expect(prisma.financialRecord.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'fin-1' },
+          data: expect.objectContaining({ deletedAt: expect.any(Date) }),
+        }),
+      );
     });
 
     it('deve lançar NotFoundException antes de deletar quando não existe na org', async () => {
@@ -258,7 +265,7 @@ describe('FinancialService', () => {
         NotFoundException,
       );
 
-      expect(prisma.financialRecord.delete).not.toHaveBeenCalled();
+      expect(prisma.financialRecord.update).not.toHaveBeenCalled();
     });
   });
 

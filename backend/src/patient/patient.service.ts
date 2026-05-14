@@ -14,7 +14,9 @@ export class PatientService {
       select: { planMaxPatients: true },
     });
     if (org?.planMaxPatients) {
-      const count = await this.prisma.patient.count({ where: { organizationId } });
+      const count = await this.prisma.patient.count({
+        where: { organizationId, deletedAt: null },
+      });
       if (count >= org.planMaxPatients) {
         throw new BadRequestException(
           `Limite de pacientes atingido (${org.planMaxPatients}). Faça upgrade do plano.`,
@@ -47,7 +49,7 @@ export class PatientService {
     const { search, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { organizationId };
+    const where: Record<string, unknown> = { organizationId, deletedAt: null };
 
     if (search) {
       where.OR = [
@@ -79,7 +81,7 @@ export class PatientService {
 
   async findById(organizationId: string, id: string) {
     const patient = await this.prisma.patient.findFirst({
-      where: { id, organizationId },
+      where: { id, organizationId, deletedAt: null },
     });
 
     if (!patient) {
@@ -104,6 +106,9 @@ export class PatientService {
   async remove(organizationId: string, id: string) {
     await this.findById(organizationId, id);
 
-    return this.prisma.patient.delete({ where: { id } });
+    return this.prisma.patient.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 }
