@@ -21,6 +21,11 @@ export class PrismaTestService extends PrismaClient implements OnModuleInit, OnM
 
   async onModuleDestroy() {
     await this.$disconnect();
-    await this.pool.end();
+    // Give fire-and-forget ops (e.g. pruneStaleRefreshTokens) a moment to settle
+    // before closing the pool. Without this, pool.end() races with in-flight
+    // Prisma queries dispatched just before disconnect, producing
+    // "Cannot use a pool after calling end on the pool" errors across suites.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await this.pool.end().catch(() => {});
   }
 }

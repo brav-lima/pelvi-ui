@@ -122,6 +122,8 @@ jobs:
           printf 'JWT_REFRESH_SECRET=ci-test-refresh-secret-min-32-chars-long\n' >> .env.test
           printf 'CORS_ORIGIN=http://localhost:8080\n' >> .env.test
           printf 'INTERNAL_API_KEY=ci-test-internal-api-key-min-32-chars-long\n' >> .env.test
+          printf 'ADMIN_API_URL=http://localhost:3001\n' >> .env.test
+          printf 'ADMIN_EXTERNAL_API_KEY=ci-test-admin-external-api-key-min-32-chars\n' >> .env.test
 
       - name: Generate Prisma Client
         run: bunx prisma generate

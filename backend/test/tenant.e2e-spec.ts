@@ -27,10 +27,8 @@ describe('Tenant Isolation (e2e)', () => {
       return extractCookie(selRes.headers['set-cookie'], 'pelvi_access_token');
     }
 
-    [org1Cookie, org2Cookie] = await Promise.all([
-      loginToOrg(fixtures.org1Id),
-      loginToOrg(fixtures.org2Id),
-    ]);
+    org1Cookie = await loginToOrg(fixtures.org1Id);
+    org2Cookie = await loginToOrg(fixtures.org2Id);
   }, 30_000);
 
   afterAll(async () => {
