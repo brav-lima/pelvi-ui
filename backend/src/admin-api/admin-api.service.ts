@@ -78,4 +78,53 @@ export class AdminApiService {
 
     return res.json()
   }
+
+  async changePlan(organizationId: string, planId: string) {
+    this.logger.log(`Changing plan for org ${organizationId} → ${planId}`)
+
+    const res = await this.fetchWithTimeout(
+      this.buildUrl`/api/clinic-ext/subscription/plan`,
+      {
+        method: 'PATCH',
+        headers: this.headers,
+        body: JSON.stringify({ clinicId: organizationId, planId }),
+      },
+    )
+
+    if (res.status === 400) {
+      const body = await res.json().catch(() => ({}))
+      throw new ServiceUnavailableException(body?.message ?? 'Mudança de plano inválida')
+    }
+    if (res.status === 404) throw new NotFoundException('Plano ou assinatura não encontrados')
+    if (!res.ok) {
+      this.logger.error(`changePlan failed [${res.status}]`)
+      throw new ServiceUnavailableException(`Erro ao mudar plano: ${res.status}`)
+    }
+
+    return res.json()
+  }
+
+  async cancelSubscription(organizationId: string) {
+    this.logger.log(`Canceling subscription for org ${organizationId}`)
+
+    const res = await this.fetchWithTimeout(
+      this.buildUrl`/api/clinic-ext/subscription/cancel`,
+      {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({ clinicId: organizationId }),
+      },
+    )
+
+    if (res.status === 400) {
+      const body = await res.json().catch(() => ({}))
+      throw new ServiceUnavailableException(body?.message ?? 'Cancelamento inválido')
+    }
+    if (!res.ok) {
+      this.logger.error(`cancelSubscription failed [${res.status}]`)
+      throw new ServiceUnavailableException(`Erro ao cancelar assinatura: ${res.status}`)
+    }
+
+    return res.json()
+  }
 }
