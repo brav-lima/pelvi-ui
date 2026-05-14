@@ -203,6 +203,32 @@ export interface PlanUsage {
   currentUsers: number;
 }
 
+export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
+
+export interface Plan {
+  id: string;
+  name: string;
+  priceMonthly: number;
+  maxUsers: number | null;
+  maxPatients: number | null;
+  features: string[] | null;
+}
+
+export interface Subscription {
+  id: string;
+  status: SubscriptionStatus;
+  startDate: string;
+  endDate: string | null;
+  trialEndsAt: string | null;
+  plan: Plan;
+}
+
+export interface SubscriptionData {
+  organizationId: string;
+  clinicId: string;
+  subscription: Subscription | null;
+}
+
 export type FinancialType = 'INCOME' | 'EXPENSE';
 export type FinancialStatus = 'PENDING' | 'PAID';
 
