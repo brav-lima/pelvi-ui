@@ -34,6 +34,8 @@ Data is isolated by `organization_id` (clinic). The conceptual domain model uses
 - `Person` (global, identified by CPF) — linked to clinics via `OrganizationUser` (role + permissions)
 - All other entities (`Patient`, `Appointment`, `Procedure`, etc.) belong to an organization
 
+---
+
 ## Commands
 
 ### From repo root
@@ -69,6 +71,7 @@ bunx vitest run src/pages/Login.test.tsx
 bun run start:dev                                    # NestJS watch mode
 bun run test                                         # Unit tests (jest)
 bun run test:cov                                     # Coverage report
+bun run test:e2e                                     # E2E integration tests (requires real DB)
 bun run seed                                         # Seed database
 bunx prisma validate                                 # Validate schema
 bunx prisma migrate dev --name <name>                # Create/apply migration (dev)
@@ -87,6 +90,16 @@ Uses `docker-compose.yml` at repo root. Requires env vars: `DATABASE_URL`, `JWT_
 ---
 
 ## Frontend Architecture (`frontend/`)
+
+### Typography System
+
+Shared across all Pelvi products (pelvi-ui, pelvi-admin, pelvi-landing-page):
+
+- **Body / `font-sans`** → `Inter` — loaded from Google Fonts (400–700)
+- **Headings / `font-display`** → `Plus Jakarta Sans` — loaded from Google Fonts (500–800)
+- CSS vars defined in `frontend/src/index.css` `:root`: `--font-sans`, `--font-display`
+- Tailwind fontFamily uses `var(--font-sans)` and `var(--font-display)`
+- `h1–h3` automatically use `--font-display` with `letter-spacing: -0.01em`
 
 ### Provider Hierarchy (`frontend/src/App.tsx`)
 
@@ -107,8 +120,20 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 ### Layout System
 
 `MainLayout` (`frontend/src/components/layout/MainLayout.tsx`):
-- `Sidebar` — collapsible left nav (desktop), Sheet overlay (mobile < 768px)
-- `TopBar` — clinic info (CNPJ formatted), notifications, theme toggle, user menu (Trocar Clinica, Sair), hamburger menu (mobile)
+- `Sidebar` — collapsible left nav (desktop, `w-60` = 240px expanded / `w-16` collapsed), Sheet overlay (mobile < 768px, `w-60`)
+- `TopBar` — height `h-14` (56px), clinic name + CNPJ, notifications popover, theme toggle, user dropdown
+
+`Sidebar` details:
+- Section label "Principal" above main nav items
+- Section label "Opções" above settings (ADMIN only)
+- User footer at bottom: hash-color avatar (seeded from name) + name + role label
+- Collapsed state: avatar only with tooltip showing name + role
+- Version string shown as `title` tooltip on the user footer
+- Role labels: ADMIN → "Administrador", PROFESSIONAL → "Profissional", RECEPTIONIST → "Recepcionista"
+
+`TopBar` details:
+- Left: hamburger (mobile) + clinic name + CNPJ
+- Right: notifications bell (today's appointments + pending payments, dismissible per day), theme toggle, user dropdown (Perfil, Trocar Clínica, Sair)
 
 ### State Management
 
@@ -240,6 +265,7 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 | `treatment-package` | `/api/treatment-packages` | Session packages with procedure links |
 | `financial` | `/api/financial` | Income/expense CRUD + monthly summary |
 | `internal` | `/api/internal` | Internal ops (clinic/user management via `x-internal-api-key` header guard) |
+| `admin-api` | `/api/subscription` | Clinic→admin proxy: reads subscription + available plans from pelvi-admin on behalf of authenticated clinic users |
 | `audit` | — | AuditLog persistence (called internally by other services) |
 | `health` | `/api/health` | Health check endpoint |
 | `version` | `/api/version` | Version endpoint |
@@ -377,6 +403,8 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 
 ### Testing (Backend)
 
+#### Unit Tests
+
 - Jest + ts-jest, test files: `backend/src/**/*.spec.ts`
 - Unit tests mock `PrismaService` — no real DB connection required
 - Coverage collected from `**/*.service.ts` only
@@ -409,6 +437,15 @@ $transaction: jest.fn((fn) => fn(txMock))
 $transaction: jest.fn((ops) => Promise.all(ops))
 ```
 
+#### E2E Tests
+
+- Located in `backend/test/`
+- Require a real PostgreSQL database — use `backend/.env.test.example` as template for `backend/.env.test`
+- `auth.e2e-spec.ts` — full auth flow (login, refresh, logout, cookie behavior)
+- `tenant.e2e-spec.ts` — tenant isolation: data from one org not accessible from another
+- Uses `PrismaTestService` (wraps real Prisma with test helpers) and `db.helper.ts` / `app.helper.ts`
+- Run: `bun run test:e2e` from `backend/`
+
 ---
 
 ## Deployment (Railway)
@@ -429,13 +466,16 @@ Two services deployed from the same monorepo on Railway:
 - **Build arg**: `VITE_API_URL` — backend API URL injected at build time
 - **Nginx**: SPA routing (`try_files $uri $uri/ /index.html`), gzip, cache headers for static assets
 
+### Nginx log severity note
+Nginx writes startup notices to stderr. Railway tags stderr as `error` — this is cosmetic and not a real error. Migrations logging similarly from Prisma.
+
 ---
 
 ## Database (Neon)
 
 - **Provider**: Neon (serverless PostgreSQL)
 - **Branching**: Uses Neon branches to mirror environments (`dev`, `prod`)
-- **Env files**: `backend/.env.dev` and `backend/.env.prod` (encrypted via dotenvx)
+- **Env files**: `backend/.env.dev` (local dev, not committed). Use `backend/.env.test.example` as template for test env. Production env vars are injected by Railway — no `.env.prod` file needed.
 - Migrations: `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod (from `backend/`)
 
 ### Seed Data
@@ -453,11 +493,13 @@ Test credentials (all use password `123456`):
 
 ### Environment Variables
 
-Backend (`backend/.env.dev`, `backend/.env.prod`, Railway):
+Backend (`backend/.env.dev`, Railway):
 - `DATABASE_URL` — Neon PostgreSQL connection string (use direct URL, not pooled, for migrations)
 - `JWT_SECRET` — JWT signing secret
 - `JWT_REFRESH_SECRET` — Refresh token signing secret (separate from access token secret)
-- `INTERNAL_API_KEY` — API key for internal routes (min 32 chars)
+- `INTERNAL_API_KEY` — API key for internal routes (min 32 chars); must match `CLINIC_INTERNAL_API_KEY` in pelvi-admin
+- `ADMIN_API_URL` — pelvi-admin base URL (no trailing slash); e.g. `http://localhost:3001`
+- `ADMIN_EXTERNAL_API_KEY` — key sent as `x-clinic-api-key` to pelvi-admin; must match `CLINIC_EXTERNAL_API_KEY` in pelvi-admin
 - `CORS_ORIGIN` — Comma-separated allowed origins
 - `PORT` — Server port (Railway sets automatically)
 
