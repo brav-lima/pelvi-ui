@@ -141,6 +141,7 @@ model Patient {
   addressCity         String?  @map("address_city")
   addressState        String?  @map("address_state")
   notes               String?
+  deletedAt      DateTime? @map("deleted_at")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -152,6 +153,8 @@ model Patient {
   financialRecords FinancialRecord[]
   treatmentPackages TreatmentPackage[]
 
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, name, deletedAt])
   @@map("patients")
 }
 
@@ -198,6 +201,7 @@ model Appointment {
   endAt              DateTime          @map("end_at")
   status             AppointmentStatus @default(SCHEDULED)
   notes              String?
+  deletedAt          DateTime?         @map("deleted_at")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
 
@@ -209,6 +213,9 @@ model Appointment {
   evolutions       Evolution[]
   financialRecords FinancialRecord[]
 
+  @@index([organizationId, startAt, endAt, deletedAt])
+  @@index([organizationId, professionalId, startAt, deletedAt])
+  @@index([organizationId, patientId, deletedAt])
   @@map("appointments")
 }
 
@@ -229,6 +236,8 @@ model Anamnesis {
   patient      Patient          @relation(fields: [patientId], references: [id])
   professional OrganizationUser @relation(fields: [professionalId], references: [id])
 
+  @@index([organizationId, patientId])
+  @@index([organizationId, createdAt])
   @@map("anamneses")
 }
 
@@ -250,6 +259,8 @@ model PerinealAssessment {
   patient      Patient          @relation(fields: [patientId], references: [id])
   professional OrganizationUser @relation(fields: [professionalId], references: [id])
 
+  @@index([organizationId, patientId])
+  @@index([organizationId, createdAt])
   @@map("perineal_assessments")
 }
 
@@ -272,6 +283,8 @@ model Evolution {
   professional OrganizationUser @relation(fields: [professionalId], references: [id])
   appointment  Appointment?     @relation(fields: [appointmentId], references: [id])
 
+  @@index([organizationId, patientId])
+  @@index([organizationId, createdAt])
   @@map("evolutions")
 }
 
@@ -325,6 +338,7 @@ model FinancialRecord {
   dueDate            DateTime?       @map("due_date")
   installment        Int?
   installmentTotal   Int?            @map("installment_total")
+  deletedAt          DateTime?       @map("deleted_at")
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
 
@@ -333,6 +347,8 @@ model FinancialRecord {
   appointment      Appointment?      @relation(fields: [appointmentId], references: [id])
   treatmentPackage TreatmentPackage? @relation(fields: [treatmentPackageId], references: [id])
 
+  @@index([organizationId, createdAt, deletedAt])
+  @@index([organizationId, status, type, deletedAt])
   @@map("financial_records")
 }
 
@@ -365,6 +381,8 @@ model TreatmentPackage {
   appointments     Appointment[]
   financialRecords FinancialRecord[]
 
+  @@index([organizationId, patientId])
+  @@index([organizationId, createdAt])
   @@map("treatment_packages")
 }
 

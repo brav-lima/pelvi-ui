@@ -56,9 +56,11 @@ describe('PatientService', () => {
         service.findById(orgB, 'patient-1'),
       ).rejects.toThrow(NotFoundException);
 
-      expect(prisma.patient.findFirst).toHaveBeenCalledWith({
-        where: { id: 'patient-1', organizationId: orgB },
-      });
+      expect(prisma.patient.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'patient-1', organizationId: orgB }),
+        }),
+      );
     });
 
     it('create deve vincular ao organizationId', async () => {
@@ -114,19 +116,22 @@ describe('PatientService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('remove deve deletar paciente quando organizationId for correto', async () => {
+    it('remove deve aplicar soft delete quando organizationId for correto', async () => {
       prisma.patient.findFirst.mockResolvedValue({
         id: 'patient-1',
         organizationId: orgB,
         name: 'Maria',
       } as any);
-      prisma.patient.delete.mockResolvedValue({ id: 'patient-1' } as any);
+      prisma.patient.update.mockResolvedValue({ id: 'patient-1' } as any);
 
       await service.remove(orgB, 'patient-1');
 
-      expect(prisma.patient.delete).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
-      });
+      expect(prisma.patient.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'patient-1' },
+          data: expect.objectContaining({ deletedAt: expect.any(Date) }),
+        }),
+      );
     });
   });
 

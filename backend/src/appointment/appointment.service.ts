@@ -4,11 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma, AppointmentStatus, TreatmentPackageStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { QueryAppointmentDto } from './dto/query-appointment.dto';
-import { AppointmentStatus, TreatmentPackageStatus } from '@prisma/client';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
 
 const appointmentIncludes = {
@@ -37,7 +37,6 @@ export class AppointmentService {
       throw new NotFoundException('Procedimento não encontrado');
     }
 
-    // Validate treatment package if provided
     if (dto.treatmentPackageId) {
       const pkg = await this.prisma.treatmentPackage.findFirst({
         where: { id: dto.treatmentPackageId, organizationId },
@@ -69,26 +68,30 @@ export class AppointmentService {
       startAt.getTime() + procedure.durationMinutes * 60_000,
     );
 
-    await this.checkConflict(
-      organizationId,
-      dto.professionalId,
-      startAt,
-      endAt,
-    );
-
-    return this.prisma.appointment.create({
-      data: {
+    return this.prisma.$transaction(async (tx) => {
+      await this.checkConflict(
         organizationId,
-        patientId: dto.patientId,
-        professionalId: dto.professionalId,
-        procedureId: dto.procedureId,
-        treatmentPackageId: dto.treatmentPackageId,
+        dto.professionalId,
         startAt,
         endAt,
-        notes: dto.notes,
-      },
-      include: appointmentIncludes,
-    });
+        undefined,
+        tx,
+      );
+
+      return tx.appointment.create({
+        data: {
+          organizationId,
+          patientId: dto.patientId,
+          professionalId: dto.professionalId,
+          procedureId: dto.procedureId,
+          treatmentPackageId: dto.treatmentPackageId,
+          startAt,
+          endAt,
+          notes: dto.notes,
+        },
+        include: appointmentIncludes,
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async findAll(organizationId: string, query: QueryAppointmentDto) {
@@ -97,6 +100,7 @@ export class AppointmentService {
 
     const where: Record<string, unknown> = {
       organizationId,
+      deletedAt: null,
       startAt: {
         gte: new Date(query.startDate),
         lte: endDate,
@@ -116,7 +120,7 @@ export class AppointmentService {
 
   async findById(organizationId: string, id: string) {
     const appointment = await this.prisma.appointment.findFirst({
-      where: { id, organizationId },
+      where: { id, organizationId, deletedAt: null },
       include: appointmentIncludes,
     });
 
@@ -134,43 +138,45 @@ export class AppointmentService {
   ) {
     const existing = await this.findById(organizationId, id);
 
-    let startAt = existing.startAt;
-    let endAt = existing.endAt;
-
-    if (dto.startAt || dto.procedureId) {
-      const procedureId = dto.procedureId ?? existing.procedureId;
-      const procedure = await this.prisma.procedure.findFirst({
-        where: { id: procedureId, organizationId },
+    if (!dto.startAt && !dto.procedureId) {
+      return this.prisma.appointment.update({
+        where: { id },
+        data: {
+          patientId: dto.patientId,
+          professionalId: dto.professionalId,
+          notes: dto.notes,
+        },
+        include: appointmentIncludes,
       });
-      if (!procedure) {
-        throw new NotFoundException('Procedimento não encontrado');
-      }
-
-      startAt = dto.startAt ? new Date(dto.startAt) : existing.startAt;
-      endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
-
-      const professionalId = dto.professionalId ?? existing.professionalId;
-      await this.checkConflict(
-        organizationId,
-        professionalId,
-        startAt,
-        endAt,
-        id,
-      );
     }
 
-    return this.prisma.appointment.update({
-      where: { id },
-      data: {
-        patientId: dto.patientId,
-        professionalId: dto.professionalId,
-        procedureId: dto.procedureId,
-        startAt,
-        endAt,
-        notes: dto.notes,
-      },
-      include: appointmentIncludes,
+    const procedureId = dto.procedureId ?? existing.procedureId;
+    const procedure = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, organizationId },
     });
+    if (!procedure) {
+      throw new NotFoundException('Procedimento não encontrado');
+    }
+
+    const startAt = dto.startAt ? new Date(dto.startAt) : existing.startAt;
+    const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
+    const professionalId = dto.professionalId ?? existing.professionalId;
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.checkConflict(organizationId, professionalId, startAt, endAt, id, tx);
+      return tx.appointment.update({
+        where: { id },
+        data: {
+          patientId: dto.patientId,
+          professionalId: dto.professionalId,
+          procedureId: dto.procedureId,
+          startAt,
+          endAt,
+          notes: dto.notes,
+        },
+        include: appointmentIncludes,
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async updateStatus(
@@ -181,7 +187,6 @@ export class AppointmentService {
   ) {
     const existing = await this.findById(organizationId, id);
 
-    // Use transaction if package session tracking is needed
     if (existing.treatmentPackageId) {
       return this.prisma.$transaction(async (tx) => {
         const updated = await tx.appointment.update({
@@ -190,7 +195,6 @@ export class AppointmentService {
           include: appointmentIncludes,
         });
 
-        // Moving TO DONE: increment sessions
         if (
           status === AppointmentStatus.DONE &&
           existing.status !== AppointmentStatus.DONE
@@ -202,7 +206,6 @@ export class AppointmentService {
           );
         }
 
-        // Moving FROM DONE: decrement sessions
         if (
           existing.status === AppointmentStatus.DONE &&
           status !== AppointmentStatus.DONE
@@ -228,7 +231,10 @@ export class AppointmentService {
   async remove(organizationId: string, id: string) {
     await this.findById(organizationId, id);
 
-    return this.prisma.appointment.delete({ where: { id } });
+    return this.prisma.appointment.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 
   private async checkConflict(
@@ -237,10 +243,14 @@ export class AppointmentService {
     startAt: Date,
     endAt: Date,
     excludeId?: string,
+    tx?: Prisma.TransactionClient,
   ) {
+    const client = tx ?? this.prisma;
+
     const where: Record<string, unknown> = {
       organizationId,
       professionalId,
+      deletedAt: null,
       status: { not: AppointmentStatus.CANCELED },
       AND: [{ startAt: { lt: endAt } }, { endAt: { gt: startAt } }],
     };
@@ -249,7 +259,7 @@ export class AppointmentService {
       where.id = { not: excludeId };
     }
 
-    const conflict = await this.prisma.appointment.findFirst({ where });
+    const conflict = await client.appointment.findFirst({ where });
 
     if (conflict) {
       throw new ConflictException(

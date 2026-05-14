@@ -16,23 +16,23 @@ describe('AppointmentService', () => {
   };
 
   beforeEach(async () => {
+    const appointmentMock = {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
+
     prisma = {
-      appointment: {
-        create: jest.fn(),
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-      },
+      appointment: appointmentMock,
       procedure: {
         findFirst: jest.fn(),
       },
       treatmentPackage: {
         findFirst: jest.fn(),
       },
-      $transaction: jest.fn((fn) => fn({
-        appointment: { update: jest.fn().mockResolvedValue({ id: 'apt-1', status: 'DONE' }) },
-      })),
+      $transaction: jest.fn((fn, _opts?) => fn({ appointment: appointmentMock })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -270,7 +270,9 @@ describe('AppointmentService', () => {
       const result = await service.findById(orgId, 'apt-1');
 
       expect(prisma.appointment.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'apt-1', organizationId: orgId } }),
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'apt-1', organizationId: orgId }),
+        }),
       );
       expect(result).toEqual(apt);
     });
@@ -328,21 +330,26 @@ describe('AppointmentService', () => {
   });
 
   describe('remove', () => {
-    it('deve deletar agendamento quando pertence à organização', async () => {
+    it('deve aplicar soft delete quando pertence à organização', async () => {
       const existing = { id: 'apt-1', organizationId: orgId };
       prisma.appointment.findFirst.mockResolvedValue(existing);
-      prisma.appointment.delete.mockResolvedValue(existing);
+      prisma.appointment.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
 
       await service.remove(orgId, 'apt-1');
 
-      expect(prisma.appointment.delete).toHaveBeenCalledWith({ where: { id: 'apt-1' } });
+      expect(prisma.appointment.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'apt-1' },
+          data: expect.objectContaining({ deletedAt: expect.any(Date) }),
+        }),
+      );
     });
 
     it('deve lançar NotFoundException antes de deletar quando não encontrado', async () => {
       prisma.appointment.findFirst.mockResolvedValue(null);
 
       await expect(service.remove(orgId, 'apt-inexistente')).rejects.toThrow(NotFoundException);
-      expect(prisma.appointment.delete).not.toHaveBeenCalled();
+      expect(prisma.appointment.update).not.toHaveBeenCalled();
     });
   });
 
