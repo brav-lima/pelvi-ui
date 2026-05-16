@@ -2,16 +2,14 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { OrganizationService } from './organization.service';
-import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { CreateOrganizationUserDto } from './dto/create-organization-user.dto';
 import { UpdateOrganizationUserDto } from './dto/update-organization-user.dto';
@@ -27,113 +25,76 @@ export class OrganizationController {
     private readonly organizationService: OrganizationService,
   ) {}
 
-  // ── Plan usage (deve vir antes de ':id' para evitar conflito de rota) ──
+  // ── Plan usage ──
 
   @Get('me/plan')
+  @ApiOperation({ summary: 'Uso do plano da organização autenticada' })
   getPlanUsage(@OrgId() orgId: string) {
     return this.organizationService.getPlanUsage(orgId);
   }
 
   // ── Organization CRUD ──
+  // Todas as rotas operam sobre a organização do usuário autenticado (orgId vem do JWT).
+  // O parâmetro :id existe para conformidade REST mas é validado contra o orgId do token.
 
-  @Get()
-  findAll(@OrgId() orgId: string) {
+  @Get('me')
+  @ApiOperation({ summary: 'Dados da organização autenticada' })
+  findMe(@OrgId() orgId: string) {
     return this.organizationService.findById(orgId);
   }
 
-  @Get(':id')
-  findById(
-    @OrgId() orgId: string,
-    @Param('id') id: string,
-  ) {
-    if (id !== orgId) {
-      throw new ForbiddenException('Você não pode acessar outra organização');
-    }
-    return this.organizationService.findById(orgId);
-  }
-
-  @Patch(':id')
+  @Patch('me')
+  @ApiOperation({ summary: 'Atualizar dados da organização autenticada' })
   update(
     @OrgId() orgId: string,
-    @Param('id') id: string,
     @Body() dto: UpdateOrganizationDto,
   ) {
-    if (id !== orgId) {
-      throw new ForbiddenException('Você não pode modificar outra organização');
-    }
     return this.organizationService.update(orgId, dto);
   }
 
-  @Delete(':id')
-  remove(
-    @OrgId() orgId: string,
-    @Param('id') id: string,
-  ) {
-    if (id !== orgId) {
-      throw new ForbiddenException('Você não pode remover outra organização');
-    }
-    return this.organizationService.remove(orgId);
-  }
-
   // ── OrganizationUser (vínculos) ──
+  // orgId vem sempre do JWT — não é necessário passar na URL.
 
-  @Post(':orgId/users')
+  @Post('users')
+  @ApiOperation({ summary: 'Vincular pessoa à organização' })
   addUser(
-    @OrgId() callerOrgId: string,
-    @Param('orgId') orgId: string,
+    @OrgId() orgId: string,
     @Body() dto: CreateOrganizationUserDto,
   ) {
-    if (callerOrgId !== orgId) {
-      throw new ForbiddenException('Você não pode gerenciar outra organização');
-    }
     return this.organizationService.addUser(orgId, dto);
   }
 
-  @Get(':orgId/users')
-  findUsers(
-    @OrgId() callerOrgId: string,
-    @Param('orgId') orgId: string,
-  ) {
-    if (callerOrgId !== orgId) {
-      throw new ForbiddenException('Você não pode gerenciar outra organização');
-    }
+  @Get('users')
+  @ApiOperation({ summary: 'Listar membros da organização' })
+  findUsers(@OrgId() orgId: string) {
     return this.organizationService.findUsers(orgId);
   }
 
-  @Get(':orgId/users/:userId')
+  @Get('users/:userId')
+  @ApiOperation({ summary: 'Buscar membro por ID' })
   findUserById(
-    @OrgId() callerOrgId: string,
-    @Param('orgId') orgId: string,
+    @OrgId() orgId: string,
     @Param('userId') userId: string,
   ) {
-    if (callerOrgId !== orgId) {
-      throw new ForbiddenException('Você não pode gerenciar outra organização');
-    }
     return this.organizationService.findUserById(orgId, userId);
   }
 
-  @Patch(':orgId/users/:userId')
+  @Patch('users/:userId')
+  @ApiOperation({ summary: 'Atualizar membro da organização' })
   updateUser(
-    @OrgId() callerOrgId: string,
-    @Param('orgId') orgId: string,
+    @OrgId() orgId: string,
     @Param('userId') userId: string,
     @Body() dto: UpdateOrganizationUserDto,
   ) {
-    if (callerOrgId !== orgId) {
-      throw new ForbiddenException('Você não pode gerenciar outra organização');
-    }
     return this.organizationService.updateUser(orgId, userId, dto);
   }
 
-  @Delete(':orgId/users/:userId')
+  @Delete('users/:userId')
+  @ApiOperation({ summary: 'Remover membro da organização' })
   removeUser(
-    @OrgId() callerOrgId: string,
-    @Param('orgId') orgId: string,
+    @OrgId() orgId: string,
     @Param('userId') userId: string,
   ) {
-    if (callerOrgId !== orgId) {
-      throw new ForbiddenException('Você não pode gerenciar outra organização');
-    }
     return this.organizationService.removeUser(orgId, userId);
   }
 }

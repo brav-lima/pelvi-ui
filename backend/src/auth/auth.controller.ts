@@ -189,6 +189,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('change-password')
   @ApiOperation({ summary: 'Alterar senha (requer senha atual)' })
   @ApiResponse({ status: 200, description: 'Senha alterada com sucesso' })

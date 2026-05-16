@@ -448,9 +448,22 @@ $transaction: jest.fn((ops) => Promise.all(ops))
 
 ---
 
+## Git Workflow
+
+| Branch | Environment | Purpose |
+|--------|-------------|---------|
+| `main` | Production | Stable prod — deploy via Railway automatically |
+| `staging` | Homologação | Pre-prod validation — created from `main` |
+
+**PR flow**: all PRs target `staging` first. After validation, `staging` → `main` for prod deploy.
+
+Never open PRs directly to `main`.
+
+---
+
 ## Deployment (Railway)
 
-Two services deployed from the same monorepo on Railway:
+Two services deployed from the same monorepo on Railway. Each environment (`staging`, `prod`) has its own Railway services and Neon DB branch.
 
 ### Backend (`pelvi-api`)
 - **Root directory**: `backend`
@@ -474,7 +487,7 @@ Nginx writes startup notices to stderr. Railway tags stderr as `error` — this 
 ## Database (Neon)
 
 - **Provider**: Neon (serverless PostgreSQL)
-- **Branching**: Uses Neon branches to mirror environments (`dev`, `prod`)
+- **Branching**: Uses Neon branches to mirror environments (`dev`, `staging`, `prod`)
 - **Env files**: `backend/.env.dev` (local dev, not committed). Use `backend/.env.test.example` as template for test env. Production env vars are injected by Railway — no `.env.prod` file needed.
 - Migrations: `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod (from `backend/`)
 
