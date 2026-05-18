@@ -23,7 +23,7 @@ enum DocumentType {
 model Organization {
   id           String             @id @default(uuid())
   name         String
-  document     String?            @unique @map("cnpj")
+  document     String?            @unique @map("document")
   documentType DocumentType?      @map("document_type")
   email        String?
   phone        String?

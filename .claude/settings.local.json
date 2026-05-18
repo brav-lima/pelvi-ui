@@ -10,7 +10,23 @@
       "Bash(powershell.exe -Command 'Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter '\\\\''claude*'\\\\'' -ErrorAction SilentlyContinue -Depth 4 | Select-Object FullName')",
       "Bash(npm list:*)",
       "Bash(bun pm:*)",
-      "Bash(gh issue *)"
+      "Bash(gh issue *)",
+      "Bash(curl -s -D - -X POST http://localhost:3000/api/auth/login -H 'Origin: http://localhost:8080' -H 'Content-Type: application/json' -d '{\"cpf\":\"11111111111\",\"password\":\"123456\"}')",
+      "Bash(bunx prisma *)",
+      "Bash(bun run *)",
+      "Bash(bun add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "Bash(gh run *)",
+      "Bash(bunx tsc *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(grep -v \"^\\\\s*$\")",
+      "Bash(git add *)",
+      "Bash(gh project *)",
+      "Bash(python3 -c \"import sys,json; items=json.load\\(sys.stdin\\)['items']; [print\\(i.get\\('number','?'\\), i.get\\('title',''\\), '-', i.get\\('status',''\\)\\) for i in items if '27' in str\\(i.get\\('number',''\\)\\)]\")",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

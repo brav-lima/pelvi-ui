@@ -31,7 +31,7 @@ async function tryRefreshToken(): Promise<void> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
         });
@@ -56,7 +56,7 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api${path}`, {
+    const res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
       ...options,
       headers,
       credentials: 'include',
@@ -168,10 +168,10 @@ export const professionalsApi = {
   getById: (id: string) => api.get<Professional>(`/professionals/${id}`),
   update: (id: string, data: { role?: string; active?: boolean }) =>
     api.patch<Professional>(`/professionals/${id}`, data),
-  addToOrg: (orgId: string, data: { personId: string; role: string }) =>
-    api.post<unknown>(`/organizations/${orgId}/users`, data),
-  removeFromOrg: (orgId: string, userId: string) =>
-    api.delete<void>(`/organizations/${orgId}/users/${userId}`),
+  addToOrg: (_orgId: string, data: { personId: string; role: string }) =>
+    api.post<unknown>('/organizations/users', data),
+  removeFromOrg: (_orgId: string, userId: string) =>
+    api.delete<void>(`/organizations/users/${userId}`),
 };
 
 export const appointmentsApi = {
