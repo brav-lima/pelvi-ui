@@ -28,7 +28,7 @@ COPY --from=build /app/prisma.config.ts ./
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
-ENV NODE_ENV=prod
+ENV NODE_ENV=production
 
 # Version identification — read at runtime by GET /api/version.
 ARG APP_VERSION=dev
