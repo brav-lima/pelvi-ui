@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, UseGuards, VERSION_NEUTRAL } from '@nestjs/common'
 import { InternalOnly } from './decorators/internal-only.decorator'
 import { InternalApiKeyGuard } from './guards/internal-api-key.guard'
 import { InternalService } from './internal.service'
@@ -11,7 +11,7 @@ import { ResetClinicUserPasswordDto } from './dto/reset-clinic-user-password.dto
 
 // @InternalOnly() bypassa o JwtAuthGuard — autenticação real via InternalApiKeyGuard (x-internal-api-key).
 // ATENÇÃO: nunca remover @UseGuards(InternalApiKeyGuard) sem remover @InternalOnly() também.
-@Controller('internal')
+@Controller({ path: 'internal', version: VERSION_NEUTRAL })
 @InternalOnly()
 @UseGuards(InternalApiKeyGuard)
 export class InternalController {
