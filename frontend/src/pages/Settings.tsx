@@ -21,7 +21,7 @@ import type { Plan, PlanUsage, SubscriptionData } from '@/types/clinic';
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value / 100);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
 function formatDate(iso: string) {
