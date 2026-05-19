@@ -49,11 +49,12 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
   // Notifications: pending payments this month (shares 'financial' prefix so invalidations propagate)
   const now = new Date();
-  const { data: monthFinancial = [] } = useQuery({
+  const { data: monthFinancialResult } = useQuery({
     queryKey: ['financial', 'notifications', now.getMonth() + 1, now.getFullYear()],
     queryFn: () => financialApi.list({ month: now.getMonth() + 1, year: now.getFullYear() }),
     refetchInterval: 5 * 60 * 1000,
   });
+  const monthFinancial = monthFinancialResult?.data ?? [];
 
   const [profileOpen, setProfileOpen] = useState(false);
 
