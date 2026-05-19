@@ -50,7 +50,7 @@ export class AdminApiService {
   async getSubscription(organizationId: string) {
     this.logger.log(`Fetching subscription for org ${organizationId}`)
 
-    const url = this.buildUrl`/api/v1/clinic-ext/subscription?clinicId=${organizationId}`
+    const url = this.buildUrl`/api/admin/v1/clinic-ext/subscription?clinicId=${organizationId}`
     const res = await this.fetchWithTimeout(url, { method: 'GET', headers: this.headers })
 
     if (res.status === 404) throw new NotFoundException('Assinatura não encontrada')
@@ -67,7 +67,7 @@ export class AdminApiService {
     this.logger.log('Fetching available plans')
 
     const res = await this.fetchWithTimeout(
-      this.buildUrl`/api/v1/clinic-ext/plans`,
+      this.buildUrl`/api/admin/v1/clinic-ext/plans`,
       { method: 'GET', headers: this.headers },
     )
 
@@ -83,7 +83,7 @@ export class AdminApiService {
     this.logger.log(`Changing plan for org ${organizationId} → ${planId}`)
 
     const res = await this.fetchWithTimeout(
-      this.buildUrl`/api/v1/clinic-ext/subscription/plan`,
+      this.buildUrl`/api/admin/v1/clinic-ext/subscription/plan`,
       {
         method: 'PATCH',
         headers: this.headers,
@@ -108,7 +108,7 @@ export class AdminApiService {
     this.logger.log(`Canceling subscription for org ${organizationId}`)
 
     const res = await this.fetchWithTimeout(
-      this.buildUrl`/api/v1/clinic-ext/subscription/cancel`,
+      this.buildUrl`/api/admin/v1/clinic-ext/subscription/cancel`,
       {
         method: 'POST',
         headers: this.headers,
