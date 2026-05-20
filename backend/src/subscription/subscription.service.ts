@@ -98,7 +98,11 @@ export class SubscriptionService {
 
     try {
       const data = await this.adminApi.getSubscription(organizationId)
-      const rawFeatures: unknown[] = data?.subscription?.plan?.features ?? []
+      const raw: unknown = data?.subscription?.plan?.features ?? []
+      // Compatibilidade com planos antigos cujo features é { nfse: true, ... }
+      const rawFeatures: unknown[] = Array.isArray(raw)
+        ? raw
+        : Object.entries(raw as Record<string, boolean>).filter(([, v]) => v).map(([k]) => k)
       return rawFeatures.filter((f): f is PlanFeature => typeof f === 'string')
     } catch (err) {
       this.logger.warn(
