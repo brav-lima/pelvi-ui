@@ -73,7 +73,7 @@ export async function createTestApp(): Promise<INestApplication> {
     .overrideProvider(CACHE_MANAGER)
     .useValue({ get: async () => undefined, set: async () => undefined, del: async () => undefined })
     .overrideProvider(getQueueToken(REMINDER_QUEUE))
-    .useValue({ add: async () => ({ id: 'mock-job' }), getJob: async () => null })
+    .useValue(reminderQueueMock)
     .compile();
 
   const app = moduleRef.createNestApplication();
