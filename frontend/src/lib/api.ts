@@ -18,6 +18,7 @@ import type {
   PlanUsage,
   SubscriptionData,
   Plan,
+  PlanFeatureStatus,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -280,6 +281,7 @@ export const organizationApi = {
 };
 
 export const subscriptionApi = {
+  getStatus: () => api.get<PlanFeatureStatus>('/subscription/status'),
   getCurrent: () => api.get<SubscriptionData>('/subscription'),
   getPlans: () => api.get<Plan[]>('/subscription/plans'),
   changePlan: (planId: string) => api.patch<{ ok: boolean; planId: string; planName: string }>('/subscription/plan', { planId }),

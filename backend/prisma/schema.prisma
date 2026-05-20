@@ -20,6 +20,19 @@ enum DocumentType {
   CPF
 }
 
+enum Plan {
+  SOLO
+  CLINICA
+  REDE
+}
+
+enum PlanStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
 model Organization {
   id           String             @id @default(uuid())
   name         String
@@ -31,6 +44,10 @@ model Organization {
   accessStatus    ClinicAccessStatus @default(ACTIVE) @map("access_status")
   planMaxUsers    Int?               @map("plan_max_users")
   planMaxPatients Int?               @map("plan_max_patients")
+  plan            Plan               @default(SOLO)  @map("plan")
+  planStatus      PlanStatus         @default(TRIAL)  @map("plan_status")
+  trialEndsAt     DateTime?          @map("trial_ends_at")
+  founderDiscount Boolean            @default(false)  @map("founder_discount")
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt    DateTime           @updatedAt @map("updated_at")
 

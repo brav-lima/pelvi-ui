@@ -5,5 +5,6 @@ import { AdminApiService } from './admin-api.service'
 @Module({
   controllers: [AdminApiController],
   providers: [AdminApiService],
+  exports: [AdminApiService],
 })
 export class AdminApiModule {}
