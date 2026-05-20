@@ -48,12 +48,6 @@ function createInMemoryRedisService() {
   };
 }
 
-const cacheManagerMock = {
-  get: async () => undefined,
-  set: async () => undefined,
-  del: async () => undefined,
-};
-
 const reminderQueueMock = {
   add: async () => ({ id: 'mock-job' }),
   getJob: async () => null,
