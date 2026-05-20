@@ -5,7 +5,6 @@ import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis'
 import Redis from 'ioredis';
 import { RedisModule } from './redis/redis.module';
 import { REDIS_CLIENT } from './redis/redis.constants';
-import { AppCacheModule } from './cache/cache.module';
 import { QueueModule } from './queue/queue.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -42,7 +41,6 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
       }),
     }),
     RedisModule,
-    AppCacheModule,
     QueueModule,
     PrismaModule,
     AuthModule,

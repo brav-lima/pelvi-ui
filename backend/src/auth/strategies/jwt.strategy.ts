@@ -31,8 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
-    if (payload.jti && await this.redis.exists(`blacklist:${payload.jti}`)) {
-      throw new UnauthorizedException('Token revogado');
+    try {
+      if (payload.jti && await this.redis.exists(`blacklist:${payload.jti}`)) {
+        throw new UnauthorizedException('Token revogado');
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
     }
     return {
       sub: payload.sub,
