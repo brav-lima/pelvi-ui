@@ -11,6 +11,8 @@ import { REDIS_CLIENT } from '../../src/redis/redis.constants';
 import { RedisService } from '../../src/redis/redis.service';
 import { REMINDER_QUEUE } from '../../src/queue/jobs/reminder.job';
 import { PrismaTestService } from './prisma-test.service';
+import { AdminApiService } from '../../src/admin-api/admin-api.service';
+import { ALL_PLAN_FEATURES } from '../../src/subscription/plan-features';
 
 function createInMemoryRedis() {
   const store = new Map<string, string>();
@@ -74,6 +76,13 @@ export async function createTestApp(): Promise<INestApplication> {
     .useValue({ get: async () => undefined, set: async () => undefined, del: async () => undefined })
     .overrideProvider(getQueueToken(REMINDER_QUEUE))
     .useValue(reminderQueueMock)
+    .overrideProvider(AdminApiService)
+    .useValue({
+      getSubscription: async () => ({ subscription: { plan: { features: ALL_PLAN_FEATURES } } }),
+      getPlans: async () => ({ plans: [] }),
+      changePlan: async () => ({}),
+      cancelSubscription: async () => ({}),
+    })
     .compile();
 
   const app = moduleRef.createNestApplication();
