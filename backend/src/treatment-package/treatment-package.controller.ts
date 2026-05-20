@@ -15,7 +15,9 @@ import { CreateTreatmentPackageDto } from './dto/create-treatment-package.dto';
 import { UpdateTreatmentPackageDto } from './dto/update-treatment-package.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 
+@RequireFeature('TREATMENT_PACKAGES')
 @ApiBearerAuth()
 @ApiTags('Treatment Packages')
 @Controller('treatment-packages')

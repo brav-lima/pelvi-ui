@@ -23,8 +23,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
-  const hasFeature = (feature: PlanFeature): boolean =>
-    subscription?.features.includes(feature) ?? false;
+  const hasFeature = (feature: PlanFeature): boolean => {
+    if (isLoading) return true;
+    return subscription?.features.includes(feature) ?? false;
+  };
 
   return (
     <SubscriptionContext.Provider value={{ subscription, isLoading, hasFeature }}>

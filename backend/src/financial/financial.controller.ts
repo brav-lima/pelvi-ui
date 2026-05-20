@@ -16,7 +16,9 @@ import { UpdateFinancialDto } from './dto/update-financial.dto';
 import { QueryFinancialDto } from './dto/query-financial.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 
+@RequireFeature('FINANCIAL_BASIC')
 @ApiBearerAuth()
 @ApiTags('Financial')
 @Controller('financial')

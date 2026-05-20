@@ -20,6 +20,21 @@ import type { Plan, PlanUsage, SubscriptionData } from '@/types/clinic';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+const FEATURE_LABELS: Record<string, string> = {
+  AGENDA:               'Agenda',
+  PATIENTS:             'Gestão de Pacientes',
+  FINANCIAL_BASIC:      'Financeiro Básico',
+  FINANCIAL_ADVANCED:   'Financeiro Avançado',
+  PERINEAL_ASSESSMENT:  'Avaliação Perineal',
+  TREATMENT_PACKAGES:   'Pacotes de Tratamento',
+  ANAMNESIS:            'Avaliação (Anamnese)',
+  EVOLUTIONS:           'Evoluções Clínicas',
+  ROLES:                'Perfis de Acesso',
+  MULTI_PROFESSIONAL:   'Multi-Profissional',
+  MULTI_CLINIC:         'Multi-Clínica',
+  PRIORITY_SUPPORT:     'Suporte Prioritário',
+};
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
@@ -133,7 +148,7 @@ function PlanCard({
         {features.map((f) => (
           <li key={f} className="flex items-center gap-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            {f}
+            {FEATURE_LABELS[f] ?? f}
           </li>
         ))}
       </ul>

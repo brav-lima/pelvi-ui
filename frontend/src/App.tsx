@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,7 +9,9 @@ import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useFeature } from "@/contexts/SubscriptionContext";
 import { Loader2 } from "lucide-react";
+import type { PlanFeature } from "@/types/clinic";
 
 // Lazy-loaded pages
 const Login = lazy(() => import("./pages/Login"));
@@ -36,6 +38,12 @@ function PageLoader() {
   );
 }
 
+function FeatureRoute({ feature, children }: { feature: PlanFeature; children: ReactNode }) {
+  const allowed = useFeature(feature);
+  if (!allowed) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
@@ -52,14 +60,14 @@ const App = () => (
 
                   <Route element={<MainLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/agenda" element={<Agenda />} />
-                    <Route path="/patients" element={<Patients />} />
-                    <Route path="/patients/:id" element={<PatientProfile />} />
-                    <Route path="/professionals" element={<ProtectedRoute roles={['ADMIN']}><Professionals /></ProtectedRoute>} />
+                    <Route path="/agenda" element={<FeatureRoute feature="AGENDA"><Agenda /></FeatureRoute>} />
+                    <Route path="/patients" element={<FeatureRoute feature="PATIENTS"><Patients /></FeatureRoute>} />
+                    <Route path="/patients/:id" element={<FeatureRoute feature="PATIENTS"><PatientProfile /></FeatureRoute>} />
+                    <Route path="/professionals" element={<ProtectedRoute roles={['ADMIN']}><FeatureRoute feature="MULTI_PROFESSIONAL"><Professionals /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/procedures" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Procedures /></ProtectedRoute>} />
-                    <Route path="/anamnesis" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Anamnesis /></ProtectedRoute>} />
-                    <Route path="/evolutions" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Evolutions /></ProtectedRoute>} />
-                    <Route path="/financial" element={<ProtectedRoute roles={['ADMIN']}><Financial /></ProtectedRoute>} />
+                    <Route path="/anamnesis" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><FeatureRoute feature="ANAMNESIS"><Anamnesis /></FeatureRoute></ProtectedRoute>} />
+                    <Route path="/evolutions" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><FeatureRoute feature="EVOLUTIONS"><Evolutions /></FeatureRoute></ProtectedRoute>} />
+                    <Route path="/financial" element={<ProtectedRoute roles={['ADMIN']}><FeatureRoute feature="FINANCIAL_BASIC"><Financial /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute roles={['ADMIN']}><Settings /></ProtectedRoute>} />
                   </Route>
 

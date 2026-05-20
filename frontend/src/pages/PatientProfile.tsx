@@ -51,6 +51,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useFeature } from '@/contexts/SubscriptionContext';
 
 /**
  * Paleta de categorias da timeline e do listing de avaliação perineal.
@@ -72,6 +73,12 @@ export default function PatientProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const hasPerineal   = useFeature('PERINEAL_ASSESSMENT');
+  const hasAnamnesis  = useFeature('ANAMNESIS');
+  const hasEvolutions = useFeature('EVOLUTIONS');
+  const hasPackages   = useFeature('TREATMENT_PACKAGES');
+  const hasFinancial  = useFeature('FINANCIAL_BASIC');
   const [editOpen, setEditOpen] = useState(false);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [evolutionOpen, setEvolutionOpen] = useState(false);
@@ -100,31 +107,31 @@ export default function PatientProfile() {
   const { data: anamneses = [] } = useQuery({
     queryKey: ['patient-anamneses', id],
     queryFn: () => anamnesisApi.list(id!),
-    enabled: !!id,
+    enabled: !!id && hasAnamnesis,
   });
 
   const { data: evolutions = [] } = useQuery({
     queryKey: ['patient-evolutions', id],
     queryFn: () => evolutionsApi.list(id!),
-    enabled: !!id,
+    enabled: !!id && hasEvolutions,
   });
 
   const { data: treatmentPackages = [] } = useQuery({
     queryKey: ['treatment-packages', id],
     queryFn: () => treatmentPackagesApi.list({ patientId: id }),
-    enabled: !!id,
+    enabled: !!id && hasPackages,
   });
 
   const { data: patientFinancial = [] } = useQuery({
     queryKey: ['patient-financial', id],
     queryFn: () => financialApi.listByPatient(id!),
-    enabled: !!id,
+    enabled: !!id && hasFinancial,
   });
 
   const { data: perinealAssessments = [] } = useQuery({
     queryKey: ['patient-perineal-assessments', id],
     queryFn: () => perinealAssessmentsApi.list(id!),
-    enabled: !!id,
+    enabled: !!id && hasPerineal,
   });
 
   type TimelineItem =
@@ -137,11 +144,11 @@ export default function PatientProfile() {
     const items: TimelineItem[] = [
       ...appointments.map((a) => ({ kind: 'appointment' as const, date: new Date(a.startAt), data: a })),
       ...anamneses.map((a) => ({ kind: 'evaluation' as const, date: new Date(a.createdAt), data: a })),
-      ...evolutions.map((e) => ({ kind: 'evolution' as const, date: new Date(e.createdAt), data: e })),
-      ...perinealAssessments.map((p) => ({ kind: 'perineal-assessment' as const, date: new Date(p.createdAt), data: p })),
+      ...(hasEvolutions ? evolutions.map((e) => ({ kind: 'evolution' as const, date: new Date(e.createdAt), data: e })) : []),
+      ...(hasPerineal ? perinealAssessments.map((p) => ({ kind: 'perineal-assessment' as const, date: new Date(p.createdAt), data: p })) : []),
     ];
     return items.sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [appointments, anamneses, evolutions, perinealAssessments]);
+  }, [appointments, anamneses, evolutions, perinealAssessments, hasEvolutions, hasPerineal]);
 
   const cancelPackageMutation = useMutation({
     mutationFn: (pkgId: string) =>
@@ -373,26 +380,36 @@ export default function PatientProfile() {
                   <Calendar className="w-4 h-4" />
                   Consultas
                 </TabsTrigger>
-                <TabsTrigger value="anamnesis" className="gap-2">
-                  <ClipboardList className="w-4 h-4" />
-                  Avaliação
-                </TabsTrigger>
-                <TabsTrigger value="perineal-assessment" className="gap-2">
-                  <Stethoscope className="w-4 h-4" />
-                  Avaliação Perineal
-                </TabsTrigger>
-                <TabsTrigger value="evolutions" className="gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Evoluções
-                </TabsTrigger>
-                <TabsTrigger value="packages" className="gap-2">
-                  <Package className="w-4 h-4" />
-                  Pacotes
-                </TabsTrigger>
-                <TabsTrigger value="financeiro" className="gap-2">
-                  <Wallet className="w-4 h-4" />
-                  Financeiro
-                </TabsTrigger>
+                {hasAnamnesis && (
+                  <TabsTrigger value="anamnesis" className="gap-2">
+                    <ClipboardList className="w-4 h-4" />
+                    Avaliação
+                  </TabsTrigger>
+                )}
+                {hasPerineal && (
+                  <TabsTrigger value="perineal-assessment" className="gap-2">
+                    <Stethoscope className="w-4 h-4" />
+                    Avaliação Perineal
+                  </TabsTrigger>
+                )}
+                {hasEvolutions && (
+                  <TabsTrigger value="evolutions" className="gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Evoluções
+                  </TabsTrigger>
+                )}
+                {hasPackages && (
+                  <TabsTrigger value="packages" className="gap-2">
+                    <Package className="w-4 h-4" />
+                    Pacotes
+                  </TabsTrigger>
+                )}
+                {hasFinancial && (
+                  <TabsTrigger value="financeiro" className="gap-2">
+                    <Wallet className="w-4 h-4" />
+                    Financeiro
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -608,7 +625,7 @@ export default function PatientProfile() {
             </TabsContent>
 
             {/* === Avaliação Tab === */}
-            <TabsContent value="anamnesis" className="mt-4">
+            {hasAnamnesis && <TabsContent value="anamnesis" className="mt-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Avaliações</CardTitle>
@@ -678,10 +695,10 @@ export default function PatientProfile() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
 
             {/* === Perineal Assessment Tab === */}
-            <TabsContent value="perineal-assessment" className="mt-4">
+            {hasPerineal && <TabsContent value="perineal-assessment" className="mt-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Avaliações Perineais</CardTitle>
@@ -732,10 +749,10 @@ export default function PatientProfile() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
 
             {/* === Evolutions Tab === */}
-            <TabsContent value="evolutions" className="mt-4">
+            {hasEvolutions && <TabsContent value="evolutions" className="mt-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Evoluções Clínicas</CardTitle>
@@ -778,10 +795,10 @@ export default function PatientProfile() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
 
             {/* === Treatment Packages Tab === */}
-            <TabsContent value="packages" className="mt-4">
+            {hasPackages && <TabsContent value="packages" className="mt-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Pacotes de Tratamento</CardTitle>
@@ -872,10 +889,10 @@ export default function PatientProfile() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
 
             {/* === Financeiro Tab === */}
-            <TabsContent value="financeiro" className="mt-4">
+            {hasFinancial && <TabsContent value="financeiro" className="mt-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Financeiro</CardTitle>
@@ -941,7 +958,7 @@ export default function PatientProfile() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </TabsContent>}
           </Tabs>
         </div>
       </div>
