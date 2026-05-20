@@ -22,25 +22,10 @@ const superficiaisLista = [
   { key: 'esfincterAnalExterno', label: 'Esfíncter anal externo' },
 ] as const;
 
-const escapeLista: Array<{
-  key:
-    | 'aberturaUretral'
-    | 'aberturaAnal'
-    | 'tosseUretral'
-    | 'tosseAnal'
-    | 'valsalvaUretral'
-    | 'valsalvaAnal';
-  label: string;
-}> = [
-  { key: 'aberturaUretral', label: 'Abertura — uretral' },
-  { key: 'aberturaAnal', label: 'Abertura — anal' },
-  { key: 'tosseUretral', label: 'Tosse — uretral' },
-  { key: 'tosseAnal', label: 'Tosse — anal' },
-  { key: 'valsalvaUretral', label: 'Valsalva — uretral' },
-  { key: 'valsalvaAnal', label: 'Valsalva — anal' },
-];
-
 export function Step2InspecaoDinamica({ form }: Props) {
+  const preContracaoTosseMain = form.watch('inspecaoDinamica.levantadores.preContracaoTosse.main');
+  const preContracaoValsalvaMain = form.watch('inspecaoDinamica.levantadores.preContracaoValsalva.main');
+
   return (
     <div className="space-y-6">
       <section className="space-y-3">
@@ -98,87 +83,146 @@ export function Step2InspecaoDinamica({ form }: Props) {
           label="Relaxamento — atraso"
           options={sinalOptions}
         />
-        <SegmentedRadio
-          control={form.control}
-          name="inspecaoDinamica.levantadores.abertura"
-          label="Abertura"
-          options={[
-            { value: 'CAUDAL', label: 'Caudal' },
-            { value: 'PRESENTE', label: 'Presente' },
-            { value: 'AUSENTE', label: 'Ausente' },
-            { value: 'CRANIAL', label: 'Cranial' },
-          ]}
-        />
       </section>
 
       <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Pré-contração — Tosse</h5>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <SegmentedRadio
-            control={form.control}
-            name="inspecaoDinamica.levantadores.preContracaoTosse.antes"
-            label="Antes"
-            options={tempoTripleOptions}
-          />
-          <SegmentedRadio
-            control={form.control}
-            name="inspecaoDinamica.levantadores.preContracaoTosse.durante"
-            label="Durante"
-            options={tempoTripleOptions}
-          />
-          <SegmentedRadio
-            control={form.control}
-            name="inspecaoDinamica.levantadores.preContracaoTosse.depois"
-            label="Depois"
-            options={tempoTripleOptions}
-          />
-        </div>
-      </section>
+        <h5 className="font-semibold text-sm">Pré-contração</h5>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="border rounded-md p-3 space-y-3">
+            <h6 className="text-sm font-medium">Tosse</h6>
+            <SegmentedRadio
+              control={form.control}
+              name="inspecaoDinamica.levantadores.preContracaoTosse.main"
+              label="Pré-contração"
+              options={tempoTripleOptions}
+            />
+            {preContracaoTosseMain === 'CRANIAL' && (
+              <div className="space-y-2 pt-1">
+                <SegmentedRadio
+                  control={form.control}
+                  name="inspecaoDinamica.levantadores.preContracaoTosse.antes"
+                  label="Antes"
+                  options={tempoTripleOptions}
+                />
+                <SegmentedRadio
+                  control={form.control}
+                  name="inspecaoDinamica.levantadores.preContracaoTosse.durante"
+                  label="Durante"
+                  options={tempoTripleOptions}
+                />
+                <SegmentedRadio
+                  control={form.control}
+                  name="inspecaoDinamica.levantadores.preContracaoTosse.depois"
+                  label="Depois"
+                  options={tempoTripleOptions}
+                />
+              </div>
+            )}
+          </div>
 
-      <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Pré-contração — Valsalva</h5>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <SegmentedRadio
-            control={form.control}
-            name="inspecaoDinamica.levantadores.preContracaoValsalva.antes"
-            label="Antes"
-            options={tempoTripleOptions}
-          />
-          <SegmentedRadio
-            control={form.control}
-            name="inspecaoDinamica.levantadores.preContracaoValsalva.durante"
-            label="Durante"
-            options={tempoTripleOptions}
-          />
-          <SegmentedRadio
-            control={form.control}
-            name="inspecaoDinamica.levantadores.preContracaoValsalva.depois"
-            label="Depois"
-            options={tempoTripleOptions}
-          />
+          <div className="border rounded-md p-3 space-y-3">
+            <h6 className="text-sm font-medium">Valsalva</h6>
+            <SegmentedRadio
+              control={form.control}
+              name="inspecaoDinamica.levantadores.preContracaoValsalva.main"
+              label="Pré-contração"
+              options={tempoTripleOptions}
+            />
+            {preContracaoValsalvaMain === 'CRANIAL' && (
+              <div className="space-y-2 pt-1">
+                <SegmentedRadio
+                  control={form.control}
+                  name="inspecaoDinamica.levantadores.preContracaoValsalva.antes"
+                  label="Antes"
+                  options={tempoTripleOptions}
+                />
+                <SegmentedRadio
+                  control={form.control}
+                  name="inspecaoDinamica.levantadores.preContracaoValsalva.durante"
+                  label="Durante"
+                  options={tempoTripleOptions}
+                />
+                <SegmentedRadio
+                  control={form.control}
+                  name="inspecaoDinamica.levantadores.preContracaoValsalva.depois"
+                  label="Depois"
+                  options={tempoTripleOptions}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
       <section className="space-y-3">
         <h5 className="font-semibold text-sm">Escape intra-teste</h5>
         <p className="text-xs text-muted-foreground">Marque os escapes observados.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {escapeLista.map((e) => (
-            <Controller
-              key={e.key}
-              control={form.control}
-              name={`inspecaoDinamica.escapeIntraTeste.${e.key}` as const}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox
-                    checked={!!field.value}
-                    onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
+        <div className="border rounded-md overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40">
+                <th className="text-left p-2 font-medium w-1/3"></th>
+                <th className="text-center p-2 font-medium">Tosse</th>
+                <th className="text-center p-2 font-medium">Valsalva</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="p-2 font-medium">Uretral</td>
+                <td className="p-2 text-center">
+                  <Controller
+                    control={form.control}
+                    name="inspecaoDinamica.escapeIntraTeste.tosseUretral"
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={!!field.value}
+                        onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
+                      />
+                    )}
                   />
-                  <span>{e.label}</span>
-                </label>
-              )}
-            />
-          ))}
+                </td>
+                <td className="p-2 text-center">
+                  <Controller
+                    control={form.control}
+                    name="inspecaoDinamica.escapeIntraTeste.valsalvaUretral"
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={!!field.value}
+                        onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
+                      />
+                    )}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="p-2 font-medium">Anal</td>
+                <td className="p-2 text-center">
+                  <Controller
+                    control={form.control}
+                    name="inspecaoDinamica.escapeIntraTeste.tosseAnal"
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={!!field.value}
+                        onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
+                      />
+                    )}
+                  />
+                </td>
+                <td className="p-2 text-center">
+                  <Controller
+                    control={form.control}
+                    name="inspecaoDinamica.escapeIntraTeste.valsalvaAnal"
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={!!field.value}
+                        onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
+                      />
+                    )}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <Label className="text-xs text-muted-foreground italic">
           Suspender se houver dor.

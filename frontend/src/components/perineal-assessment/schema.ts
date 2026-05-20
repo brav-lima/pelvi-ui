@@ -21,6 +21,7 @@ export type TempoTriple = z.infer<typeof tempoTriple>;
 
 const tempoBlock = z
   .object({
+    main: tempoTriple.optional(),
     antes: tempoTriple.optional(),
     durante: tempoTriple.optional(),
     depois: tempoTriple.optional(),
@@ -72,15 +73,12 @@ export const perinealAssessmentSchema = z.object({
             .optional(),
           relaxamentoMovCaudal: movDirecao.optional(),
           relaxamentoAtraso: sinal.optional(),
-          abertura: z.enum(['CAUDAL', 'PRESENTE', 'AUSENTE', 'CRANIAL']).optional(),
           preContracaoTosse: tempoBlock,
           preContracaoValsalva: tempoBlock,
         })
         .partial(),
       escapeIntraTeste: z
         .object({
-          aberturaUretral: z.boolean().optional(),
-          aberturaAnal: z.boolean().optional(),
           tosseUretral: z.boolean().optional(),
           tosseAnal: z.boolean().optional(),
           valsalvaUretral: z.boolean().optional(),
@@ -103,7 +101,6 @@ export const perinealAssessmentSchema = z.object({
           cutFemoral: lateralidade.optional(),
           ilioinguinal: lateralidade.optional(),
           iliohipogastrico: lateralidade.optional(),
-          trofismoSensor: escala3.optional(),
         })
         .partial(),
       atividadeReflexa: z
@@ -124,7 +121,9 @@ export const perinealAssessmentSchema = z.object({
       tinel: z
         .object({
           direito: z.enum(['I', 'II', 'III', 'IV']).optional(),
+          direitoSacro: z.enum(['S2', 'S3', 'S4']).optional(),
           esquerdo: z.enum(['I', 'II', 'III', 'IV']).optional(),
+          esquerdoSacro: z.enum(['S2', 'S3', 'S4']).optional(),
         })
         .partial(),
     })
@@ -134,6 +133,7 @@ export const perinealAssessmentSchema = z.object({
   // 4. Palpação Estática (Anatomia Palpatória 3D®)
   palpacaoEstatica: z
     .object({
+      trofismo: escala3.optional(),
       superficiais: sinal.optional(),
       rabdo: escala3.optional(),
       pubovaginalPuboperineal: z
@@ -154,17 +154,7 @@ export const perinealAssessmentSchema = z.object({
   // 5. Palpação Dinâmica
   palpacaoDinamica: z
     .object({
-      movimento: z
-        .enum(['COMPLETO', 'PVs+PR+ICs', 'PVs+PR', 'PVs', 'AUSENTE'])
-        .optional(),
-      relaxamento: z
-        .enum(['COMPLETO', 'INCOMPLETO', 'PARCIAL_DOWN', 'PARCIAL_UP', 'AUSENTE'])
-        .optional(),
-      abertura: z.enum(['CAUDAL', 'PRESENTE', 'AUSENTE', 'CRANIAL']).optional(),
-      atraso: sinal.optional(),
       forca: z.enum(['FORTE', 'RAZOAVEL', 'FRACO', 'ESBOCO', 'AUSENTE']).optional(),
-      potencia: z.enum(['>20', '20-11', '10-6', '4-1', 'ZERO']).optional(),
-      endurance: z.enum(['>10s', '9-7s', '6-4s', '3-1s', 'ZERO']).optional(),
       involuntariaTosse: tempoBlock,
       involuntariaValsalva: tempoBlock,
       simetria: lateralidade.optional(),
