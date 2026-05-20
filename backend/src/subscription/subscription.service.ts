@@ -7,7 +7,7 @@ import { PlanFeature } from './plan-features'
 
 const CACHE_TTL_SECONDS = 300 // 5 minutes
 
-interface SubscriptionSnapshot {
+export interface SubscriptionSnapshot {
   plan: string
   planStatus: string
   isActive: boolean
