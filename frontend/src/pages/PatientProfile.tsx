@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import {
   ArrowLeft,
   Edit,
+  Eye,
   Phone,
   Mail,
   MapPin,
@@ -79,6 +80,8 @@ export default function PatientProfile() {
   const [cancelingPackage, setCancelingPackage] = useState<TreatmentPackage | null>(null);
   const [perinealOpen, setPerinealOpen] = useState(false);
   const [editingPerineal, setEditingPerineal] = useState<PerinealAssessment | undefined>();
+  const [perinealViewOpen, setPerinealViewOpen] = useState(false);
+  const [viewingPerineal, setViewingPerineal] = useState<PerinealAssessment | undefined>();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -228,6 +231,11 @@ export default function PatientProfile() {
   const openEditPerineal = (assessment: PerinealAssessment) => {
     setEditingPerineal(assessment);
     setPerinealOpen(true);
+  };
+
+  const openViewPerineal = (assessment: PerinealAssessment) => {
+    setViewingPerineal(assessment);
+    setPerinealViewOpen(true);
   };
 
   const perinealPreview = (a: PerinealAssessment): string => {
@@ -727,10 +735,16 @@ export default function PatientProfile() {
                               </p>
                             </div>
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => openEditPerineal(assessment)}>
-                            <Edit className="w-4 h-4 mr-1" />
-                            Editar
-                          </Button>
+                          <div className="flex gap-1 shrink-0">
+                            <Button variant="ghost" size="sm" onClick={() => openViewPerineal(assessment)}>
+                              <Eye className="w-4 h-4 mr-1" />
+                              Visualizar
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEditPerineal(assessment)}>
+                              <Edit className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -926,6 +940,18 @@ export default function PatientProfile() {
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-perineal-assessments', id] })}
           patientId={id}
           assessment={editingPerineal}
+        />
+      )}
+
+      {/* View Perineal Assessment Wizard */}
+      {id && (
+        <PerinealAssessmentWizard
+          open={perinealViewOpen}
+          onOpenChange={setPerinealViewOpen}
+          onSuccess={() => {}}
+          patientId={id}
+          assessment={viewingPerineal}
+          readOnly
         />
       )}
 

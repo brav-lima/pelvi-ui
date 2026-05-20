@@ -10,6 +10,7 @@ import {
   tempoTripleOptions,
 } from '../options';
 import type { PerinealAssessmentFormData } from '../schema';
+import { useReadOnly } from '../ReadOnlyContext';
 
 interface Props {
   form: UseFormReturn<PerinealAssessmentFormData>;
@@ -23,6 +24,7 @@ const superficiaisLista = [
 ] as const;
 
 export function Step2InspecaoDinamica({ form }: Props) {
+  const readOnly = useReadOnly();
   const preContracaoTosseMain = form.watch('inspecaoDinamica.levantadores.preContracaoTosse.main');
   const preContracaoValsalvaMain = form.watch('inspecaoDinamica.levantadores.preContracaoValsalva.main');
 
@@ -176,6 +178,7 @@ export function Step2InspecaoDinamica({ form }: Props) {
                     render={({ field }) => (
                       <Checkbox
                         checked={!!field.value}
+                        disabled={readOnly}
                         onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
                       />
                     )}
@@ -188,6 +191,7 @@ export function Step2InspecaoDinamica({ form }: Props) {
                     render={({ field }) => (
                       <Checkbox
                         checked={!!field.value}
+                        disabled={readOnly}
                         onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
                       />
                     )}
@@ -203,6 +207,7 @@ export function Step2InspecaoDinamica({ form }: Props) {
                     render={({ field }) => (
                       <Checkbox
                         checked={!!field.value}
+                        disabled={readOnly}
                         onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
                       />
                     )}
@@ -215,6 +220,7 @@ export function Step2InspecaoDinamica({ form }: Props) {
                     render={({ field }) => (
                       <Checkbox
                         checked={!!field.value}
+                        disabled={readOnly}
                         onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
                       />
                     )}
