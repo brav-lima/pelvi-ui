@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import {
   ArrowLeft,
   Edit,
+  Eye,
   Phone,
   Mail,
   MapPin,
@@ -24,6 +25,7 @@ import {
   Package,
   ScrollText,
   DollarSign,
+  Wallet,
   ClipboardList,
   Stethoscope,
 } from 'lucide-react';
@@ -79,6 +81,8 @@ export default function PatientProfile() {
   const [cancelingPackage, setCancelingPackage] = useState<TreatmentPackage | null>(null);
   const [perinealOpen, setPerinealOpen] = useState(false);
   const [editingPerineal, setEditingPerineal] = useState<PerinealAssessment | undefined>();
+  const [perinealViewOpen, setPerinealViewOpen] = useState(false);
+  const [viewingPerineal, setViewingPerineal] = useState<PerinealAssessment | undefined>();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -127,7 +131,6 @@ export default function PatientProfile() {
     | { kind: 'appointment'; date: Date; data: (typeof appointments)[number] }
     | { kind: 'evaluation'; date: Date; data: Anamnesis }
     | { kind: 'evolution'; date: Date; data: (typeof evolutions)[number] }
-    | { kind: 'financial'; date: Date; data: FinancialRecord }
     | { kind: 'perineal-assessment'; date: Date; data: PerinealAssessment };
 
   const timelineItems = useMemo((): TimelineItem[] => {
@@ -135,11 +138,10 @@ export default function PatientProfile() {
       ...appointments.map((a) => ({ kind: 'appointment' as const, date: new Date(a.startAt), data: a })),
       ...anamneses.map((a) => ({ kind: 'evaluation' as const, date: new Date(a.createdAt), data: a })),
       ...evolutions.map((e) => ({ kind: 'evolution' as const, date: new Date(e.createdAt), data: e })),
-      ...patientFinancial.map((f) => ({ kind: 'financial' as const, date: new Date(f.createdAt), data: f })),
       ...perinealAssessments.map((p) => ({ kind: 'perineal-assessment' as const, date: new Date(p.createdAt), data: p })),
     ];
     return items.sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [appointments, anamneses, evolutions, patientFinancial, perinealAssessments]);
+  }, [appointments, anamneses, evolutions, perinealAssessments]);
 
   const cancelPackageMutation = useMutation({
     mutationFn: (pkgId: string) =>
@@ -150,6 +152,15 @@ export default function PatientProfile() {
       setCancelingPackage(null);
     },
     onError: () => toast.error('Erro ao cancelar pacote'),
+  });
+
+  const darBaixaMutation = useMutation({
+    mutationFn: (finId: string) => financialApi.update(finId, { status: 'PAID' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient-financial', id] });
+      toast.success('Pagamento confirmado');
+    },
+    onError: () => toast.error('Erro ao confirmar pagamento'),
   });
 
   const statusMutation = useMutation({
@@ -228,6 +239,11 @@ export default function PatientProfile() {
   const openEditPerineal = (assessment: PerinealAssessment) => {
     setEditingPerineal(assessment);
     setPerinealOpen(true);
+  };
+
+  const openViewPerineal = (assessment: PerinealAssessment) => {
+    setViewingPerineal(assessment);
+    setPerinealViewOpen(true);
   };
 
   const perinealPreview = (a: PerinealAssessment): string => {
@@ -373,6 +389,10 @@ export default function PatientProfile() {
                   <Package className="w-4 h-4" />
                   Pacotes
                 </TabsTrigger>
+                <TabsTrigger value="financeiro" className="gap-2">
+                  <Wallet className="w-4 h-4" />
+                  Financeiro
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -490,37 +510,6 @@ export default function PatientProfile() {
                                   <p className="text-sm text-muted-foreground line-clamp-2">{evo.description}</p>
                                   {evo.professional?.person?.name && (
                                     <p className="text-xs text-muted-foreground">{evo.professional.person.name}</p>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          if (item.kind === 'financial') {
-                            const fin = item.data as FinancialRecord;
-                            const isIncome = fin.type === 'INCOME';
-                            return (
-                              <div key={`fin-${fin.id}`} className="relative pl-10">
-                                <div className={`absolute left-2.5 w-3 h-3 rounded-full ${TIMELINE_CATEGORY.financial.dot} border-2 border-background`} />
-                                <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${TIMELINE_CATEGORY.financial.pill}`}>
-                                      <DollarSign className="w-3 h-3" />
-                                      {isIncome ? 'Receita' : 'Despesa'}
-                                    </span>
-                                    <StatusBadge status={fin.status} />
-                                    <span className="text-sm font-semibold text-foreground">
-                                      {format(item.date, 'dd/MM/yyyy')}
-                                    </span>
-                                  </div>
-                                  <p className="text-sm font-medium">
-                                    R$ {Number(fin.amount).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
-                                    {fin.installment && fin.installment.total > 1
-                                      ? ` (${fin.installment.current}/${fin.installment.total})`
-                                      : ''}
-                                  </p>
-                                  {fin.description && (
-                                    <p className="text-xs text-muted-foreground">{fin.description}</p>
                                   )}
                                 </div>
                               </div>
@@ -727,10 +716,16 @@ export default function PatientProfile() {
                               </p>
                             </div>
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => openEditPerineal(assessment)}>
-                            <Edit className="w-4 h-4 mr-1" />
-                            Editar
-                          </Button>
+                          <div className="flex gap-1 shrink-0">
+                            <Button variant="ghost" size="sm" onClick={() => openViewPerineal(assessment)}>
+                              <Eye className="w-4 h-4 mr-1" />
+                              Visualizar
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEditPerineal(assessment)}>
+                              <Edit className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -878,6 +873,75 @@ export default function PatientProfile() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* === Financeiro Tab === */}
+            <TabsContent value="financeiro" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Financeiro</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {patientFinancial.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Nenhum registro financeiro encontrado
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {[...patientFinancial]
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .map((fin) => {
+                          const isIncome = fin.type === 'INCOME';
+                          const isPending = fin.status === 'PENDING';
+                          return (
+                            <div
+                              key={fin.id}
+                              className="border border-border rounded-lg p-4 flex items-center justify-between gap-4"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`flex items-center justify-center w-10 h-10 rounded-md shrink-0 ${isIncome ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-destructive/10 text-destructive'}`}>
+                                  <DollarSign className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0 space-y-0.5">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${isIncome ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400' : 'bg-destructive/10 text-destructive border-destructive/20'}`}>
+                                      {isIncome ? 'Receita' : 'Despesa'}
+                                    </span>
+                                    <StatusBadge status={fin.status} />
+                                  </div>
+                                  <p className="font-medium text-sm">
+                                    R$ {formatCurrency(fin.amount)}
+                                    {fin.installment && fin.installment.total > 1
+                                      ? ` · Parcela ${fin.installment.current}/${fin.installment.total}`
+                                      : ''}
+                                  </p>
+                                  {fin.description && (
+                                    <p className="text-xs text-muted-foreground truncate">{fin.description}</p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(fin.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                                  </p>
+                                </div>
+                              </div>
+                              {isPending && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="shrink-0 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 dark:text-emerald-400"
+                                  onClick={() => darBaixaMutation.mutate(fin.id)}
+                                  disabled={darBaixaMutation.isPending}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  Dar baixa
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -926,6 +990,18 @@ export default function PatientProfile() {
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-perineal-assessments', id] })}
           patientId={id}
           assessment={editingPerineal}
+        />
+      )}
+
+      {/* View Perineal Assessment Wizard */}
+      {id && (
+        <PerinealAssessmentWizard
+          open={perinealViewOpen}
+          onOpenChange={setPerinealViewOpen}
+          onSuccess={() => {}}
+          patientId={id}
+          assessment={viewingPerineal}
+          readOnly
         />
       )}
 
