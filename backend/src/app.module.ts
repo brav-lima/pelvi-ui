@@ -1,6 +1,12 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import Redis from 'ioredis';
+import { RedisModule } from './redis/redis.module';
+import { REDIS_CLIENT } from './redis/redis.constants';
+import { AppCacheModule } from './cache/cache.module';
+import { QueueModule } from './queue/queue.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationModule } from './organization/organization.module';
@@ -27,13 +33,17 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
       isGlobal: true,
       envFilePath: `.env.${process.env.NODE_ENV || 'dev'}`,
     }),
-    ThrottlerModule.forRoot([
-      {
-        name: 'default',
-        ttl: 60000,
-        limit: 60,
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [RedisModule],
+      inject: [REDIS_CLIENT],
+      useFactory: (redis: Redis) => ({
+        throttlers: [{ name: 'default', ttl: 60000, limit: 60 }],
+        storage: new ThrottlerStorageRedisService(redis),
+      }),
+    }),
+    RedisModule,
+    AppCacheModule,
+    QueueModule,
     PrismaModule,
     AuthModule,
     OrganizationModule,

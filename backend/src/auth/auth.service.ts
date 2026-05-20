@@ -9,6 +9,7 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PersonService } from '../person/person.service';
+import { RedisService } from '../redis/redis.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -17,7 +18,13 @@ import { JwtPayload } from './strategies/jwt.strategy';
 import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
 
 const REFRESH_TTL_DAYS = 7;
-const REFRESH_TTL_MS = REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000;
+const REFRESH_TTL_SECONDS = REFRESH_TTL_DAYS * 24 * 60 * 60;
+const ACCESS_TTL_SECONDS = 15 * 60;
+
+const redisKey = {
+  refresh: (hash: string) => `refresh:${hash}`,
+  blacklist: (jti: string) => `blacklist:${jti}`,
+};
 
 interface IssuedTokens {
   accessToken: string;
@@ -31,6 +38,7 @@ export class AuthService {
     private readonly personService: PersonService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly redis: RedisService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -204,24 +212,10 @@ export class AuthService {
     jti: string,
   ): Promise<IssuedTokens> {
     const tokenHash = this.hashJti(jti);
-    const stored = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash },
-    });
+    const storedPersonId = await this.redis.get(redisKey.refresh(tokenHash));
 
-    if (!stored || stored.personId !== personId) {
+    if (!storedPersonId || storedPersonId !== personId) {
       throw new UnauthorizedException('Refresh token inválido');
-    }
-
-    if (stored.revokedAt) {
-      await this.prisma.refreshToken.updateMany({
-        where: { personId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-      throw new UnauthorizedException('Refresh token reutilizado');
-    }
-
-    if (stored.expiresAt.getTime() <= Date.now()) {
-      throw new UnauthorizedException('Refresh token expirado');
     }
 
     const link = await this.prisma.organizationUser.findUnique({
@@ -229,28 +223,27 @@ export class AuthService {
       select: { active: true, role: true, person: { select: { active: true } } },
     });
     if (!link || !link.active || !link.person.active) {
-      // Active token but stale link — revoke the family for safety
-      await this.prisma.refreshToken.updateMany({
-        where: { personId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      await this.redis.del(redisKey.refresh(tokenHash));
       throw new UnauthorizedException('Vínculo inválido ou inativo');
     }
 
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
-    });
+    // Revoke the consumed token before issuing the next one (rotation)
+    await this.redis.del(redisKey.refresh(tokenHash));
 
     return this.issueTokens(personId, organizationId, link.role);
   }
 
-  async revokeRefreshToken(jti: string): Promise<void> {
+  async revokeRefreshToken(jti: string, accessJti?: string): Promise<void> {
     const tokenHash = this.hashJti(jti);
-    await this.prisma.refreshToken.updateMany({
-      where: { tokenHash, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await this.redis.del(redisKey.refresh(tokenHash));
+
+    if (accessJti) {
+      await this.redis.set(redisKey.blacklist(accessJti), '1', ACCESS_TTL_SECONDS);
+    }
+  }
+
+  async isAccessTokenRevoked(jti: string): Promise<boolean> {
+    return this.redis.exists(redisKey.blacklist(jti));
   }
 
   private issuePreAuthToken(personId: string): string {
@@ -275,10 +268,12 @@ export class AuthService {
     organizationId: string,
     role: string,
   ): Promise<IssuedTokens> {
-    const accessPayload = { sub: personId, organizationId, role };
+    const jti = crypto.randomUUID();
+    const accessJti = crypto.randomUUID();
+
+    const accessPayload = { sub: personId, organizationId, role, jti: accessJti };
     const accessToken = this.jwtService.sign(accessPayload, { expiresIn: '15m' });
 
-    const jti = crypto.randomUUID();
     const refreshPayload: JwtRefreshPayload = {
       sub: personId,
       organizationId,
@@ -291,38 +286,16 @@ export class AuthService {
       expiresIn: `${REFRESH_TTL_DAYS}d`,
     });
 
-    await this.prisma.refreshToken.create({
-      data: {
-        personId,
-        tokenHash: this.hashJti(jti),
-        expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
-      },
-    });
-
-    this.pruneStaleRefreshTokens(personId);
+    await this.redis.set(
+      redisKey.refresh(this.hashJti(jti)),
+      personId,
+      REFRESH_TTL_SECONDS,
+    );
 
     return { accessToken, refreshToken };
   }
 
   private hashJti(jti: string): string {
     return crypto.createHash('sha256').update(jti).digest('hex');
-  }
-
-  // Fire-and-forget: remove expired + revoked tokens older than 30 days for this person
-  private pruneStaleRefreshTokens(personId: string): void {
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    this.prisma.refreshToken
-      .deleteMany({
-        where: {
-          personId,
-          OR: [
-            { expiresAt: { lt: new Date() } },
-            { revokedAt: { lt: cutoff } },
-          ],
-        },
-      })
-      .catch(() => {
-        // Non-critical cleanup — must not block the auth flow
-      });
   }
 }

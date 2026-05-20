@@ -53,7 +53,7 @@ function setAuthCookies(res: Response, accessToken: string, refreshToken: string
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions());
 }
 
-function decodeJtiFromRefreshToken(token: string): string | null {
+function decodeJtiFromToken(token: string): string | null {
   try {
     const payloadSegment = token.split('.')[1];
     if (!payloadSegment) return null;
@@ -157,10 +157,13 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Sessão encerrada' })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
+    const accessToken = req.cookies?.[ACCESS_COOKIE_NAME] as string | undefined;
+
     if (refreshToken) {
-      const jti = decodeJtiFromRefreshToken(refreshToken);
-      if (jti) {
-        await this.authService.revokeRefreshToken(jti);
+      const refreshJti = decodeJtiFromToken(refreshToken);
+      const accessJti = accessToken ? decodeJtiFromToken(accessToken) : undefined;
+      if (refreshJti) {
+        await this.authService.revokeRefreshToken(refreshJti, accessJti ?? undefined);
       }
     }
     clearAuthCookies(res);

@@ -4,12 +4,25 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Prisma, AppointmentStatus, TreatmentPackageStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { QueryAppointmentDto } from './dto/query-appointment.dto';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
+import { REMINDER_QUEUE, ReminderJobData } from '../queue/jobs/reminder.job';
+
+const AGENDA_CACHE_TTL = 30;
+
+const agendaKey = (
+  orgId: string,
+  startDate: string,
+  endDate: string,
+  professionalId?: string,
+) => `cache:agenda:${orgId}:${startDate}:${endDate}:${professionalId ?? 'all'}`;
 
 const appointmentIncludes = {
   patient: { select: { id: true, name: true } },
@@ -27,6 +40,8 @@ export class AppointmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly treatmentPackageService: TreatmentPackageService,
+    private readonly redis: RedisService,
+    @InjectQueue(REMINDER_QUEUE) private readonly reminderQueue: Queue<ReminderJobData>,
   ) {}
 
   async create(organizationId: string, dto: CreateAppointmentDto) {
@@ -78,7 +93,7 @@ export class AppointmentService {
         tx,
       );
 
-      return tx.appointment.create({
+      const created = await tx.appointment.create({
         data: {
           organizationId,
           patientId: dto.patientId,
@@ -91,10 +106,20 @@ export class AppointmentService {
         },
         include: appointmentIncludes,
       });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+      return created;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (created) => {
+      await this.invalidateAgendaCache(organizationId);
+      await this.scheduleReminder(created.id, dto.patientId, organizationId, startAt);
+      return created;
+    });
   }
 
   async findAll(organizationId: string, query: QueryAppointmentDto) {
+    const cacheKey = agendaKey(organizationId, query.startDate, query.endDate, query.professionalId);
+    const cached = await this.redis.getJson(cacheKey);
+    if (cached) return cached;
+
     const endDate = new Date(query.endDate);
     endDate.setUTCHours(23, 59, 59, 999);
 
@@ -111,11 +136,14 @@ export class AppointmentService {
       where.professionalId = query.professionalId;
     }
 
-    return this.prisma.appointment.findMany({
+    const result = await this.prisma.appointment.findMany({
       where,
       orderBy: { startAt: 'asc' },
       include: appointmentIncludes,
     });
+
+    await this.redis.setJson(cacheKey, result, AGENDA_CACHE_TTL);
+    return result;
   }
 
   async findById(organizationId: string, id: string) {
@@ -139,7 +167,7 @@ export class AppointmentService {
     const existing = await this.findById(organizationId, id);
 
     if (!dto.startAt && !dto.procedureId) {
-      return this.prisma.appointment.update({
+      const updated = await this.prisma.appointment.update({
         where: { id },
         data: {
           patientId: dto.patientId,
@@ -148,6 +176,8 @@ export class AppointmentService {
         },
         include: appointmentIncludes,
       });
+      await this.invalidateAgendaCache(organizationId);
+      return updated;
     }
 
     const procedureId = dto.procedureId ?? existing.procedureId;
@@ -176,7 +206,13 @@ export class AppointmentService {
         },
         include: appointmentIncludes,
       });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (updated) => {
+      await this.invalidateAgendaCache(organizationId);
+      if (dto.startAt) {
+        await this.rescheduleReminder(id, existing.patientId, organizationId, startAt);
+      }
+      return updated;
+    });
   }
 
   async updateStatus(
@@ -188,8 +224,8 @@ export class AppointmentService {
     const existing = await this.findById(organizationId, id);
 
     if (existing.treatmentPackageId) {
-      return this.prisma.$transaction(async (tx) => {
-        const updated = await tx.appointment.update({
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const result = await tx.appointment.update({
           where: { id },
           data: { status },
           include: appointmentIncludes,
@@ -217,24 +253,75 @@ export class AppointmentService {
           );
         }
 
-        return updated;
+        return result;
       });
+
+      await this.invalidateAgendaCache(organizationId);
+      if (status === AppointmentStatus.CANCELED) {
+        await this.cancelReminder(id);
+      }
+      return updated;
     }
 
-    return this.prisma.appointment.update({
+    const updated = await this.prisma.appointment.update({
       where: { id },
       data: { status },
       include: appointmentIncludes,
     });
+
+    await this.invalidateAgendaCache(organizationId);
+    if (status === AppointmentStatus.CANCELED) {
+      await this.cancelReminder(id);
+    }
+    return updated;
   }
 
   async remove(organizationId: string, id: string) {
     await this.findById(organizationId, id);
 
-    return this.prisma.appointment.update({
+    const removed = await this.prisma.appointment.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
+
+    await this.invalidateAgendaCache(organizationId);
+    await this.cancelReminder(id);
+    return removed;
+  }
+
+  private async invalidateAgendaCache(organizationId: string): Promise<void> {
+    await this.redis.deleteByPattern(`cache:agenda:${organizationId}:*`);
+  }
+
+  private async scheduleReminder(
+    appointmentId: string,
+    patientId: string,
+    organizationId: string,
+    startAt: Date,
+  ): Promise<void> {
+    const delay = startAt.getTime() - Date.now() - 60 * 60 * 1000; // 1h antes
+    if (delay <= 0) return;
+
+    await this.reminderQueue.add(
+      'reminder',
+      { appointmentId, patientId, organizationId, startAt: startAt.toISOString() },
+      { jobId: `reminder:${appointmentId}`, delay },
+    );
+  }
+
+  private async rescheduleReminder(
+    appointmentId: string,
+    patientId: string,
+    organizationId: string,
+    startAt: Date,
+  ): Promise<void> {
+    await this.cancelReminder(appointmentId);
+    await this.scheduleReminder(appointmentId, patientId, organizationId, startAt);
+  }
+
+  private async cancelReminder(appointmentId: string): Promise<void> {
+    const job = await this.reminderQueue.getJob(`reminder:${appointmentId}`);
+    await job?.remove();
   }
 
   private async checkConflict(

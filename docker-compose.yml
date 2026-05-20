@@ -16,6 +16,18 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: pelvi-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   api:
     build:
       context: ./backend
@@ -23,12 +35,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://pelvi:pelvi@postgres:5432/pelvi}
       DIRECT_URL: ${DIRECT_URL:-postgresql://pelvi:pelvi@postgres:5432/pelvi}
       JWT_SECRET: ${JWT_SECRET:-clinic-dev-jwt-secret-change-me}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-clinic-dev-refresh-secret-change-me}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-shared-internal-api-key-change-me-min-32-chars}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       CORS_ORIGIN: http://localhost:8080
       NODE_ENV: dev
       PORT: 3000
@@ -48,3 +63,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

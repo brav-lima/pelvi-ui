@@ -1,8 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 import { AppointmentService } from './appointment.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
+import { RedisService } from '../redis/redis.service';
+import { REMINDER_QUEUE } from '../queue/jobs/reminder.job';
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
@@ -15,7 +18,24 @@ describe('AppointmentService', () => {
     decrementUsedSessions: jest.fn(),
   };
 
+  const redisService = {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+    exists: jest.fn().mockResolvedValue(false),
+    setJson: jest.fn().mockResolvedValue(undefined),
+    getJson: jest.fn().mockResolvedValue(null),
+    deleteByPattern: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const reminderQueue = {
+    add: jest.fn().mockResolvedValue({ id: 'job-1' }),
+    getJob: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const appointmentMock = {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -40,6 +60,8 @@ describe('AppointmentService', () => {
         AppointmentService,
         { provide: PrismaService, useValue: prisma },
         { provide: TreatmentPackageService, useValue: treatmentPackageService },
+        { provide: RedisService, useValue: redisService },
+        { provide: getQueueToken(REMINDER_QUEUE), useValue: reminderQueue },
       ],
     }).compile();
 
