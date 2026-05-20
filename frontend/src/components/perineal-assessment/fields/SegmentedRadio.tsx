@@ -1,6 +1,7 @@
 import { Controller, type Control, type FieldPath, type FieldValues } from 'react-hook-form';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Label } from '@/components/ui/label';
+import { useReadOnly } from '../ReadOnlyContext';
 
 interface Option {
   value: string;
@@ -24,6 +25,8 @@ export function SegmentedRadio<TFieldValues extends FieldValues>({
   hint,
   className,
 }: Props<TFieldValues>) {
+  const readOnly = useReadOnly();
+
   return (
     <div className={className ?? 'space-y-1.5'}>
       {label && (
@@ -42,6 +45,7 @@ export function SegmentedRadio<TFieldValues extends FieldValues>({
             size="sm"
             className="justify-start flex-wrap"
             value={(field.value as string | undefined) ?? ''}
+            disabled={readOnly}
             onValueChange={(v) => field.onChange(v === '' ? undefined : v)}
           >
             {options.map((opt) => (

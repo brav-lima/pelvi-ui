@@ -21,6 +21,7 @@ import {
   STEP_TITLES,
   type PerinealAssessmentFormData,
 } from './schema';
+import { ReadOnlyContext } from './ReadOnlyContext';
 import { Step1InspecaoEstatica } from './steps/Step1InspecaoEstatica';
 import { Step2InspecaoDinamica } from './steps/Step2InspecaoDinamica';
 import { Step3TestesNeurologicos } from './steps/Step3TestesNeurologicos';
@@ -34,6 +35,7 @@ interface Props {
   onSuccess: () => void;
   patientId: string;
   assessment?: PerinealAssessment;
+  readOnly?: boolean;
 }
 
 const TOTAL_STEPS = STEP_TITLES.length;
@@ -46,6 +48,7 @@ export function PerinealAssessmentWizard({
   onSuccess,
   patientId,
   assessment,
+  readOnly = false,
 }: Props) {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -110,7 +113,7 @@ export function PerinealAssessmentWizard({
       <DialogContent className="sm:max-w-[760px] max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? 'Editar Avaliação Perineal' : 'Nova Avaliação Perineal'}
+            {readOnly ? 'Visualizar Avaliação Perineal' : isEditing ? 'Editar Avaliação Perineal' : 'Nova Avaliação Perineal'}
           </DialogTitle>
           <DialogDescription>
             Avaliação Cinesiológico-Funcional da Musculatura do Assoalho Pélvico
@@ -135,7 +138,9 @@ export function PerinealAssessmentWizard({
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <StepComponent form={form} />
+          <ReadOnlyContext.Provider value={readOnly}>
+            <StepComponent form={form} />
+          </ReadOnlyContext.Provider>
 
           <DialogFooter className="gap-2 sm:justify-between sm:flex-row flex-col-reverse">
             <Button
@@ -144,7 +149,7 @@ export function PerinealAssessmentWizard({
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancelar
+              {readOnly ? 'Fechar' : 'Cancelar'}
             </Button>
             <div className="flex gap-2 sm:justify-end">
               <Button
@@ -162,7 +167,7 @@ export function PerinealAssessmentWizard({
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               )}
-              {isLast && (
+              {isLast && !readOnly && (
                 <Button type="submit" loading={loading}>
                   {isEditing ? 'Salvar alterações' : 'Registrar avaliação'}
                 </Button>
