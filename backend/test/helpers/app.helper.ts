@@ -1,11 +1,48 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ThrottlerStorage } from '@nestjs/throttler';
+import { getQueueToken } from '@nestjs/bullmq';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../../src/app.module';
 import { AllExceptionsFilter } from '../../src/common/filters/http-exception.filter';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { REDIS_CLIENT } from '../../src/redis/redis.constants';
+import { RedisService } from '../../src/redis/redis.service';
+import { REMINDER_QUEUE } from '../../src/queue/jobs/reminder.job';
 import { PrismaTestService } from './prisma-test.service';
+
+const redisClientMock = {
+  get: async () => null,
+  set: async () => 'OK',
+  del: async () => 1,
+  exists: async () => 0,
+  expire: async () => 1,
+  keys: async () => [],
+};
+
+const redisServiceMock = {
+  get: async () => null,
+  set: async () => undefined,
+  del: async () => undefined,
+  exists: async () => false,
+  expire: async () => undefined,
+  setJson: async () => undefined,
+  getJson: async () => null,
+  deleteByPattern: async () => undefined,
+  client: redisClientMock,
+};
+
+const cacheManagerMock = {
+  get: async () => undefined,
+  set: async () => undefined,
+  del: async () => undefined,
+};
+
+const reminderQueueMock = {
+  add: async () => ({ id: 'mock-job' }),
+  getJob: async () => null,
+};
 
 export async function createTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
@@ -17,6 +54,14 @@ export async function createTestApp(): Promise<INestApplication> {
     .useValue({
       increment: async () => ({ totalHits: 1, timeToExpire: 0, isBlocked: false, timeToBlockExpire: 0 }),
     })
+    .overrideProvider(REDIS_CLIENT)
+    .useValue(redisClientMock)
+    .overrideProvider(RedisService)
+    .useValue(redisServiceMock)
+    .overrideProvider(CACHE_MANAGER)
+    .useValue(cacheManagerMock)
+    .overrideProvider(getQueueToken(REMINDER_QUEUE))
+    .useValue(reminderQueueMock)
     .compile();
 
   const app = moduleRef.createNestApplication();
