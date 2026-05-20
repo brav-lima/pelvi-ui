@@ -1,20 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Request } from 'express';
+import { RedisService } from '../../redis/redis.service';
 
 export interface JwtPayload {
   sub: string;
   organizationId: string;
   role: string;
+  jti: string;
 }
 
 export const ACCESS_COOKIE_NAME = 'pelvi_access_token';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly redis: RedisService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (req: Request) => (req?.cookies?.[ACCESS_COOKIE_NAME] as string | undefined) ?? null,
@@ -25,11 +30,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload): JwtPayload {
+  async validate(payload: JwtPayload): Promise<JwtPayload> {
+    if (payload.jti && await this.redis.exists(`blacklist:${payload.jti}`)) {
+      throw new UnauthorizedException('Token revogado');
+    }
     return {
       sub: payload.sub,
       organizationId: payload.organizationId,
       role: payload.role,
+      jti: payload.jti,
     };
   }
 }
