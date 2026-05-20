@@ -7,7 +7,9 @@ import { UpdatePerinealAssessmentDto } from './dto/update-perineal-assessment.dt
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 
+@RequireFeature('PERINEAL_ASSESSMENT')
 @ApiBearerAuth()
 @ApiTags('Perineal Assessments')
 @Throttle({ default: { ttl: 60000, limit: 30 } })

@@ -15,7 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import type { User } from '@/types/clinic';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import type { User, PlanFeature } from '@/types/clinic';
 import { appVersion } from '@/lib/version';
 
 const AVATAR_COLORS = [
@@ -45,16 +46,17 @@ interface NavItem {
   name: string;
   href: string;
   icon: typeof LayoutDashboard;
-  roles?: Role[]; // undefined = all roles
+  roles?: Role[];
+  feature?: PlanFeature;
 }
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Agenda', href: '/agenda', icon: Calendar },
-  { name: 'Pacientes', href: '/patients', icon: Users },
-  { name: 'Profissionais', href: '/professionals', icon: UserCog, roles: ['ADMIN'] },
-  { name: 'Procedimentos', href: '/procedures', icon: ClipboardList, roles: ['ADMIN', 'PROFESSIONAL'] },
-  { name: 'Financeiro', href: '/financial', icon: DollarSign, roles: ['ADMIN'] },
+  { name: 'Dashboard',     href: '/dashboard',    icon: LayoutDashboard },
+  { name: 'Agenda',        href: '/agenda',        icon: Calendar,      feature: 'AGENDA' },
+  { name: 'Pacientes',     href: '/patients',      icon: Users,         feature: 'PATIENTS' },
+  { name: 'Profissionais', href: '/professionals', icon: UserCog,       roles: ['ADMIN'], feature: 'MULTI_PROFESSIONAL' },
+  { name: 'Procedimentos', href: '/procedures',    icon: ClipboardList, roles: ['ADMIN', 'PROFESSIONAL'] },
+  { name: 'Financeiro',    href: '/financial',     icon: DollarSign,    roles: ['ADMIN'], feature: 'FINANCIAL_BASIC' },
 ];
 
 interface SidebarProps {
@@ -68,9 +70,12 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
+  const { hasFeature } = useSubscription();
 
   const visibleNavigation = navigation.filter(
-    (item) => !item.roles || (user && item.roles.includes(user.role)),
+    (item) =>
+      (!item.roles || (user && item.roles.includes(user.role))) &&
+      (!item.feature || hasFeature(item.feature)),
   );
 
   // In mobile mode, sidebar is always expanded (no collapse)

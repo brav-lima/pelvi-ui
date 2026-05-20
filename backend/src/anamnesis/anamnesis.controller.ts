@@ -7,7 +7,9 @@ import { UpdateAnamnesisDto } from './dto/update-anamnesis.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 
+@RequireFeature('ANAMNESIS')
 @ApiBearerAuth()
 @ApiTags('Anamneses')
 @Throttle({ default: { ttl: 60000, limit: 30 } })

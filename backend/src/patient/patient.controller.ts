@@ -14,7 +14,9 @@ import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { QueryPatientDto } from './dto/query-patient.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 
+@RequireFeature('PATIENTS')
 @ApiBearerAuth()
 @ApiTags('Patients')
 @Controller('patients')

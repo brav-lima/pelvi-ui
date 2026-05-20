@@ -5,7 +5,9 @@ import { ProfessionalService } from './professional.service';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 
+@RequireFeature('MULTI_PROFESSIONAL')
 @ApiBearerAuth()
 @ApiTags('Professionals')
 @Controller('professionals')
