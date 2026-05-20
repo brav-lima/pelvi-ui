@@ -28,6 +28,13 @@ export function Step4PalpacaoEstatica({ form }: Props) {
 
       <SegmentedRadio
         control={form.control}
+        name="palpacaoEstatica.trofismo"
+        label="Trofismo"
+        options={escala3Options}
+      />
+
+      <SegmentedRadio
+        control={form.control}
         name="palpacaoEstatica.superficiais"
         label="Superficiais"
         options={sinalOptions}
