@@ -1,9 +1,10 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
 import { RedisModule } from './redis/redis.module';
+import { REDIS_CLIENT } from './redis/redis.constants';
 import { AppCacheModule } from './cache/cache.module';
 import { QueueModule } from './queue/queue.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -33,12 +34,11 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
       envFilePath: `.env.${process.env.NODE_ENV || 'dev'}`,
     }),
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      imports: [RedisModule],
+      inject: [REDIS_CLIENT],
+      useFactory: (redis: Redis) => ({
         throttlers: [{ name: 'default', ttl: 60000, limit: 60 }],
-        storage: new ThrottlerStorageRedisService(
-          new Redis(config.getOrThrow<string>('REDIS_URL')),
-        ),
+        storage: new ThrottlerStorageRedisService(redis),
       }),
     }),
     RedisModule,
