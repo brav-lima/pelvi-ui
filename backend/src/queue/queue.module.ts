@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
-import Redis from 'ioredis';
-import { RedisModule } from '../redis/redis.module';
-import { REDIS_CLIENT } from '../redis/redis.constants';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { REMINDER_QUEUE } from './jobs/reminder.job';
 import { ReminderProcessor } from './processors/reminder.processor';
 
@@ -11,9 +9,14 @@ const isTest = process.env.NODE_ENV === 'test';
 @Module({
   imports: [
     BullModule.forRootAsync({
-      imports: [RedisModule],
-      inject: [REDIS_CLIENT],
-      useFactory: (redis: Redis) => ({ connection: redis }),
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          url: config.getOrThrow<string>('REDIS_URL'),
+          maxRetriesPerRequest: null,
+        },
+      }),
     }),
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
   ],
