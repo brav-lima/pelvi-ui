@@ -229,6 +229,34 @@ export interface SubscriptionData {
   subscription: Subscription | null;
 }
 
+// Feature gating — keys known to pelvi-ui; actual list per plan comes from pelvi-admin
+export type PlanFeature =
+  | 'AGENDA'
+  | 'PATIENTS'
+  | 'FINANCIAL_BASIC'
+  | 'FINANCIAL_ADVANCED'
+  | 'PERINEAL_ASSESSMENT'
+  | 'TREATMENT_PACKAGES'
+  | 'ANAMNESIS'
+  | 'EVOLUTIONS'
+  | 'ROLES'
+  | 'MULTI_PROFESSIONAL'
+  | 'MULTI_CLINIC'
+  | 'PRIORITY_SUPPORT';
+
+export type PlanTier = 'SOLO' | 'CLINICA' | 'REDE';
+export type PlanStatusLocal = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
+
+export interface PlanFeatureStatus {
+  plan: PlanTier;
+  planStatus: PlanStatusLocal;
+  isActive: boolean;
+  isTrialExpired: boolean;
+  daysLeftInTrial: number | null;
+  founderDiscount: boolean;
+  features: PlanFeature[];
+}
+
 export type FinancialType = 'INCOME' | 'EXPENSE';
 export type FinancialStatus = 'PENDING' | 'PAID';
 

@@ -23,6 +23,7 @@ import { TreatmentPackageModule } from './treatment-package/treatment-package.mo
 import { HealthModule } from './health/health.module';
 import { InternalModule } from './internal/internal.module';
 import { AdminApiModule } from './admin-api/admin-api.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 import { VersionModule } from './version/version.module';
 import { AccessStatusMiddleware } from './auth/middleware/access-status.middleware';
 
@@ -59,6 +60,7 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     HealthModule,
     InternalModule,
     AdminApiModule,
+    SubscriptionModule,
     VersionModule,
   ],
 })
