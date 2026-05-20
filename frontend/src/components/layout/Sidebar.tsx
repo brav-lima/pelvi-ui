@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import type { User } from '@/types/clinic';
-import { appVersion, versionTooltip } from '@/lib/version';
+import { appVersion } from '@/lib/version';
 
 const AVATAR_COLORS = [
   ['hsl(16 55% 93%)', 'hsl(16 65% 28%)'],
@@ -91,9 +91,14 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
             <Stethoscope className="w-5 h-5 text-primary-foreground" />
           </div>
           {!isCollapsed && (
-            <span className="font-semibold text-sidebar-foreground text-lg">
-              Pelvi
-            </span>
+            <div className="flex flex-col leading-none">
+              <span className="font-semibold text-sidebar-foreground text-lg">
+                Pelvi
+              </span>
+              <span className="text-[10px] text-sidebar-foreground/40 font-medium mt-0.5">
+                v{appVersion}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -198,7 +203,7 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
               {user.name.split(' ').filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase()}
             </div>
           ) : (
-            <div className="flex items-center gap-2.5" title={versionTooltip}>
+            <div className="flex items-center gap-2.5">
               <div
                 className="rounded-full flex items-center justify-center text-[10.5px] font-semibold shrink-0"
                 style={{
