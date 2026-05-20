@@ -65,46 +65,115 @@ export class TreatmentPackageService {
       });
 
       // 3. Generate financial records
-      if (installments <= 1) {
-        await tx.financialRecord.create({
-          data: {
-            organizationId,
-            patientId: dto.patientId,
-            treatmentPackageId: pkg.id,
-            amount: dto.totalPrice,
-            type: FinancialType.INCOME,
-            paymentMethod: dto.paymentMethod,
-            description: `Pacote: ${dto.name}`,
-            dueDate: firstDueDate,
-          },
-        });
-      } else {
-        const baseAmount =
-          Math.floor((dto.totalPrice * 100) / installments) / 100;
-        const remainder =
-          Math.round((dto.totalPrice - baseAmount * installments) * 100) / 100;
+      if (dto.customInstallments && dto.customInstallments.length > 0) {
+        // Flexible mode: one record per custom installment
+        const sum = dto.customInstallments.reduce((acc, inst) => acc + inst.amount, 0);
+        const diff = Math.abs(sum - dto.totalPrice);
+        if (diff > 0.02) {
+          throw new BadRequestException(
+            'A soma das parcelas flexíveis deve ser igual ao valor total do pacote',
+          );
+        }
 
-        for (let i = 0; i < installments; i++) {
-          const dueDate = new Date(firstDueDate);
-          dueDate.setMonth(dueDate.getMonth() + i);
-
-          const isLast = i === installments - 1;
-          const amount = isLast ? baseAmount + remainder : baseAmount;
-
+        const total = dto.customInstallments.length;
+        for (let i = 0; i < total; i++) {
+          const inst = dto.customInstallments[i];
           await tx.financialRecord.create({
             data: {
               organizationId,
               patientId: dto.patientId,
               treatmentPackageId: pkg.id,
-              amount,
+              amount: inst.amount,
               type: FinancialType.INCOME,
-              paymentMethod: dto.paymentMethod,
-              description: `Pacote: ${dto.name} (Parcela ${i + 1}/${installments})`,
-              dueDate,
-              installment: i + 1,
-              installmentTotal: installments,
+              paymentMethod: inst.paymentMethod ?? dto.paymentMethod,
+              description:
+                total === 1
+                  ? `Pacote: ${dto.name}`
+                  : `Pacote: ${dto.name} (Parcela ${i + 1}/${total})`,
+              dueDate: new Date(inst.dueDate),
+              installment: total > 1 ? i + 1 : undefined,
+              installmentTotal: total > 1 ? total : undefined,
             },
           });
+        }
+      } else {
+        // Fixed mode: equal installments with optional down payment
+        const downPaymentAmt = dto.downPayment ?? 0;
+        const hasDownPayment = downPaymentAmt > 0;
+
+        if (hasDownPayment) {
+          await tx.financialRecord.create({
+            data: {
+              organizationId,
+              patientId: dto.patientId,
+              treatmentPackageId: pkg.id,
+              amount: downPaymentAmt,
+              type: FinancialType.INCOME,
+              paymentMethod: dto.paymentMethod,
+              description: `Pacote: ${dto.name} (Entrada)`,
+              dueDate: dto.downPaymentDueDate
+                ? new Date(dto.downPaymentDueDate)
+                : new Date(),
+            },
+          });
+        }
+
+        const remainingAmount = hasDownPayment
+          ? dto.totalPrice - downPaymentAmt
+          : dto.totalPrice;
+
+        if (installments <= 1 && !hasDownPayment) {
+          await tx.financialRecord.create({
+            data: {
+              organizationId,
+              patientId: dto.patientId,
+              treatmentPackageId: pkg.id,
+              amount: dto.totalPrice,
+              type: FinancialType.INCOME,
+              paymentMethod: dto.paymentMethod,
+              description: `Pacote: ${dto.name}`,
+              dueDate: firstDueDate,
+            },
+          });
+        } else if (remainingAmount > 0) {
+          const baseAmount =
+            Math.floor((remainingAmount * 100) / installments) / 100;
+          const remainder =
+            Math.round(
+              (remainingAmount - baseAmount * installments) * 100,
+            ) / 100;
+
+          const labelTotal = hasDownPayment
+            ? installments + 1
+            : installments;
+          const labelStart = hasDownPayment ? 2 : 1;
+
+          for (let i = 0; i < installments; i++) {
+            const dueDate = new Date(firstDueDate);
+            dueDate.setMonth(dueDate.getMonth() + i);
+
+            const isLast = i === installments - 1;
+            const amount = isLast ? baseAmount + remainder : baseAmount;
+            const label = labelStart + i;
+
+            await tx.financialRecord.create({
+              data: {
+                organizationId,
+                patientId: dto.patientId,
+                treatmentPackageId: pkg.id,
+                amount,
+                type: FinancialType.INCOME,
+                paymentMethod: dto.paymentMethod,
+                description:
+                  installments === 1 && !hasDownPayment
+                    ? `Pacote: ${dto.name}`
+                    : `Pacote: ${dto.name} (Parcela ${label}/${labelTotal})`,
+                dueDate,
+                installment: label,
+                installmentTotal: labelTotal,
+              },
+            });
+          }
         }
       }
 

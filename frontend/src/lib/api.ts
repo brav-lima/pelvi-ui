@@ -227,6 +227,9 @@ export const treatmentPackagesApi = {
     paymentMethod?: string;
     installments?: number;
     dueDate?: string;
+    downPayment?: number;
+    downPaymentDueDate?: string;
+    customInstallments?: Array<{ amount: number; dueDate: string; paymentMethod?: string }>;
   }) => api.post<TreatmentPackage>('/treatment-packages', data),
   update: (id: string, data: { name?: string; notes?: string; status?: string }) =>
     api.patch<TreatmentPackage>(`/treatment-packages/${id}`, data),
