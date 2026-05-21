@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { ProfessionalService } from './professional.service';
@@ -14,8 +14,8 @@ export class ProfessionalController {
   constructor(private readonly professionalService: ProfessionalService) {}
 
   @Get()
-  findAll(@OrgId() orgId: string) {
-    return this.professionalService.findAll(orgId);
+  findAll(@OrgId() orgId: string, @Query('search') search?: string) {
+    return this.professionalService.findAll(orgId, search);
   }
 
   @Get(':id')

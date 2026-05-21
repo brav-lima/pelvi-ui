@@ -19,6 +19,8 @@ import type {
   SubscriptionData,
   Plan,
   PlanFeatureStatus,
+  OrganizationProfile,
+  UpdateOrganizationData,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -165,9 +167,10 @@ export const personsApi = {
 };
 
 export const professionalsApi = {
-  list: () => api.get<Professional[]>('/professionals'),
+  list: (params?: { search?: string }) =>
+    api.get<Professional[]>(`/professionals?${queryString(params)}`),
   getById: (id: string) => api.get<Professional>(`/professionals/${id}`),
-  update: (id: string, data: { role?: string; active?: boolean }) =>
+  update: (id: string, data: { role?: string; active?: boolean; specialty?: string; professionalRegistration?: string }) =>
     api.patch<Professional>(`/professionals/${id}`, data),
   addToOrg: (_orgId: string, data: { personId: string; role: string }) =>
     api.post<unknown>('/organizations/users', data),
@@ -278,6 +281,8 @@ export const financialApi = {
 
 export const organizationApi = {
   getPlanUsage: () => api.get<PlanUsage>('/organizations/me/plan'),
+  getProfile: () => api.get<OrganizationProfile>('/organizations/me'),
+  update: (data: UpdateOrganizationData) => api.patch<OrganizationProfile>('/organizations/me', data),
 };
 
 export const subscriptionApi = {

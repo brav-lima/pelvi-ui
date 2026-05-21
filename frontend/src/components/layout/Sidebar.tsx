@@ -7,31 +7,30 @@ import {
   UserCog,
   ClipboardList,
   DollarSign,
-  ChevronLeft,
-  ChevronRight,
-  Stethoscope,
   Settings,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import type { User, PlanFeature } from '@/types/clinic';
 import { appVersion } from '@/lib/version';
 
 const AVATAR_COLORS = [
-  ['hsl(16 55% 93%)', 'hsl(16 65% 28%)'],
-  ['hsl(142 55% 93%)', 'hsl(142 60% 22%)'],
-  ['hsl(199 75% 93%)', 'hsl(199 70% 28%)'],
-  ['hsl(38 80% 93%)', 'hsl(30 75% 30%)'],
-  ['hsl(285 50% 94%)', 'hsl(285 50% 32%)'],
-  ['hsl(30 14% 92%)', 'hsl(220 14% 28%)'],
+  ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'], // plum (brand)
+  ['hsl(142 55% 93%)', 'hsl(142 60% 22%)'], // green
+  ['hsl(199 75% 93%)', 'hsl(199 70% 28%)'], // info
+  ['hsl(38 80% 93%)',  'hsl(30 75% 30%)'],  // amber
+  ['hsl(285 50% 94%)', 'hsl(285 50% 32%)'], // violet
+  ['hsl(290 8% 92%)',  'hsl(290 18% 28%)'], // neutral
 ] as const;
 
 function hashColor(name: string): readonly [string, string] {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = ((h * 31 + name.charCodeAt(i)) >>> 0);
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -60,14 +59,11 @@ const navigation: NavItem[] = [
 ];
 
 interface SidebarProps {
-  /** When true, renders for mobile (no collapse button, always expanded) */
   mobile?: boolean;
-  /** Called when a nav item is clicked (used to close the mobile sheet) */
   onNavigate?: () => void;
 }
 
 export function Sidebar({ mobile, onNavigate }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
   const { hasFeature } = useSubscription();
@@ -78,157 +74,133 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
       (!item.feature || hasFeature(item.feature)),
   );
 
-  // In mobile mode, sidebar is always expanded (no collapse)
-  const isCollapsed = mobile ? false : collapsed;
-
   return (
     <aside
       className={cn(
-        'flex flex-col bg-sidebar transition-all duration-300 h-full',
+        'flex flex-col w-60 h-full bg-sidebar transition-all duration-300',
         !mobile && 'border-r border-sidebar-border',
-        isCollapsed ? 'w-16' : 'w-60',
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center h-14 px-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-            <Stethoscope className="w-5 h-5 text-primary-foreground" />
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col leading-none">
-              <span className="font-semibold text-sidebar-foreground text-lg">
-                Pelvi
-              </span>
-              <span className="text-[10px] text-sidebar-foreground/40 font-medium mt-0.5">
-                v{appVersion}
-              </span>
-            </div>
-          )}
+      {/* Brand */}
+      <div className="flex items-center gap-2.5 px-5 py-[18px] border-b border-sidebar-border">
+        <div
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-white font-bold text-sm shrink-0"
+          style={{
+            background: 'hsl(var(--primary))',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.18)',
+            fontFamily: 'var(--font-display)',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          P
+        </div>
+        <div className="flex flex-col leading-none">
+          <span
+            className="font-semibold text-[15px] text-sidebar-foreground leading-5"
+            style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.012em' }}
+          >
+            Pelvi
+          </span>
+          <span
+            className="text-[10.5px] mt-0.5 font-medium uppercase tracking-[0.06em]"
+            style={{ color: 'hsl(var(--sidebar-muted, 280 6% 64%))' }}
+          >
+            v{appVersion}
+          </span>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 overflow-y-auto scrollbar-thin">
-        {!isCollapsed && (
-          <p className="text-[10.5px] font-medium text-sidebar-foreground/40 uppercase tracking-widest px-3 mb-1.5">
-            Principal
-          </p>
-        )}
-        <div className="space-y-1">
-        {visibleNavigation.map((item) => {
-          const isActive = location.pathname === item.href ||
-            (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
+      <nav className="flex-1 px-2.5 pt-4 pb-2 overflow-y-auto scrollbar-thin">
+        <p
+          className="text-[10.5px] font-medium uppercase px-3 mb-1.5"
+          style={{ letterSpacing: '0.08em', color: 'hsl(var(--sidebar-muted, 280 6% 64%))' }}
+        >
+          Principal
+        </p>
+        <div className="flex flex-col gap-px">
+          {visibleNavigation.map((item) => {
+            const isActive =
+              location.pathname === item.href ||
+              (item.href !== '/dashboard' && location.pathname.startsWith(item.href));
 
-          return (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              onClick={onNavigate}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
-                isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50'
-              )}
-            >
-              <item.icon className={cn('w-5 h-5 shrink-0', isActive && 'text-primary')} />
-              {!isCollapsed && <span>{item.name}</span>}
-            </NavLink>
-          );
-        })}
+            return (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-colors duration-75',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                    : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
+                )}
+              >
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span>{item.name}</span>
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
 
       {/* Opções — só para ADMIN */}
       {user?.role === 'ADMIN' && (
-        <div className="px-3 pb-2 border-t border-sidebar-border pt-3">
-          {!isCollapsed && (
-            <p className="text-xs font-medium text-sidebar-foreground/40 uppercase tracking-wider px-3 mb-1">
-              Opções
-            </p>
-          )}
+        <div className="px-2.5 pb-2">
+          <p
+            className="text-[10.5px] font-medium uppercase px-3 mb-1.5 pt-3 border-t border-sidebar-border"
+            style={{ letterSpacing: '0.08em', color: 'hsl(var(--sidebar-muted, 280 6% 64%))' }}
+          >
+            Opções
+          </p>
           <NavLink
             to="/settings"
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar',
+                'flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-colors duration-75',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
                 isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50',
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                  : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
               )
             }
           >
-            <Settings className={cn('w-5 h-5 shrink-0')} />
-            {!isCollapsed && <span>Opções</span>}
+            <Settings className="w-4 h-4 shrink-0" />
+            <span>Configurações</span>
           </NavLink>
-        </div>
-      )}
-
-      {/* Collapse Button (desktop only) */}
-      {!mobile && (
-        <div className="p-3 border-t border-sidebar-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCollapsed(!collapsed)}
-            className={cn(
-              'w-full justify-center text-sidebar-foreground hover:bg-sidebar-accent',
-              !collapsed && 'justify-start'
-            )}
-          >
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <>
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                <span>Recolher</span>
-              </>
-            )}
-          </Button>
         </div>
       )}
 
       {/* User footer */}
       {user && (
-        <div className="border-t border-sidebar-border p-3">
-          {isCollapsed ? (
-            <div
-              className="mx-auto rounded-full flex items-center justify-center text-[10px] font-semibold"
-              style={{
-                width: 32, height: 32,
-                background: hashColor(user.name)[0],
-                color: hashColor(user.name)[1],
-              }}
-              title={`${user.name} — ${ROLE_LABELS[user.role] ?? user.role}`}
+        <div className="border-t border-sidebar-border p-3 flex items-center gap-2.5">
+          <div
+            className="rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
+            style={{
+              width: 32,
+              height: 32,
+              background: hashColor(user.name)[0],
+              color: hashColor(user.name)[1],
+            }}
+          >
+            {initials(user.name)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-[12.5px] font-medium leading-4 truncate"
+              style={{ color: 'hsl(var(--sidebar-foreground))' }}
             >
-              {user.name.split(' ').filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase()}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2.5">
-              <div
-                className="rounded-full flex items-center justify-center text-[10.5px] font-semibold shrink-0"
-                style={{
-                  width: 32, height: 32,
-                  background: hashColor(user.name)[0],
-                  color: hashColor(user.name)[1],
-                }}
-              >
-                {user.name.split(' ').filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] font-medium text-sidebar-foreground leading-4 truncate">
-                  {user.name}
-                </p>
-                <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wide font-medium mt-0.5">
-                  {ROLE_LABELS[user.role] ?? user.role}
-                </p>
-              </div>
-            </div>
-          )}
+              {user.name}
+            </p>
+            <p
+              className="text-[10px] uppercase tracking-[0.05em] font-medium mt-0.5"
+              style={{ color: 'hsl(var(--sidebar-muted, 280 6% 64%))' }}
+            >
+              {ROLE_LABELS[user.role] ?? user.role}
+            </p>
+          </div>
         </div>
       )}
     </aside>
