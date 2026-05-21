@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  Loader2, Users, UserCog, FileText, Zap, CheckCircle2, AlertTriangle,
+  Loader2, Users, UserCog, CheckCircle2, AlertTriangle,
   Building2, Clock, UsersRound, CreditCard, Bell, Plug, ShieldCheck,
 } from 'lucide-react';
 import { organizationApi, subscriptionApi } from '@/lib/api';
