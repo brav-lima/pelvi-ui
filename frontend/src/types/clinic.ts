@@ -54,6 +54,8 @@ export interface Professional {
   personId: string;
   role: 'ADMIN' | 'PROFESSIONAL' | 'RECEPTIONIST';
   active: boolean;
+  specialty?: string | null;
+  professionalRegistration?: string | null;
   person: {
     id: string;
     name: string;
@@ -193,6 +195,41 @@ export interface TreatmentPackage {
     procedure: { id: string; name: string };
   }>;
   patient?: { id: string; name: string };
+}
+
+export interface OrganizationProfile {
+  id: string;
+  name: string;
+  legalName?: string;
+  document?: string;
+  stateRegistration?: string;
+  email?: string;
+  phone?: string;
+  addressCep?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity?: string;
+  addressState?: string;
+  settings?: Record<string, unknown>;
+}
+
+export interface UpdateOrganizationData {
+  name?: string;
+  cnpj?: string;
+  legalName?: string;
+  stateRegistration?: string;
+  email?: string;
+  phone?: string;
+  addressCep?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity?: string;
+  addressState?: string;
+  settings?: Record<string, unknown>;
 }
 
 export interface PlanUsage {

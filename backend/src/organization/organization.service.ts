@@ -73,6 +73,17 @@ export class OrganizationService {
       data: {
         name: dto.name,
         document: dto.cnpj,
+        email: dto.email,
+        phone: dto.phone,
+        legalName: dto.legalName,
+        stateRegistration: dto.stateRegistration,
+        addressCep: dto.addressCep,
+        addressStreet: dto.addressStreet,
+        addressNumber: dto.addressNumber,
+        addressComplement: dto.addressComplement,
+        addressNeighborhood: dto.addressNeighborhood,
+        addressCity: dto.addressCity,
+        addressState: dto.addressState,
         settings: dto.settings as Prisma.InputJsonValue | undefined,
       },
     });

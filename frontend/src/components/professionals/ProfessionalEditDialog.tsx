@@ -30,20 +30,22 @@ interface ProfessionalEditDialogProps {
 export function ProfessionalEditDialog({ open, onOpenChange, onSuccess, professional }: ProfessionalEditDialogProps) {
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState(professional.role);
+  const [specialty, setSpecialty] = useState(professional.specialty ?? '');
+  const [professionalRegistration, setProfessionalRegistration] = useState(professional.professionalRegistration ?? '');
 
   const handleSubmit = async () => {
-    if (role === professional.role) {
-      onOpenChange(false);
-      return;
-    }
     setLoading(true);
     try {
-      await professionalsApi.update(professional.id, { role });
-      toast.success('Cargo atualizado com sucesso');
+      await professionalsApi.update(professional.id, {
+        role,
+        specialty: specialty || undefined,
+        professionalRegistration: professionalRegistration || undefined,
+      });
+      toast.success('Profissional atualizado com sucesso');
       onSuccess();
       onOpenChange(false);
     } catch {
-      toast.error('Erro ao atualizar cargo');
+      toast.error('Erro ao atualizar profissional');
     } finally {
       setLoading(false);
     }
@@ -53,24 +55,46 @@ export function ProfessionalEditDialog({ open, onOpenChange, onSuccess, professi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Editar Cargo</DialogTitle>
+          <DialogTitle>Editar Profissional</DialogTitle>
           <DialogDescription>
-            Altere o cargo de {professional.person.name}.
+            Atualize as informações de {professional.person.name}.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2 py-2">
-          <Label>Cargo</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as Professional['role'])}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-              <SelectItem value="PROFESSIONAL">Profissional</SelectItem>
-              <SelectItem value="RECEPTIONIST">Recepção</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label>Cargo</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as Professional['role'])}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ADMIN">Administrador</SelectItem>
+                <SelectItem value="PROFESSIONAL">Profissional</SelectItem>
+                <SelectItem value="RECEPTIONIST">Recepcionista</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Especialidade</Label>
+            <input
+              className="w-full h-9 px-3 rounded-lg bg-background border border-border text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+              placeholder="Ex: Fisioterapia pélvica"
+              value={specialty}
+              onChange={e => setSpecialty(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Registro profissional</Label>
+            <input
+              className="w-full h-9 px-3 rounded-lg bg-background border border-border text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all font-mono"
+              placeholder="Ex: CREFITO-3 12345"
+              value={professionalRegistration}
+              onChange={e => setProfessionalRegistration(e.target.value)}
+            />
+          </div>
         </div>
 
         <DialogFooter>

@@ -107,9 +107,10 @@ Shared across all Pelvi products (pelvi-ui, pelvi-admin, pelvi-landing-page):
 QueryClientProvider (TanStack React Query)
   → ThemeProvider (dark/light mode, persisted to localStorage)
     → AuthProvider (real JWT auth + multi-tenant clinic selection)
-      → TooltipProvider
-        → BrowserRouter (React Router v6)
-          → Suspense (lazy-loaded pages with PageLoader fallback)
+      → SubscriptionProvider (plan features, fetched after auth)
+        → TooltipProvider
+          → BrowserRouter (React Router v6)
+            → Suspense (lazy-loaded pages with PageLoader fallback)
 ```
 
 All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
@@ -138,6 +139,7 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 ### State Management
 
 - **Auth state**: React Context (`frontend/src/contexts/AuthContext.tsx`) — `useAuth()` hook. Auth via httpOnly cookies (JWT access token + refresh token). Session restoration on mount via `GET /api/auth/me`. `logout()` calls `POST /api/auth/logout` (clears cookies server-side) + clears React state.
+- **Subscription state**: React Context (`frontend/src/contexts/SubscriptionContext.tsx`) — `useSubscription()` / `useFeature(feature)` hooks. Fetches from `GET /api/subscription/status`. Fail-open during loading (returns `true` for all features while query is in flight). Cache key: `['subscription', 'status']`.
 - **Theme state**: React Context (`frontend/src/contexts/ThemeContext.tsx`) — light/dark toggle
 - **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query.
 - **View preferences**: Card/list toggle persisted in `localStorage` (`patients-view`, `procedures-view`, `professionals-view`)
@@ -158,8 +160,8 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 | `frontend/src/components/layout/` | MainLayout, Sidebar, TopBar |
 | `frontend/src/components/perineal-assessment/` | PerinealAssessmentWizard (6-step form), schema, options |
 | `frontend/src/components/treatment-packages/` | TreatmentPackageFormDialog |
-| `frontend/src/components/auth/` | RoleGuard, ProtectedRoute, useHasRole |
-| `frontend/src/contexts/` | AuthContext, ThemeContext |
+| `frontend/src/components/auth/` | ProtectedRoute (role guard), FeatureGate (inline feature guard), useHasRole |
+| `frontend/src/contexts/` | AuthContext, ThemeContext, SubscriptionContext |
 | `frontend/src/types/clinic.ts` | All domain type definitions (aligned with backend models) |
 | `frontend/src/lib/api.ts` | API client (fetch wrapper + module APIs) |
 | `frontend/src/lib/formatters.ts` | Input masks (CPF, phone, currency) + display formatters |
@@ -197,12 +199,18 @@ Custom UI components beyond shadcn: `page-header`, `stat-card`, `status-badge`, 
 - **Display formatters**: `formatCPF()`, `formatCNPJ()`, `formatPhone()`, `formatCurrency()` — for rendering
 - **Parse**: `parseCurrency("1.234,56")` → `1234.56` — convert masked values back to numbers before API calls
 
-### Role-Based Access (`frontend/src/components/auth/`)
+### Role-Based Access & Feature Gating (`frontend/src/components/auth/`)
 
-- `<RoleGuard roles={[...]}> ` — renders children only if user has allowed role
+**Roles:**
 - `useHasRole(...roles)` — boolean hook for inline checks
 - `<ProtectedRoute roles={[...]}> ` — wraps route, redirects to `/dashboard` if unauthorized
 - Rules: ADMIN (full access), PROFESSIONAL (clinical pages), RECEPTIONIST (dashboard, agenda, patients)
+
+**Feature gating:**
+- `useFeature(feature)` / `useSubscription()` — from `SubscriptionContext`
+- `<FeatureRoute feature="X">` — route-level redirect to `/dashboard` if feature inactive
+- `<FeatureGate feature="X" fallback={...}>` — inline hide/show without redirect
+- Route guards compose: `<ProtectedRoute roles={['ADMIN']}><FeatureRoute feature="FINANCIAL_BASIC">...</FeatureRoute></ProtectedRoute>`
 
 ### Import Alias
 
@@ -265,7 +273,8 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 | `treatment-package` | `/api/treatment-packages` | Session packages with procedure links |
 | `financial` | `/api/financial` | Income/expense CRUD + monthly summary |
 | `internal` | `/api/internal` | Internal ops (clinic/user management via `x-internal-api-key` header guard) |
-| `admin-api` | `/api/subscription` | Clinic→admin proxy: reads subscription + available plans from pelvi-admin on behalf of authenticated clinic users |
+| `subscription` | `/api/subscription` | Feature gating: `GET /status` (snapshot with features), `PATCH /plan` (change plan + invalidate cache), `POST /cancel` (cancel + invalidate cache) |
+| `admin-api` | `/api/subscription` | Clinic→admin proxy: `GET /` (raw subscription data), `GET /plans` (available plans) — write ops moved to `subscription` module |
 | `audit` | — | AuditLog persistence (called internally by other services) |
 | `health` | `/api/health` | Health check endpoint |
 | `version` | `/api/version` | Version endpoint |
@@ -294,15 +303,36 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 - **JWT payload**: `{ sub: personId, organizationId, role }`
 - **Cookies**: `pelvi_access_token` (access JWT, httpOnly) + `pelvi_refresh_token` (httpOnly, rotated on use)
 - **Refresh token rotation**: `RefreshToken` model stores hashed tokens; old token invalidated on each refresh
-- **Global guards** (registered via `APP_GUARD` in AuthModule):
-  - `JwtAuthGuard` — validates JWT on every request; skip with `@Public()` decorator
-  - `RolesGuard` — checks `@Roles(Role.ADMIN, ...)` metadata; allows all if no roles specified
+- **Global guards** (registered via `APP_GUARD`, execution order matters):
+  1. `ThrottlerGuard` (AuthModule) — rate limiting
+  2. `JwtAuthGuard` (AuthModule) — validates JWT; skip with `@Public()`
+  3. `RolesGuard` (AuthModule) — checks `@Roles(...)` metadata
+  4. `PlanGuard` (SubscriptionModule) — checks `@RequireFeature(...)` metadata against org subscription
 - **Decorators**:
-  - `@Public()` — marks endpoint as unauthenticated
+  - `@Public()` — marks endpoint as unauthenticated (skips JwtAuthGuard and PlanGuard)
   - `@Roles(Role.ADMIN)` — restricts by role
+  - `@RequireFeature('FEATURE_KEY')` — restricts by plan feature
   - `@CurrentUser()` — extracts full `JwtPayload` from request
   - `@OrgId()` — extracts `organizationId` string from JWT (convenience)
 - All domain controllers use `@OrgId()` to scope queries by organization — **never trust client-sent organizationId**
+
+### Feature Gating (Subscription)
+
+Features are defined in `backend/src/subscription/plan-features.ts` as `PlanFeature` type. The allowed feature list per plan lives in **pelvi-admin's database** and is fetched at runtime — pelvi-ui never stores features locally. To add/remove features from a plan, edit pelvi-admin directly; cache expires in 5 min automatically.
+
+**Backend:**
+- `@RequireFeature('FEATURE_KEY')` class decorator on a controller → `PlanGuard` blocks all endpoints with 403 if org doesn't have the feature
+- Applied on: `AppointmentController` (AGENDA), `PatientController` (PATIENTS), `FinancialController` (FINANCIAL_BASIC), `AnamnesisController` (ANAMNESIS), `EvolutionController` (EVOLUTIONS), `PerinealAssessmentController` (PERINEAL_ASSESSMENT), `TreatmentPackageController` (TREATMENT_PACKAGES), `ProfessionalController` (MULTI_PROFESSIONAL)
+- `SubscriptionService` caches snapshots in Redis (TTL 5 min). Cache is invalidated immediately on plan change or cancellation via `SubscriptionController.changePlan` / `cancelSubscription`
+- `ALL_PLAN_FEATURES` constant exported from `plan-features.ts` (used in e2e mock)
+
+**Frontend:**
+- `SubscriptionContext` — `useSubscription()` / `useFeature(feature)` hooks. `hasFeature()` returns `true` while loading (fail-open — avoids flash of hidden content)
+- `<FeatureRoute feature="X">` — route-level guard; redirects to `/dashboard` if feature inactive
+- `<FeatureGate feature="X" fallback={...}>` — inline component for hiding UI elements
+- `Sidebar` — nav items with `feature` field are filtered by `hasFeature()`
+- `PatientProfile` — tabs and queries conditionally enabled per feature; timeline filters evolutions/perineal entries when those features are inactive
+- `Settings.tsx` — `FEATURE_LABELS` map renders friendly Portuguese names for plan features
 
 ### API Routes Reference
 

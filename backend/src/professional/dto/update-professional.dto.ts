@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { Role } from '@prisma/client';
 
 export class UpdateProfessionalDto {
@@ -9,4 +9,12 @@ export class UpdateProfessionalDto {
   @IsOptional()
   @IsBoolean({ message: 'Campo ativo deve ser boolean' })
   active?: boolean;
+
+  @IsOptional()
+  @IsString()
+  specialty?: string;
+
+  @IsOptional()
+  @IsString()
+  professionalRegistration?: string;
 }

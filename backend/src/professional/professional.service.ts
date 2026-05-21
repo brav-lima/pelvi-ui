@@ -6,9 +6,14 @@ import { UpdateProfessionalDto } from './dto/update-professional.dto';
 export class ProfessionalService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(organizationId: string) {
+  async findAll(organizationId: string, search?: string) {
+    const where: Record<string, unknown> = { organizationId };
+    if (search) {
+      where.person = { name: { contains: search, mode: 'insensitive' } };
+    }
+
     const users = await this.prisma.organizationUser.findMany({
-      where: { organizationId },
+      where,
       include: {
         person: {
           select: {
@@ -27,6 +32,8 @@ export class ProfessionalService {
       id: u.id,
       role: u.role,
       active: u.active,
+      specialty: u.specialty,
+      professionalRegistration: u.professionalRegistration,
       person: u.person,
     }));
   }
@@ -55,6 +62,8 @@ export class ProfessionalService {
       id: user.id,
       role: user.role,
       active: user.active,
+      specialty: user.specialty,
+      professionalRegistration: user.professionalRegistration,
       person: user.person,
     };
   }
@@ -68,7 +77,12 @@ export class ProfessionalService {
 
     const updated = await this.prisma.organizationUser.update({
       where: { id },
-      data: dto,
+      data: {
+        role: dto.role,
+        active: dto.active,
+        specialty: dto.specialty,
+        professionalRegistration: dto.professionalRegistration,
+      },
       include: {
         person: {
           select: {
@@ -86,6 +100,8 @@ export class ProfessionalService {
       id: updated.id,
       role: updated.role,
       active: updated.active,
+      specialty: updated.specialty,
+      professionalRegistration: updated.professionalRegistration,
       person: updated.person,
     };
   }

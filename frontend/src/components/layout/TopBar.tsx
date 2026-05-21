@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ProfileDialog } from '@/components/profile/ProfileDialog';
+import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -19,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign, CheckCheck, X } from 'lucide-react';
+import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign, CheckCheck, X, Search } from 'lucide-react';
 import { formatCNPJ, formatCurrency } from '@/lib/formatters';
 import { appointmentsApi, financialApi } from '@/lib/api';
 import { format } from 'date-fns';
@@ -57,6 +58,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const monthFinancial = monthFinancialResult?.data ?? [];
 
   const [profileOpen, setProfileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // ⌘K / Ctrl+K to open search
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Dismissed notifications — persisted per day in localStorage
   const dismissedKey = `notifications-dismissed-${today}`;
@@ -114,9 +128,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     .toUpperCase() || 'U';
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 md:px-6 bg-card border-b border-border">
-      {/* Left side */}
-      <div className="flex items-center gap-3">
+    <header className="flex items-center h-14 px-4 md:px-6 bg-card border-b border-border gap-3">
+      {/* Left — clinic info */}
+      <div className="flex items-center gap-3 shrink-0">
         {/* Hamburger (mobile) */}
         {onMenuClick && (
           <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0">
@@ -124,24 +138,39 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           </Button>
         )}
 
-        {/* Clinic Info */}
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center justify-center w-8 h-8 rounded-md bg-accent">
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex items-center justify-center w-[30px] h-[30px] rounded-lg bg-accent">
             <Building2 className="w-4 h-4 text-accent-foreground" />
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground truncate max-w-[150px] sm:max-w-none">
+            <p className="text-[13px] font-medium text-foreground truncate max-w-[150px] sm:max-w-none">
               {selectedClinic?.name}
             </p>
             {selectedClinic?.cnpj && (
-              <p className="text-xs text-muted-foreground hidden sm:block">CNPJ: {formatCNPJ(selectedClinic.cnpj)}</p>
+              <p className="text-[11px] text-muted-foreground hidden sm:block font-mono mt-px">
+                CNPJ {formatCNPJ(selectedClinic.cnpj)}
+              </p>
             )}
           </div>
         </div>
       </div>
 
+      {/* Center — global search */}
+      <div className="hidden md:flex flex-1 justify-center px-4">
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center gap-2 h-8 px-3 rounded-lg bg-background border border-border text-[13px] text-muted-foreground min-w-[280px] max-w-md w-full hover:border-primary/50 transition-colors"
+        >
+          <Search className="w-3.5 h-3.5 shrink-0" />
+          <span className="flex-1 text-left">Buscar pacientes, profissionais…</span>
+          <kbd className="font-mono text-[10.5px] px-1.5 py-px rounded bg-card border border-border text-muted-foreground shrink-0">
+            ⌘K
+          </kbd>
+        </button>
+      </div>
+
       {/* Right Side */}
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto md:ml-0">
         {/* Notifications */}
         <Popover>
           <PopoverTrigger asChild>
@@ -299,6 +328,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       </div>
 
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   );
 }
