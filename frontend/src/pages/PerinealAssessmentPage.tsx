@@ -6,13 +6,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { perinealAssessmentsApi, patientsApi } from '@/lib/api';
-import { perinealAssessmentSchema, STEP_TITLES, type PerinealAssessmentFormData } from '@/components/perineal-assessment/schema';
+import { perinealAssessmentSchema, type PerinealAssessmentFormData } from '@/components/perineal-assessment/schema';
 import { ReadOnlyContext } from '@/components/perineal-assessment/ReadOnlyContext';
 import { Step1InspecaoEstatica } from '@/components/perineal-assessment/steps/Step1InspecaoEstatica';
 import { Step2InspecaoDinamica } from '@/components/perineal-assessment/steps/Step2InspecaoDinamica';
@@ -112,10 +112,10 @@ export default function PerinealAssessmentPage() {
       const existing = allAssessments.find(a => a.id === assessmentId);
       if (existing?.data) {
         form.reset(existing.data as PerinealAssessmentFormData);
-        // Mark all steps before last as complete when viewing existing
         setCompletedSteps(new Set([0, 1, 2, 3, 4, 5]));
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, assessmentId, allAssessments]);
 
   const saveMutation = useMutation({
@@ -415,23 +415,23 @@ function getComparativoRows(
       ];
     case 1:
       return [
-        { label: 'Contração cranial', before: fmt((prev?.inspecaoDinamica as any)?.levantadores?.contracaoMovCranial), now: fmt((curr?.inspecaoDinamica as any)?.levantadores?.contracaoMovCranial) },
-        { label: 'Relaxamento caudal', before: fmt((prev?.inspecaoDinamica as any)?.levantadores?.relaxamentoMovCaudal), now: fmt((curr?.inspecaoDinamica as any)?.levantadores?.relaxamentoMovCaudal) },
+        { label: 'Contração cranial', before: fmt(prev?.inspecaoDinamica?.levantadores?.contracaoMovCranial), now: fmt(curr?.inspecaoDinamica?.levantadores?.contracaoMovCranial) },
+        { label: 'Relaxamento caudal', before: fmt(prev?.inspecaoDinamica?.levantadores?.relaxamentoMovCaudal), now: fmt(curr?.inspecaoDinamica?.levantadores?.relaxamentoMovCaudal) },
       ];
     case 2:
       return [
-        { label: 'Reflexo clitoridiano (E)', before: fmt((prev?.testesNeurologicos as any)?.atividadeReflexa?.clitoridianoE), now: fmt((curr?.testesNeurologicos as any)?.atividadeReflexa?.clitoridianoE) },
-        { label: 'Reflexo cutaneoanal', before: fmt((prev?.testesNeurologicos as any)?.atividadeReflexa?.cutaneoanal), now: fmt((curr?.testesNeurologicos as any)?.atividadeReflexa?.cutaneoanal) },
+        { label: 'Reflexo clitoridiano (E)', before: fmt(prev?.testesNeurologicos?.atividadeReflexa?.clitoridianoE), now: fmt(curr?.testesNeurologicos?.atividadeReflexa?.clitoridianoE) },
+        { label: 'Reflexo cutaneoanal', before: fmt(prev?.testesNeurologicos?.atividadeReflexa?.cutaneoanal), now: fmt(curr?.testesNeurologicos?.atividadeReflexa?.cutaneoanal) },
       ];
     case 3:
       return [
-        { label: 'Trofismo', before: fmt((prev?.palpacaoEstatica as any)?.trofismo), now: fmt((curr?.palpacaoEstatica as any)?.trofismo) },
-        { label: 'Superficiais', before: fmt((prev?.palpacaoEstatica as any)?.superficiais), now: fmt((curr?.palpacaoEstatica as any)?.superficiais) },
+        { label: 'Trofismo', before: fmt(prev?.palpacaoEstatica?.trofismo), now: fmt(curr?.palpacaoEstatica?.trofismo) },
+        { label: 'Superficiais', before: fmt(prev?.palpacaoEstatica?.superficiais), now: fmt(curr?.palpacaoEstatica?.superficiais) },
       ];
     case 4:
       return [
-        { label: 'Força (Oxford)', before: fmt((prev?.palpacaoDinamica as any)?.forca), now: fmt((curr?.palpacaoDinamica as any)?.forca) },
-        { label: 'Simetria', before: fmt((prev?.palpacaoDinamica as any)?.simetria), now: fmt((curr?.palpacaoDinamica as any)?.simetria) },
+        { label: 'Força (Oxford)', before: fmt(prev?.palpacaoDinamica?.forca), now: fmt(curr?.palpacaoDinamica?.forca) },
+        { label: 'Simetria', before: fmt(prev?.palpacaoDinamica?.simetria), now: fmt(curr?.palpacaoDinamica?.simetria) },
       ];
     case 5:
       return [];

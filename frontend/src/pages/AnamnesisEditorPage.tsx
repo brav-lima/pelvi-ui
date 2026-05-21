@@ -130,31 +130,38 @@ function SegmentedControl({
 
 // ─── Section forms ────────────────────────────────────────────────────────────
 
-function SectionIdentificacao({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+type SD = Record<string, unknown>;
+type SS = (k: string, v: unknown) => void;
+
+function str(d: SD, k: string): string { return String(d[k] ?? ''); }
+function arr(d: SD, k: string): string[] { return Array.isArray(d[k]) ? (d[k] as string[]) : []; }
+function num(d: SD, k: string, def = 0): number { return typeof d[k] === 'number' ? (d[k] as number) : def; }
+
+function SectionIdentificacao({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <FormRow label="Profissão">
-        <FieldInput value={data.profissao ?? ''} onChange={v => set('profissao', v)} placeholder="Ex: Professora, Enfermeira…" />
+        <FieldInput value={str(data, 'profissao')} onChange={v => set('profissao', v)} placeholder="Ex: Professora, Enfermeira…" />
       </FormRow>
       <div className="grid grid-cols-2 gap-4">
         <FormRow label="Estado civil">
           <SegmentedControl
             options={['Solteira', 'Casada', 'Divorciada', 'Viúva']}
-            value={data.estadoCivil ?? ''}
+            value={str(data, 'estadoCivil')}
             onChange={v => set('estadoCivil', v)}
           />
         </FormRow>
         <FormRow label="Escolaridade">
           <SegmentedControl
             options={['Fundamental', 'Médio', 'Superior']}
-            value={data.escolaridade ?? ''}
+            value={str(data, 'escolaridade')}
             onChange={v => set('escolaridade', v)}
           />
         </FormRow>
       </div>
       <FormRow label="Observações">
         <FieldTextarea
-          value={data.observacoes ?? ''}
+          value={str(data, 'observacoes')}
           onChange={v => set('observacoes', v)}
           placeholder="Informações adicionais relevantes…"
         />
@@ -163,12 +170,12 @@ function SectionIdentificacao({ data, set }: { data: any; set: (k: string, v: an
   );
 }
 
-function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+function SectionHistoriaQueixa({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <FormRow label="Queixa principal">
         <FieldInput
-          value={data.queixaPrincipal ?? ''}
+          value={str(data, 'queixaPrincipal')}
           onChange={v => set('queixaPrincipal', v)}
           placeholder="Descreva a queixa principal…"
         />
@@ -178,13 +185,13 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
         <div className="flex gap-2">
           <input
             type="month"
-            value={data.inicioSintomas ?? ''}
+            value={str(data, 'inicioSintomas')}
             onChange={e => set('inicioSintomas', e.target.value)}
             className="h-9 px-3 rounded-lg border border-border bg-card text-[13px] font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
             style={{ maxWidth: 160 }}
           />
           <select
-            value={data.contextoInicio ?? ''}
+            value={str(data, 'contextoInicio')}
             onChange={e => set('contextoInicio', e.target.value)}
             className="flex-1 h-9 px-3 rounded-lg border border-border bg-card text-[13px] text-foreground outline-none focus:border-primary transition-all"
           >
@@ -202,7 +209,7 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
       <FormRow label="Frequência dos episódios">
         <ChipSelect
           options={['Diária', 'Semanal', 'Quinzenal', 'Mensal', 'Esporádica']}
-          value={data.frequencia ?? []}
+          value={arr(data, 'frequencia')}
           onChange={v => set('frequencia', v)}
         />
       </FormRow>
@@ -210,7 +217,7 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
       <FormRow label="Gatilhos identificados">
         <ChipSelect
           options={['Tosse', 'Espirro', 'Riso', 'Exercício físico', 'Levantar peso', 'Mudança de posição', 'Urgência miccional']}
-          value={data.gatilhos ?? []}
+          value={arr(data, 'gatilhos')}
           onChange={v => set('gatilhos', v)}
         />
       </FormRow>
@@ -218,7 +225,7 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
       <FormRow label="Volume de perda urinária">
         <SegmentedControl
           options={['Gotas', 'Pequena (jato curto)', 'Grande (encharca proteção)']}
-          value={data.volumePerdaUrinaria ?? ''}
+          value={str(data, 'volumePerdaUrinaria')}
           onChange={v => set('volumePerdaUrinaria', v)}
         />
       </FormRow>
@@ -227,16 +234,16 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
         <div className="flex items-center gap-4 flex-wrap">
           <SegmentedControl
             options={['Não', 'Sim, ocasional', 'Sim, diário']}
-            value={data.usoProtecao ?? ''}
+            value={str(data, 'usoProtecao')}
             onChange={v => set('usoProtecao', v)}
           />
-          {data.usoProtecao && data.usoProtecao !== 'Não' && (
+          {str(data, 'usoProtecao') && str(data, 'usoProtecao') !== 'Não' && (
             <span className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
               em média
               <input
                 type="number"
                 min={0}
-                value={data.protecaoPorDia ?? 0}
+                value={num(data, 'protecaoPorDia')}
                 onChange={e => set('protecaoPorDia', Number(e.target.value))}
                 className="w-14 h-8 px-2 rounded-lg border border-border bg-card text-[13px] font-mono text-center outline-none focus:border-primary transition-all"
               />
@@ -252,7 +259,7 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
             type="range"
             min={1}
             max={10}
-            value={data.impactoQualidadeVida ?? 5}
+            value={num(data, 'impactoQualidadeVida', 5)}
             onChange={e => set('impactoQualidadeVida', Number(e.target.value))}
             className="flex-1 accent-primary"
           />
@@ -260,7 +267,7 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
             className="font-semibold tabular-nums text-primary min-w-[28px] text-right"
             style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: '-0.02em' }}
           >
-            {data.impactoQualidadeVida ?? 5}
+            {num(data, 'impactoQualidadeVida', 5)}
           </span>
         </div>
         <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
@@ -271,7 +278,7 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
 
       <FormRow label="Observações da profissional">
         <FieldTextarea
-          value={data.observacoes ?? ''}
+          value={str(data, 'observacoes')}
           onChange={v => set('observacoes', v)}
           placeholder="Observações clínicas relevantes…"
           rows={4}
@@ -281,7 +288,7 @@ function SectionHistoriaQueixa({ data, set }: { data: any; set: (k: string, v: a
   );
 }
 
-function SectionHistoriaObstetrica({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+function SectionHistoriaObstetrica({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-4 gap-3">
@@ -290,7 +297,7 @@ function SectionHistoriaObstetrica({ data, set }: { data: any; set: (k: string, 
             <input
               type="number"
               min={0}
-              value={data[field] ?? 0}
+              value={num(data, field)}
               onChange={e => set(field, Number(e.target.value))}
               className="w-full h-9 px-3 rounded-lg border border-border bg-card text-[13px] font-mono text-center outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
             />
@@ -298,18 +305,18 @@ function SectionHistoriaObstetrica({ data, set }: { data: any; set: (k: string, 
         ))}
       </div>
       <FormRow label="Data do último parto">
-        <FieldInput type="date" value={data.ultimoParto ?? ''} onChange={v => set('ultimoParto', v)} />
+        <FieldInput type="date" value={str(data, 'ultimoParto')} onChange={v => set('ultimoParto', v)} />
       </FormRow>
       <FormRow label="Tipo do último parto">
         <SegmentedControl
           options={['Normal', 'Fórceps', 'Cesárea', 'Não houve']}
-          value={data.tipoUltimoParto ?? ''}
+          value={str(data, 'tipoUltimoParto')}
           onChange={v => set('tipoUltimoParto', v)}
         />
       </FormRow>
       <FormRow label="Observações">
         <FieldTextarea
-          value={data.observacoes ?? ''}
+          value={str(data, 'observacoes')}
           onChange={v => set('observacoes', v)}
           placeholder="Intercorrências, lacerações, episiotomia…"
         />
@@ -318,37 +325,37 @@ function SectionHistoriaObstetrica({ data, set }: { data: any; set: (k: string, 
   );
 }
 
-function SectionHistoriaGinecologica({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+function SectionHistoriaGinecologica({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-2 gap-4">
         <FormRow label="Menarca">
-          <FieldInput value={data.menarca ?? ''} onChange={v => set('menarca', v)} placeholder="Ex: 12 anos" />
+          <FieldInput value={str(data, 'menarca')} onChange={v => set('menarca', v)} placeholder="Ex: 12 anos" />
         </FormRow>
         <FormRow label="Ciclo menstrual">
           <SegmentedControl
             options={['Regular', 'Irregular', 'Amenorreia']}
-            value={data.cicloMenstrual ?? ''}
+            value={str(data, 'cicloMenstrual')}
             onChange={v => set('cicloMenstrual', v)}
           />
         </FormRow>
       </div>
       <FormRow label="DPU (data da última menstruação)">
-        <FieldInput type="date" value={data.dataDpu ?? ''} onChange={v => set('dataDpu', v)} />
+        <FieldInput type="date" value={str(data, 'dataDpu')} onChange={v => set('dataDpu', v)} />
       </FormRow>
       <FormRow label="Anticoncepcional atual">
-        <FieldInput value={data.contraceptivo ?? ''} onChange={v => set('contraceptivo', v)} placeholder="Tipo e nome, ou 'Nenhum'" />
+        <FieldInput value={str(data, 'contraceptivo')} onChange={v => set('contraceptivo', v)} placeholder="Tipo e nome, ou 'Nenhum'" />
       </FormRow>
       <FormRow label="Menopausa">
         <SegmentedControl
           options={['Não', 'Peri', 'Sim']}
-          value={data.menopausa ?? ''}
+          value={str(data, 'menopausa')}
           onChange={v => set('menopausa', v)}
         />
       </FormRow>
       <FormRow label="Observações">
         <FieldTextarea
-          value={data.observacoes ?? ''}
+          value={str(data, 'observacoes')}
           onChange={v => set('observacoes', v)}
           placeholder="Histórico de infecções, DSTs, cirurgias ginecológicas…"
         />
@@ -357,20 +364,20 @@ function SectionHistoriaGinecologica({ data, set }: { data: any; set: (k: string
   );
 }
 
-function SectionHabitosVida({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+function SectionHabitosVida({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <FormRow label="Atividade física">
         <ChipSelect
           options={['Sedentária', 'Caminhada', 'Corrida', 'Musculação', 'Pilates', 'Yoga', 'Natação', 'Outra']}
-          value={data.atividadeFisica ?? []}
+          value={arr(data, 'atividadeFisica')}
           onChange={v => set('atividadeFisica', v)}
         />
       </FormRow>
       <FormRow label="Frequência de atividade">
         <SegmentedControl
           options={['Raramente', '1–2×/sem', '3–4×/sem', 'Diária']}
-          value={data.frequenciaAtividade ?? ''}
+          value={str(data, 'frequenciaAtividade')}
           onChange={v => set('frequenciaAtividade', v)}
         />
       </FormRow>
@@ -378,14 +385,14 @@ function SectionHabitosVida({ data, set }: { data: any; set: (k: string, v: any)
         <FormRow label="Tabagismo">
           <SegmentedControl
             options={['Não', 'Ex-fumante', 'Fumante']}
-            value={data.tabagismo ?? ''}
+            value={str(data, 'tabagismo')}
             onChange={v => set('tabagismo', v)}
           />
         </FormRow>
         <FormRow label="Consumo de álcool">
           <SegmentedControl
             options={['Não', 'Ocasional', 'Frequente']}
-            value={data.alcool ?? ''}
+            value={str(data, 'alcool')}
             onChange={v => set('alcool', v)}
           />
         </FormRow>
@@ -393,92 +400,92 @@ function SectionHabitosVida({ data, set }: { data: any; set: (k: string, v: any)
       <FormRow label="Hidratação (água / dia)">
         <SegmentedControl
           options={['< 1L', '1–2L', '2–3L', '> 3L']}
-          value={data.hidratacao ?? ''}
+          value={str(data, 'hidratacao')}
           onChange={v => set('hidratacao', v)}
         />
       </FormRow>
       <FormRow label="Observações">
-        <FieldTextarea value={data.observacoes ?? ''} onChange={v => set('observacoes', v)} placeholder="Hábitos relevantes…" />
+        <FieldTextarea value={str(data, 'observacoes')} onChange={v => set('observacoes', v)} placeholder="Hábitos relevantes…" />
       </FormRow>
     </div>
   );
 }
 
-function SectionMedicamentos({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+function SectionMedicamentos({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <FormRow label="Medicações em uso">
-        <FieldTextarea value={data.medicacoesEmUso ?? ''} onChange={v => set('medicacoesEmUso', v)} placeholder="Nome, dose, frequência…" rows={3} />
+        <FieldTextarea value={str(data, 'medicacoesEmUso')} onChange={v => set('medicacoesEmUso', v)} placeholder="Nome, dose, frequência…" rows={3} />
       </FormRow>
       <FormRow label="Alergias">
-        <FieldInput value={data.alergias ?? ''} onChange={v => set('alergias', v)} placeholder="Medicamentos, alimentos, látex…" />
+        <FieldInput value={str(data, 'alergias')} onChange={v => set('alergias', v)} placeholder="Medicamentos, alimentos, látex…" />
       </FormRow>
       <FormRow label="Doenças preexistentes">
-        <FieldTextarea value={data.doencasPreexistentes ?? ''} onChange={v => set('doencasPreexistentes', v)} placeholder="Diagnósticos, condições crônicas…" rows={2} />
+        <FieldTextarea value={str(data, 'doencasPreexistentes')} onChange={v => set('doencasPreexistentes', v)} placeholder="Diagnósticos, condições crônicas…" rows={2} />
       </FormRow>
       <FormRow label="Cirurgias anteriores">
-        <FieldTextarea value={data.cirurgiasAnteriores ?? ''} onChange={v => set('cirurgiasAnteriores', v)} placeholder="Tipo, ano, complicações…" rows={2} />
+        <FieldTextarea value={str(data, 'cirurgiasAnteriores')} onChange={v => set('cirurgiasAnteriores', v)} placeholder="Tipo, ano, complicações…" rows={2} />
       </FormRow>
       <FormRow label="Observações">
-        <FieldTextarea value={data.observacoes ?? ''} onChange={v => set('observacoes', v)} placeholder="Informações adicionais…" />
+        <FieldTextarea value={str(data, 'observacoes')} onChange={v => set('observacoes', v)} placeholder="Informações adicionais…" />
       </FormRow>
     </div>
   );
 }
 
-function SectionExames({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+function SectionExames({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <FormRow label="Uroculturas / exames de urina">
-        <FieldTextarea value={data.uroculturas ?? ''} onChange={v => set('uroculturas', v)} placeholder="Resultados, datas…" rows={2} />
+        <FieldTextarea value={str(data, 'uroculturas')} onChange={v => set('uroculturas', v)} placeholder="Resultados, datas…" rows={2} />
       </FormRow>
       <FormRow label="Ultrassonografia">
-        <FieldTextarea value={data.ultrassonografia ?? ''} onChange={v => set('ultrassonografia', v)} placeholder="Tipo, data, achados…" rows={2} />
+        <FieldTextarea value={str(data, 'ultrassonografia')} onChange={v => set('ultrassonografia', v)} placeholder="Tipo, data, achados…" rows={2} />
       </FormRow>
       <FormRow label="Urodinâmica">
-        <FieldTextarea value={data.urodinamica ?? ''} onChange={v => set('urodinamica', v)} placeholder="Resultados da avaliação urodinâmica…" rows={2} />
+        <FieldTextarea value={str(data, 'urodinamica')} onChange={v => set('urodinamica', v)} placeholder="Resultados da avaliação urodinâmica…" rows={2} />
       </FormRow>
       <FormRow label="Outros exames">
-        <FieldTextarea value={data.outros ?? ''} onChange={v => set('outros', v)} placeholder="Outros exames relevantes…" rows={2} />
+        <FieldTextarea value={str(data, 'outros')} onChange={v => set('outros', v)} placeholder="Outros exames relevantes…" rows={2} />
       </FormRow>
       <FormRow label="Observações">
-        <FieldTextarea value={data.observacoes ?? ''} onChange={v => set('observacoes', v)} placeholder="Interpretação clínica…" />
+        <FieldTextarea value={str(data, 'observacoes')} onChange={v => set('observacoes', v)} placeholder="Interpretação clínica…" />
       </FormRow>
     </div>
   );
 }
 
-function SectionPlano({ data, set }: { data: any; set: (k: string, v: any) => void }) {
+function SectionPlano({ data, set }: { data: SD; set: SS }) {
   return (
     <div className="flex flex-col gap-5">
       <FormRow label="Objetivos do tratamento">
-        <FieldTextarea value={data.objetivos ?? ''} onChange={v => set('objetivos', v)} placeholder="O que esperamos alcançar…" rows={3} />
+        <FieldTextarea value={str(data, 'objetivos')} onChange={v => set('objetivos', v)} placeholder="O que esperamos alcançar…" rows={3} />
       </FormRow>
       <FormRow label="Técnicas planejadas">
         <ChipSelect
           options={['Biofeedback', 'Eletroestimulação', 'Cones vaginais', 'Exercícios perineais', 'TENS', 'Calor local', 'Massagem perineal', 'Hipopressivos']}
-          value={data.tecnicas ?? []}
+          value={arr(data, 'tecnicas')}
           onChange={v => set('tecnicas', v)}
         />
       </FormRow>
       <FormRow label="Frequência de sessões">
         <SegmentedControl
           options={['1×/semana', '2×/semana', '3×/semana', 'Quinzenal']}
-          value={data.frequenciaSessoes ?? ''}
+          value={str(data, 'frequenciaSessoes')}
           onChange={v => set('frequenciaSessoes', v)}
         />
       </FormRow>
       <FormRow label="Metas de curto prazo">
-        <FieldTextarea value={data.metas ?? ''} onChange={v => set('metas', v)} placeholder="Indicadores de melhora esperados nas primeiras semanas…" rows={2} />
+        <FieldTextarea value={str(data, 'metas')} onChange={v => set('metas', v)} placeholder="Indicadores de melhora esperados nas primeiras semanas…" rows={2} />
       </FormRow>
       <FormRow label="Observações">
-        <FieldTextarea value={data.observacoes ?? ''} onChange={v => set('observacoes', v)} placeholder="Considerações sobre o plano…" />
+        <FieldTextarea value={str(data, 'observacoes')} onChange={v => set('observacoes', v)} placeholder="Considerações sobre o plano…" />
       </FormRow>
     </div>
   );
 }
 
-function renderSection(id: SectionId, data: any, set: (k: string, v: any) => void) {
+function renderSection(id: SectionId, data: SD, set: SS) {
   switch (id) {
     case 'identificacao':        return <SectionIdentificacao data={data} set={set} />;
     case 'historiaQueixa':       return <SectionHistoriaQueixa data={data} set={set} />;
@@ -509,7 +516,7 @@ export default function AnamnesisEditorPage() {
   const isNew = !anamnesisId || anamnesisId === 'new';
 
   const [activeSection, setActiveSection] = useState(0);
-  const [formData, setFormData] = useState<Record<string, Record<string, any>>>({});
+  const [formData, setFormData] = useState<Record<string, SD>>({});
 
   const { data: patient, isLoading: loadingPatient } = useQuery({
     queryKey: ['patient', patientId],
@@ -533,8 +540,9 @@ export default function AnamnesisEditorPage() {
 
   useEffect(() => {
     if (existing?.data) {
-      setFormData(existing.data as Record<string, Record<string, any>>);
+      setFormData(existing.data as Record<string, SD>);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing?.id]);
 
   const saveMutation = useMutation({
@@ -555,7 +563,7 @@ export default function AnamnesisEditorPage() {
     navigate(`/patients/${patientId}`);
   };
 
-  const setSectionField = (key: string, value: any) => {
+  const setSectionField = (key: string, value: unknown) => {
     const sectionId = SECTIONS[activeSection].id;
     setFormData(prev => ({
       ...prev,
