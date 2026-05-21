@@ -3,7 +3,7 @@ import Redis from 'ioredis'
 import { PrismaService } from '../prisma/prisma.service'
 import { AdminApiService } from '../admin-api/admin-api.service'
 import { REDIS_CLIENT } from '../redis/redis.constants'
-import { PlanFeature } from './plan-features'
+import { ALL_PLAN_FEATURES, PlanFeature } from './plan-features'
 
 const CACHE_TTL_SECONDS = 300 // 5 minutes
 
@@ -89,7 +89,8 @@ export class SubscriptionService {
   }
 
   // Fetches the feature list for the org's active subscription from pelvi-admin.
-  // Returns empty array if admin is unavailable (fail-open during trial to avoid blocking).
+  // Fails-open (ALL_PLAN_FEATURES) when admin is unavailable — orgs that are active
+  // must not be locked out due to a transient dependency failure.
   private async fetchFeaturesFromAdmin(
     organizationId: string,
     isActive: boolean,
@@ -98,17 +99,32 @@ export class SubscriptionService {
 
     try {
       const data = await this.adminApi.getSubscription(organizationId)
-      const raw: unknown = data?.subscription?.plan?.features ?? []
+
+      // subscription: null means the org isn't set up in pelvi-admin yet — fail open
+      if (!data?.subscription) {
+        this.logger.warn(`No subscription found in pelvi-admin for org ${organizationId}. Falling back to ALL_PLAN_FEATURES.`)
+        return ALL_PLAN_FEATURES
+      }
+
+      const raw: unknown = data.subscription.plan?.features ?? []
       // Compatibilidade com planos antigos cujo features é { nfse: true, ... }
       const rawFeatures: unknown[] = Array.isArray(raw)
         ? raw
         : Object.entries(raw as Record<string, boolean>).filter(([, v]) => v).map(([k]) => k)
-      return rawFeatures.filter((f): f is PlanFeature => typeof f === 'string')
+      const features = rawFeatures.filter((f): f is PlanFeature => typeof f === 'string')
+
+      // Empty feature list from a configured plan also means not-yet-configured — fail open
+      if (features.length === 0) {
+        this.logger.warn(`Empty features list from pelvi-admin for org ${organizationId}. Falling back to ALL_PLAN_FEATURES.`)
+        return ALL_PLAN_FEATURES
+      }
+
+      return features
     } catch (err) {
       this.logger.warn(
-        `Could not fetch features from pelvi-admin for org ${organizationId}: ${err}. Returning empty feature list.`,
+        `Could not fetch features from pelvi-admin for org ${organizationId}: ${err}. Falling back to ALL_PLAN_FEATURES.`,
       )
-      return []
+      return ALL_PLAN_FEATURES
     }
   }
 }
