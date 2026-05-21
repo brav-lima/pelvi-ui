@@ -18,11 +18,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, BookOpen, CheckCircle, Plus, Trash2, Loader2, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, BookOpen, CheckCircle, Plus, Trash2, Loader2, ChevronRight, ChevronLeft, AlertCircle } from 'lucide-react';
 import { financialApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
-import { format, subDays, addDays } from 'date-fns';
+import { format, addMonths, subMonths } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
 import { LivroCaixaSheet } from '@/components/financial/LivroCaixaSheet';
 import { useHasRole } from '@/components/auth/RoleGuard';
@@ -34,15 +34,20 @@ export default function Financial() {
   const isAdmin = useHasRole('ADMIN');
 
   const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
+  const [selectedPeriod, setSelectedPeriod] = useState({ month: now.getMonth() + 1, year: now.getFullYear() });
+  const { month, year } = selectedPeriod;
 
-  const windowStart = format(subDays(now, 10), 'yyyy-MM-dd');
-  const windowEnd = format(addDays(now, 10), 'yyyy-MM-dd');
+  const navigatePeriod = (dir: 1 | -1) => {
+    const base = new Date(year, month - 1, 1);
+    const next = dir === 1 ? addMonths(base, 1) : subMonths(base, 1);
+    setSelectedPeriod({ month: next.getMonth() + 1, year: next.getFullYear() });
+  };
+
+  const periodLabel = new Date(year, month - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const { data: recordsPage, isLoading: loadingRecords } = useQuery({
-    queryKey: ['financial', 'window', windowStart, windowEnd],
-    queryFn: () => financialApi.list({ startDate: windowStart, endDate: windowEnd }),
+    queryKey: ['financial', 'month', month, year],
+    queryFn: () => financialApi.list({ month, year }),
   });
   const records = recordsPage?.data ?? [];
 
@@ -51,10 +56,12 @@ export default function Financial() {
     queryFn: () => financialApi.summary({ month, year }),
   });
 
+  const pendingCount = records.filter(r => r.status === 'PENDING').length;
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => financialApi.remove(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['financial', 'month'] });
       queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
       toast.success('Registro excluído com sucesso');
     },
@@ -64,7 +71,7 @@ export default function Financial() {
   const markPaidMutation = useMutation({
     mutationFn: (id: string) => financialApi.update(id, { status: 'PAID' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['financial', 'month'] });
       queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
       toast.success('Pagamento confirmado');
     },
@@ -80,7 +87,7 @@ export default function Financial() {
   }
 
   const handleSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ['financial'] });
+    queryClient.invalidateQueries({ queryKey: ['financial', 'month'] });
     queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
   };
 
@@ -88,7 +95,17 @@ export default function Financial() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Financeiro"
-        description="Visão geral das finanças da clínica"
+        description={
+          <span className="flex items-center gap-2">
+            <button onClick={() => navigatePeriod(-1)} className="p-0.5 rounded hover:bg-muted transition-colors">
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="capitalize tabular-nums">{periodLabel}</span>
+            <button onClick={() => navigatePeriod(1)} className="p-0.5 rounded hover:bg-muted transition-colors">
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </span>
+        }
         actions={
           isAdmin ? (
             <Button onClick={() => setDialogOpen(true)}>
@@ -100,7 +117,7 @@ export default function Financial() {
       />
 
       {/* Stats */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Receitas"
           value={`R$ ${formatCurrency(summary?.totalReceived)}`}
@@ -112,6 +129,12 @@ export default function Financial() {
           value={`R$ ${formatCurrency(summary?.totalExpenses)}`}
           description="Pagas no mês"
           icon={TrendingDown}
+        />
+        <StatCard
+          title="Faturas pendentes"
+          value={pendingCount}
+          description="Aguardando pagamento"
+          icon={AlertCircle}
         />
         <button
           onClick={() => setLivroOpen(true)}
@@ -141,7 +164,7 @@ export default function Financial() {
         <CardHeader>
           <CardTitle className="text-lg flex items-baseline gap-2">
             Registros Financeiros
-            <span className="text-sm font-normal text-muted-foreground">últimos e próximos 10 dias</span>
+            <span className="text-sm font-normal text-muted-foreground capitalize">{periodLabel}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -155,9 +178,9 @@ export default function Financial() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Data</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Vencimento</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Paciente</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Descrição</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Pagamento</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Tipo</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Valor</th>
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
@@ -169,11 +192,6 @@ export default function Financial() {
                     <tr key={record.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
                       <td className="py-3 px-4 text-sm text-foreground">
                         {format(new Date(record.createdAt), 'dd/MM/yyyy')}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-foreground">
-                        {record.dueDate
-                          ? format(new Date(record.dueDate), 'dd/MM/yyyy')
-                          : '-'}
                       </td>
                       <td className="py-3 px-4 text-sm font-medium text-foreground">
                         {record.patient?.name ? (
@@ -194,6 +212,9 @@ export default function Financial() {
                             </Badge>
                           )}
                         </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {record.paymentMethod ?? '-'}
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={record.type} />

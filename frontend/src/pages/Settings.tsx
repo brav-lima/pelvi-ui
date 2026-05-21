@@ -321,9 +321,16 @@ export default function Settings() {
       {/* Page header */}
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-[26px] font-semibold leading-8" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}>
-            Configurações
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[26px] font-semibold leading-8" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}>
+              Configurações
+            </h1>
+            {sub && (
+              <span className="inline-flex items-center h-[22px] px-2.5 rounded-full text-[11.5px] font-medium bg-primary/10 text-primary border border-primary/20 translate-y-[-2px]">
+                Plano · {sub.plan.name}
+              </span>
+            )}
+          </div>
           <p className="text-[13px] text-muted-foreground mt-1">Personalize sua clínica e equipe.</p>
         </div>
         <div className="flex gap-2">
@@ -603,8 +610,38 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* ── Integrações placeholder ───────────────────────── */}
+          {/* ── Integrações ──────────────────────────────────── */}
           <div ref={setRef('integ')} />
+
+          <Card>
+            <CardHeader className="pb-0">
+              <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Integrações</CardTitle>
+              <p className="text-[12.5px] text-muted-foreground mt-0.5">Conecte serviços externos à sua clínica.</p>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  { name: 'WhatsApp Business', desc: 'Envio de lembretes e confirmações via WhatsApp.', status: 'Em breve' },
+                  { name: 'Google Agenda', desc: 'Sincronize agendamentos com o Google Calendar.', status: 'Em breve' },
+                  { name: 'Asaas / Cobrança', desc: 'Geração de cobranças e boletos automáticos.', status: 'Em breve' },
+                  { name: 'Nota fiscal (NFS-e)', desc: 'Emissão automática de notas fiscais de serviço.', status: 'Em breve' },
+                ].map((integ) => (
+                  <div
+                    key={integ.name}
+                    className="flex items-start gap-3 p-3.5 rounded-xl border border-border bg-muted/30"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13.5px] font-medium">{integ.name}</div>
+                      <div className="text-[12px] text-muted-foreground mt-0.5">{integ.desc}</div>
+                    </div>
+                    <span className="shrink-0 inline-flex items-center h-[20px] px-2 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border">
+                      {integ.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* ── Segurança / Zona de risco ─────────────────────── */}
           <div ref={setRef('security')} />

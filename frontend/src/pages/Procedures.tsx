@@ -28,6 +28,7 @@ export default function Procedures() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProcedure, setEditingProcedure] = useState<Procedure | undefined>();
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'price' | 'name' | 'duration'>('price');
   const isAdmin = useHasRole('ADMIN');
 
   const { data: procedures = [], isLoading } = useQuery({
@@ -64,10 +65,11 @@ export default function Procedures() {
   const activeCount = procedures.filter(p => p.active).length;
   const inactiveCount = procedures.filter(p => !p.active).length;
 
-  // Sort by uses (desc) — approximate by price * duration as proxy
   const sorted = [...filtered].sort((a, b) => {
     if (a.active && !b.active) return -1;
     if (!a.active && b.active) return 1;
+    if (sortBy === 'name') return a.name.localeCompare(b.name, 'pt-BR');
+    if (sortBy === 'duration') return b.durationMinutes - a.durationMinutes;
     return b.price - a.price;
   });
 
@@ -112,8 +114,8 @@ export default function Procedures() {
       </div>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 h-[34px] px-3 rounded-lg bg-card border border-border min-w-[300px] focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 h-[34px] px-3 rounded-lg bg-card border border-border min-w-[260px] focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
           <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <input
             className="flex-1 bg-transparent text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none"
@@ -121,6 +123,19 @@ export default function Procedures() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+        </div>
+
+        <div className="flex items-center gap-1.5 h-[34px] px-3 rounded-lg bg-card border border-border text-[13px] text-muted-foreground">
+          <span className="shrink-0">Ordenar por:</span>
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as typeof sortBy)}
+            className="bg-transparent text-[13px] text-foreground outline-none cursor-pointer"
+          >
+            <option value="price">Maior valor</option>
+            <option value="name">Nome A–Z</option>
+            <option value="duration">Duração</option>
+          </select>
         </div>
       </div>
 

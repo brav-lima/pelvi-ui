@@ -1,21 +1,30 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Calendar,
+  CalendarDays,
   Plus,
   UserPlus,
-  ChevronRight,
-  CalendarDays,
   Loader2,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import { appointmentsApi, patientsApi, financialApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
+import {
+  format,
+  parseISO,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  isSameDay,
+  isSameMonth,
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // Inline sparkline — renders a tiny SVG path from an array of numbers
@@ -83,6 +92,82 @@ function KpiTile({ label, value, delta, deltaUp, trend, color = 'hsl(var(--prima
   );
 }
 
+// Compact monthly mini-calendar with appointment dot markers
+function MiniCalendar({ daysWithApts }: { daysWithApts: Set<string> }) {
+  const today = new Date();
+  const mStart = startOfMonth(today);
+  const mEnd = endOfMonth(today);
+  const calStart = startOfWeek(mStart, { weekStartsOn: 1 });
+  const calEnd = endOfWeek(mEnd, { weekStartsOn: 1 });
+
+  const days: Date[] = [];
+  let d = calStart;
+  while (d <= calEnd) { days.push(d); d = addDays(d, 1); }
+
+  return (
+    <div className="select-none">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-2 capitalize">
+        {format(today, 'MMMM yyyy', { locale: ptBR })}
+      </p>
+      <div className="grid grid-cols-7 gap-px mb-1">
+        {['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((l, i) => (
+          <div key={i} className="text-center text-[9px] font-medium text-muted-foreground/60 pb-1">{l}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-px">
+        {days.map((day) => {
+          const key = format(day, 'yyyy-MM-dd');
+          const isToday = isSameDay(day, today);
+          const hasDot = daysWithApts.has(key);
+          const inMonth = isSameMonth(day, today);
+          return (
+            <div key={key} className="flex flex-col items-center py-0.5">
+              <span className={[
+                'w-6 h-6 rounded-full flex items-center justify-center text-[11px] tabular-nums leading-none font-medium',
+                isToday ? 'bg-primary text-primary-foreground' : inMonth ? 'text-foreground' : 'text-muted-foreground/30',
+              ].join(' ')}>
+                {format(day, 'd')}
+              </span>
+              {hasDot && inMonth ? (
+                <div className={`w-1 h-1 rounded-full mt-0.5 ${isToday ? 'bg-primary-foreground/70' : 'bg-primary'}`} />
+              ) : (
+                <div className="w-1 h-1 mt-0.5" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Simple grouped bar chart — Recebido + A receber per month
+interface MonthBar { label: string; received: number; pending: number }
+function RevenueChart({ data }: { data: MonthBar[] }) {
+  const maxVal = Math.max(...data.flatMap((d) => [d.received, d.pending]), 1);
+  return (
+    <div className="flex items-end gap-2 h-[100px] w-full">
+      {data.map((d, i) => (
+        <div key={i} className="flex flex-col items-center gap-1.5 flex-1 h-full">
+          <div className="flex items-end gap-px flex-1 w-full">
+            <div
+              className="flex-1 rounded-t-sm bg-primary transition-all"
+              style={{ height: `${Math.max((d.received / maxVal) * 100, 2)}%` }}
+              title={`Recebido: R$${formatCurrency(d.received)}`}
+            />
+            <div
+              className="flex-1 rounded-t-sm bg-primary/25 transition-all"
+              style={{ height: `${Math.max((d.pending / maxVal) * 100, 2)}%` }}
+              title={`A receber: R$${formatCurrency(d.pending)}`}
+            />
+          </div>
+          <span className="text-[10px] text-muted-foreground tabular-nums">{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -112,6 +197,46 @@ export default function Dashboard() {
     queryFn: () => appointmentsApi.list({ startDate: tomorrow, endDate: nextWeek }),
   });
 
+  // Monthly appointments for mini-calendar + ticket médio
+  const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+  const { data: monthAppointments = [] } = useQuery({
+    queryKey: ['appointments', monthStart, monthEnd],
+    queryFn: () => appointmentsApi.list({ startDate: monthStart, endDate: monthEnd }),
+  });
+
+  // Monthly financial records for pending payments card
+  const { data: monthFinancial } = useQuery({
+    queryKey: ['financial', 'month', month, year],
+    queryFn: () => financialApi.list({ month, year }),
+  });
+  const allPendingRecords = (monthFinancial?.data ?? []).filter((r) => r.status === 'PENDING');
+  const pendingRecords = allPendingRecords.slice(0, 4);
+  const pendingCount = allPendingRecords.length;
+
+  // Last 6 months summaries for revenue chart
+  const last6Months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    return { month: d.getMonth() + 1, year: d.getFullYear() };
+  });
+  const monthlySummaries = useQueries({
+    queries: last6Months.map(({ month: m, year: y }) => ({
+      queryKey: ['financial-summary', m, y],
+      queryFn: () => financialApi.summary({ month: m, year: y }),
+    })),
+  });
+
+  const revenueChartData: MonthBar[] = last6Months.map(({ month: m, year: y }, i) => {
+    const data = monthlySummaries[i].data;
+    const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    return { label, received: data?.totalReceived ?? 0, pending: data?.totalPending ?? 0 };
+  });
+
+  // Days with appointments for mini-calendar
+  const daysWithApts = new Set(monthAppointments.map((a) => format(parseISO(a.startAt), 'yyyy-MM-dd')));
+
+  // Ticket médio
   const confirmedCount = todayAppointments.filter((a) => a.status === 'CONFIRMED').length;
   if (loadingApts) {
     return (
@@ -140,8 +265,8 @@ export default function Dashboard() {
         }
       />
 
-      {/* KPI strip — connected tile bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 bg-card border border-border rounded-xl overflow-hidden">
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 bg-card border border-border rounded-xl overflow-hidden">
         <KpiTile
           label="Consultas hoje"
           value={todayAppointments.length}
@@ -165,14 +290,19 @@ export default function Dashboard() {
         <KpiTile
           label="Receita do mês"
           value={`R$ ${formatCurrency(summary?.totalReceived)}`}
-          delta={summary?.totalReceived ? undefined : undefined}
           trend={[18, 19, 22, 21, 24, 26, summary?.totalReceived ? 33 : 0]}
           color="hsl(var(--primary))"
+        />
+        <KpiTile
+          label="Faturas pendentes"
+          value={pendingCount}
+          trend={[14, 13, 14, 15, 12, 13, 14, 12, 13, 12, pendingCount]}
+          color="hsl(var(--warning, 38 92% 50%))"
           last
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.45fr_1fr]">
         {/* Today's Schedule */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -241,67 +371,86 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Upcoming */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <CardTitle className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
-                Próximos agendamentos
-              </CardTitle>
-              <p className="text-[12.5px] text-muted-foreground mt-0.5">Próximos 7 dias</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-primary hover:text-primary h-7 text-[12.5px] gap-1"
-              onClick={() => navigate('/agenda')}
-            >
-              Ver tudo <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {upcomingAppointments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Calendar className="w-9 h-9 text-muted-foreground/30 mb-3" />
-                <p className="text-[13.5px] text-muted-foreground">Nenhuma consulta agendada</p>
+        {/* Right column: mini-calendar + pending payments */}
+        <div className="flex flex-col gap-4">
+          {/* Mini-calendar */}
+          <Card className="p-4">
+            <MiniCalendar daysWithApts={daysWithApts} />
+          </Card>
+
+          {/* Pending payments card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div>
+                <CardTitle className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+                  Pagamentos pendentes
+                </CardTitle>
+                <p className="text-[12.5px] text-muted-foreground mt-0.5">
+                  R$ {formatCurrency(allPendingRecords.reduce((s, r) => s + r.amount, 0))} a receber
+                </p>
               </div>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {upcomingAppointments.slice(0, 6).map((appointment) => {
-                  const start = parseISO(appointment.startAt);
-                  return (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-primary hover:text-primary h-7 text-[12.5px] gap-1"
+                onClick={() => navigate('/financial')}
+              >
+                Financeiro <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {pendingRecords.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <AlertCircle className="w-7 h-7 text-muted-foreground/30 mb-2" />
+                  <p className="text-[13px] text-muted-foreground">Sem pagamentos pendentes</p>
+                </div>
+              ) : (
+                <div>
+                  {pendingRecords.map((record, i) => (
                     <div
-                      key={appointment.id}
-                      className="flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] border border-transparent bg-secondary hover:bg-muted hover:border-border transition-colors cursor-pointer"
+                      key={record.id}
+                      className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-secondary/60 transition-colors"
+                      style={{ borderBottom: i < pendingRecords.length - 1 ? '1px solid hsl(var(--border) / 0.5)' : 'none' }}
+                      onClick={() => navigate('/financial')}
                     >
-                      <div className="flex flex-col items-center justify-center w-[52px] shrink-0 bg-card border border-border rounded-lg py-1.5">
-                        <span
-                          className="text-[16px] font-semibold leading-[18px] tabular-nums"
-                          style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}
-                        >
-                          {format(start, 'dd')}
-                        </span>
-                        <span className="font-mono text-[10.5px] text-muted-foreground uppercase tracking-wide">
-                          {format(start, 'MMM', { locale: ptBR })}
-                        </span>
-                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] font-medium text-foreground truncate leading-[18px]">
-                          {appointment.patient?.name ?? 'Paciente'}
+                        <p className="text-[13px] font-medium truncate">
+                          {record.patient?.name ?? record.description ?? 'Sem descrição'}
                         </p>
-                        <p className="text-[12px] text-muted-foreground truncate mt-0.5">
-                          {format(start, 'HH:mm')} · {appointment.procedure?.name ?? ''}
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {format(new Date(record.createdAt), 'dd/MM/yyyy')}
                         </p>
                       </div>
-                      <StatusBadge status={appointment.status} />
+                      <span className="text-[13px] font-medium tabular-nums shrink-0" style={{ color: 'hsl(38 92% 40%)' }}>
+                        R$ {formatCurrency(record.amount)}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Bottom row: revenue chart */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+              Receita mensal
+            </CardTitle>
+            <p className="text-[12.5px] text-muted-foreground mt-0.5">Últimos 6 meses</p>
+          </div>
+          <div className="flex items-center gap-3 text-[11.5px] text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary inline-block" />Recebido</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary/25 inline-block" />A receber</span>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <RevenueChart data={revenueChartData} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

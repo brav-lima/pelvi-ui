@@ -26,6 +26,8 @@ const Anamnesis = lazy(() => import("./pages/Anamnesis"));
 const Evolutions = lazy(() => import("./pages/Evolutions"));
 const Financial = lazy(() => import("./pages/Financial"));
 const Settings = lazy(() => import("./pages/Settings"));
+const PerinealAssessmentPage = lazy(() => import("./pages/PerinealAssessmentPage"));
+const AnamnesisEditorPage = lazy(() => import("./pages/AnamnesisEditorPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -63,6 +65,10 @@ const App = () => (
                     <Route path="/agenda" element={<FeatureRoute feature="AGENDA"><Agenda /></FeatureRoute>} />
                     <Route path="/patients" element={<FeatureRoute feature="PATIENTS"><Patients /></FeatureRoute>} />
                     <Route path="/patients/:id" element={<FeatureRoute feature="PATIENTS"><PatientProfile /></FeatureRoute>} />
+                    <Route path="/patients/:patientId/perineal-assessment/new" element={<FeatureRoute feature="PERINEAL_ASSESSMENT"><PerinealAssessmentPage /></FeatureRoute>} />
+                    <Route path="/patients/:patientId/perineal-assessment/:assessmentId" element={<FeatureRoute feature="PERINEAL_ASSESSMENT"><PerinealAssessmentPage /></FeatureRoute>} />
+                    <Route path="/patients/:patientId/anamnesis/new" element={<FeatureRoute feature="ANAMNESIS"><AnamnesisEditorPage /></FeatureRoute>} />
+                    <Route path="/patients/:patientId/anamnesis/:anamnesisId" element={<FeatureRoute feature="ANAMNESIS"><AnamnesisEditorPage /></FeatureRoute>} />
                     <Route path="/professionals" element={<ProtectedRoute roles={['ADMIN']}><FeatureRoute feature="MULTI_PROFESSIONAL"><Professionals /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/procedures" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Procedures /></ProtectedRoute>} />
                     <Route path="/anamnesis" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><FeatureRoute feature="ANAMNESIS"><Anamnesis /></FeatureRoute></ProtectedRoute>} />
