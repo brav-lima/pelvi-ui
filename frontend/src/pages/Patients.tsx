@@ -1,54 +1,54 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { EmptyState } from '@/components/ui/empty-state';
-import {
-  Plus,
-  Search,
-  Phone,
-  Mail,
-  Calendar,
-  ChevronRight,
-  ChevronLeft,
-  Users,
-  Loader2,
-  LayoutGrid,
-  List,
-} from 'lucide-react';
-import { patientsApi } from '@/lib/api';
+import { Plus, Search, Loader2, ChevronLeft, ChevronRight, Users, Download, SlidersHorizontal, ChevronDown, Clock } from 'lucide-react';
+import { patientsApi, appointmentsApi, treatmentPackagesApi } from '@/lib/api';
 import { formatCPFMasked, formatPhone } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, addMonths, isAfter, isToday } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
+import { cn } from '@/lib/utils';
+import type { Appointment, TreatmentPackage } from '@/types/clinic';
 
-type ViewMode = 'card' | 'list';
+const AVATAR_COLORS = [
+  ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'],
+  ['hsl(142 55% 93%)', 'hsl(142 60% 22%)'],
+  ['hsl(199 75% 93%)', 'hsl(199 70% 28%)'],
+  ['hsl(38 80% 93%)',  'hsl(30 75% 30%)'],
+  ['hsl(265 60% 94%)', 'hsl(265 50% 32%)'],
+  ['hsl(290 8% 92%)',  'hsl(290 18% 28%)'],
+] as const;
+
+function hashColor(name: string): readonly [string, string] {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = ((h * 31 + name.charCodeAt(i)) >>> 0);
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
+}
+
+function calculateAge(birthDate: string) {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
 
 export default function Patients() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    () => (localStorage.getItem('patients-view') as ViewMode) || 'card',
-  );
   const navigate = useNavigate();
 
-  const handleViewChange = (mode: ViewMode) => {
-    setViewMode(mode);
-    localStorage.setItem('patients-view', mode);
-  };
-
-  // Debounce search input
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
+    return () => clearTimeout(t);
   }, [search]);
 
   const { data, isLoading, refetch } = useQuery({
@@ -59,211 +59,299 @@ export default function Patients() {
   const patients = data?.data ?? [];
   const meta = data?.meta;
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-  };
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const futureStr = format(addMonths(new Date(), 3), 'yyyy-MM-dd');
+
+  const { data: upcomingAppointments = [] } = useQuery({
+    queryKey: ['upcoming-appointments-patients-list', todayStr],
+    queryFn: () => appointmentsApi.list({ startDate: todayStr, endDate: futureStr }),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: activePackages = [] } = useQuery({
+    queryKey: ['active-packages-patients-list'],
+    queryFn: () => treatmentPackagesApi.list({ status: 'ACTIVE' }),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const nextApptByPatient = useMemo(() => {
+    const now = new Date();
+    const map = new Map<string, Appointment>();
+    const sorted = [...upcomingAppointments]
+      .filter(a => isAfter(new Date(a.startAt), now) && (a.status === 'SCHEDULED' || a.status === 'CONFIRMED'))
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+    for (const appt of sorted) {
+      if (!map.has(appt.patientId)) map.set(appt.patientId, appt);
+    }
+    return map;
+  }, [upcomingAppointments]);
+
+  const activePackageByPatient = useMemo(() => {
+    const map = new Map<string, TreatmentPackage>();
+    for (const pkg of activePackages) {
+      if (!map.has(pkg.patientId)) map.set(pkg.patientId, pkg);
+    }
+    return map;
+  }, [activePackages]);
+
+  // Pages to show in pagination (elided)
+  const pageNumbers = (() => {
+    if (!meta || meta.totalPages <= 1) return [];
+    const total = meta.totalPages;
+    const cur = page;
+    const pages: (number | '…')[] = [];
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= cur - 1 && i <= cur + 1)) {
+        pages.push(i);
+      } else if (pages[pages.length - 1] !== '…') {
+        pages.push('…');
+      }
+    }
+    return pages;
+  })();
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Pacientes"
-        description="Gerencie os pacientes da clínica"
-        actions={
-          <Button onClick={() => setFormOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Paciente
-          </Button>
-        }
-      />
-
-      {/* Search + View Toggle */}
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome ou CPF..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+    <div className="space-y-5 animate-fade-in">
+      {/* Page header */}
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1
+            className="text-[26px] font-semibold leading-8"
+            style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}
+          >
+            Pacientes
+          </h1>
+          <p className="text-[13px] text-muted-foreground mt-1">
+            <span className="tabular-nums">{meta?.total ?? '—'}</span> pacientes cadastrados
+          </p>
         </div>
-        <div className="flex items-center border border-border rounded-md">
-          <Button
-            variant={viewMode === 'card' ? 'secondary' : 'ghost'}
-            size="icon"
-            className="h-9 w-9 rounded-r-none"
-            onClick={() => handleViewChange('card')}
-          >
-            <LayoutGrid className="w-4 h-4" />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm">
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Exportar
           </Button>
-          <Button
-            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            size="icon"
-            className="h-9 w-9 rounded-l-none"
-            onClick={() => handleViewChange('list')}
-          >
-            <List className="w-4 h-4" />
+          <Button onClick={() => setFormOpen(true)}>
+            <Plus className="w-4 h-4 mr-1.5" />
+            Novo paciente
           </Button>
         </div>
       </div>
 
-      {/* Loading */}
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 h-[34px] px-3 rounded-lg bg-card border border-border min-w-[320px] focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+          <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <input
+            className="flex-1 bg-transparent text-[13.5px] text-foreground placeholder:text-muted-foreground/60 outline-none"
+            placeholder="Buscar por nome, CPF ou telefone…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className={cn(
+          'inline-flex items-center h-[30px] px-3 rounded-full border text-[12.5px] font-medium cursor-default',
+          'bg-primary/10 border-primary/30 text-primary',
+        )}>
+          Todos
+          {meta && <span className="ml-1.5 text-[11px] bg-card text-primary px-1.5 py-px rounded-full tabular-nums">{meta.total}</span>}
+        </div>
+        {[
+          { label: 'Com pacote', count: activePackages.length },
+          { label: 'Sem agendamento', count: null },
+        ].map(chip => (
+          <div
+            key={chip.label}
+            className="inline-flex items-center h-[30px] px-3 rounded-full border border-border bg-card text-[12.5px] font-medium text-muted-foreground cursor-default"
+          >
+            {chip.label}
+            {chip.count !== null && (
+              <span className="ml-1.5 text-[11px] bg-secondary text-muted-foreground px-1.5 py-px rounded-full tabular-nums">{chip.count}</span>
+            )}
+          </div>
+        ))}
+        <div className="ml-auto flex items-center gap-2">
+          <div className="inline-flex items-center gap-1.5 h-[34px] px-3 rounded-lg bg-card border border-border text-[13px] text-foreground font-medium cursor-default select-none">
+            Ordenar: Último atendimento
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+          </div>
+          <button className="flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Patient list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : patients.length === 0 ? (
-        <Card>
-          <CardContent className="py-8">
-            <EmptyState
-              icon={Users}
-              title="Nenhum paciente encontrado"
-              description={
-                debouncedSearch
-                  ? 'Não encontramos pacientes com os critérios de busca informados.'
-                  : 'Cadastre o primeiro paciente da clínica.'
-              }
-              action={{
-                label: 'Cadastrar Paciente',
-                onClick: () => setFormOpen(true),
-              }}
-            />
-          </CardContent>
-        </Card>
+        <div className="bg-card border border-border rounded-xl flex flex-col items-center justify-center py-14 gap-3 text-center">
+          <Users className="w-9 h-9 text-muted-foreground/40" />
+          <p className="text-[13.5px] font-medium text-foreground/80">
+            {debouncedSearch ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
+          </p>
+          <p className="text-[12.5px] text-muted-foreground">
+            {debouncedSearch ? 'Tente buscar por outro nome ou CPF.' : 'Cadastre o primeiro paciente da clínica.'}
+          </p>
+          {!debouncedSearch && (
+            <Button size="sm" className="mt-1" onClick={() => setFormOpen(true)}>
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              Novo paciente
+            </Button>
+          )}
+        </div>
       ) : (
-        <>
-          {viewMode === 'card' ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {patients.map((patient) => (
-                <Card
-                  key={patient.id}
-                  className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
-                  onClick={() => navigate(`/patients/${patient.id}`)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <Avatar className="w-12 h-12">
-                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                          {getInitials(patient.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-foreground truncate">{patient.name}</h3>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          {/* Table header */}
+          <div
+            className="grid text-[11px] font-medium text-muted-foreground uppercase tracking-[0.04em] px-4 py-2.5 bg-secondary border-b border-border"
+            style={{ gridTemplateColumns: '2.2fr 1fr 1.2fr 1.4fr 1fr 40px' }}
+          >
+            <div>Paciente</div>
+            <div>CPF</div>
+            <div>Telefone</div>
+            <div>Pacote</div>
+            <div>Próxima consulta</div>
+            <div />
+          </div>
+
+          {/* Rows */}
+          {patients.map((patient) => {
+            const [bg, fg] = hashColor(patient.name);
+            const nextAppt = nextApptByPatient.get(patient.id);
+            const activePkg = activePackageByPatient.get(patient.id);
+            return (
+              <div
+                key={patient.id}
+                className="grid items-center gap-3 px-4 py-3 border-b border-border/60 last:border-0 hover:bg-muted/40 transition-colors cursor-pointer"
+                style={{ gridTemplateColumns: '2.2fr 1fr 1.2fr 1.4fr 1fr 40px' }}
+                onClick={() => navigate(`/patients/${patient.id}`)}
+              >
+                {/* Avatar + name */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
+                    style={{ width: 36, height: 36, background: bg, color: fg }}
+                  >
+                    {initials(patient.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] font-medium truncate">{patient.name}</div>
+                    <div className="text-[11.5px] text-muted-foreground mt-0.5">
+                      {patient.birthDate
+                        ? <span>{calculateAge(patient.birthDate)} anos{patient.gender === 'F' ? ' · feminino' : patient.gender === 'M' ? ' · masculino' : ''}</span>
+                        : <span className="text-muted-foreground/50 italic">sem data de nasc.</span>
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                {/* CPF */}
+                <div className="text-[12px] text-muted-foreground font-mono truncate">
+                  {patient.cpf ? formatCPFMasked(patient.cpf) : '—'}
+                </div>
+
+                {/* Phone */}
+                <div className="text-[12px] text-muted-foreground font-mono truncate">
+                  {patient.phone ? formatPhone(patient.phone) : '—'}
+                </div>
+
+                {/* Package */}
+                <div>
+                  {activePkg ? (
+                    <div>
+                      <div className="text-[12.5px] font-medium text-foreground/80 truncate">{activePkg.name}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 max-w-[80px] h-1 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${Math.min(100, (activePkg.usedSessions / activePkg.totalSessions) * 100)}%` }}
+                          />
                         </div>
-                        {patient.cpf && (
-                          <p className="text-sm text-muted-foreground">{formatCPFMasked(patient.cpf)}</p>
-                        )}
-                        <div className="mt-3 space-y-1">
-                          {patient.phone && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Phone className="w-3 h-3" />
-                              <span>{formatPhone(patient.phone)}</span>
-                            </div>
-                          )}
-                          {patient.email && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Mail className="w-3 h-3" />
-                              <span className="truncate">{patient.email}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
-                            <span>Cadastrado em {format(new Date(patient.createdAt), 'dd/MM/yyyy')}</span>
-                          </div>
-                        </div>
+                        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                          {activePkg.usedSessions}/{activePkg.totalSessions}
+                        </span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Nome</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">CPF</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Telefone</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Cadastro</th>
-                        <th className="w-10" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {patients.map((patient) => (
-                        <tr
-                          key={patient.id}
-                          className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => navigate(`/patients/${patient.id}`)}
-                        >
-                          <td className="py-3 px-4 text-sm font-medium text-foreground">{patient.name}</td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">{formatCPFMasked(patient.cpf)}</td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">{formatPhone(patient.phone)}</td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">{patient.email || '-'}</td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">
-                            {format(new Date(patient.createdAt), 'dd/MM/yyyy')}
-                          </td>
-                          <td className="py-3 px-4">
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  ) : (
+                    <span className="text-muted-foreground/40 text-[12px]">—</span>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
 
-          {/* Pagination */}
+                {/* Next appointment */}
+                <div>
+                  {nextAppt ? (
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <span className="font-mono text-[12px] text-foreground/70">
+                        {isToday(new Date(nextAppt.startAt))
+                          ? `hoje ${format(new Date(nextAppt.startAt), 'HH:mm')}`
+                          : format(new Date(nextAppt.startAt), "EEE dd/MM", { locale: ptBR })}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground/40 text-[12px]">sem agendamento</span>
+                  )}
+                </div>
+
+                {/* More */}
+                <div />
+              </div>
+            );
+          })}
+
+          {/* Pagination footer */}
           {meta && meta.totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {meta.total} paciente{meta.total !== 1 ? 's' : ''} encontrado{meta.total !== 1 ? 's' : ''}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Anterior
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  {page} de {meta.totalPages}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-secondary text-[12px] text-muted-foreground">
+              <div>
+                Mostrando{' '}
+                <span className="text-foreground/80 font-medium tabular-nums">
+                  {(page - 1) * 12 + 1}–{Math.min(page * 12, meta.total)}
                 </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= meta.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
+                {' '}de{' '}
+                <span className="text-foreground/80 font-medium tabular-nums">{meta.total}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  className="flex items-center justify-center w-7 h-7 rounded-md border border-border bg-card hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => p - 1)}
                 >
-                  Próximo
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                {pageNumbers.map((n, i) =>
+                  n === '…' ? (
+                    <span key={i} className="w-7 text-center text-muted-foreground">…</span>
+                  ) : (
+                    <button
+                      key={i}
+                      className={cn(
+                        'flex items-center justify-center w-7 h-7 rounded-md border text-[12px] font-medium tabular-nums transition-colors',
+                        n === page
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border bg-card hover:bg-muted/60 text-foreground/80',
+                      )}
+                      onClick={() => setPage(n as number)}
+                    >
+                      {n}
+                    </button>
+                  )
+                )}
+                <button
+                  className="flex items-center justify-center w-7 h-7 rounded-md border border-border bg-card hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  disabled={page >= meta.totalPages}
+                  onClick={() => setPage(p => p + 1)}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
 
-      <PatientFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        onSuccess={() => refetch()}
-      />
+      <PatientFormDialog open={formOpen} onOpenChange={setFormOpen} onSuccess={() => refetch()} />
     </div>
   );
 }
