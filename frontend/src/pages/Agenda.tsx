@@ -5,13 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical } from 'lucide-react';
 import { appointmentsApi, professionalsApi } from '@/lib/api';
 import { toast } from 'sonner';
@@ -176,6 +169,24 @@ function DroppableSlot({
       )}
     />
   );
+}
+
+const AVATAR_COLORS = [
+  ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'],
+  ['hsl(142 55% 93%)', 'hsl(142 60% 22%)'],
+  ['hsl(199 75% 93%)', 'hsl(199 70% 28%)'],
+  ['hsl(38 80% 93%)',  'hsl(30 75% 30%)'],
+  ['hsl(285 50% 94%)', 'hsl(285 50% 32%)'],
+] as const;
+
+function hashColor(name: string): readonly [string, string] {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = ((h * 31 + name.charCodeAt(i)) >>> 0);
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
 }
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -351,6 +362,11 @@ export default function Agenda() {
     setViewMode('day');
   };
 
+  // Current time indicator
+  const nowDate = new Date();
+  const currentTimeTop = ((nowDate.getHours() - START_HOUR) * 60 + nowDate.getMinutes()) * PX_PER_MINUTE;
+  const isCurrentTimeVisible = nowDate.getHours() >= START_HOUR && nowDate.getHours() < END_HOUR;
+
   const dayColumns = viewMode === 'day' ? [currentDate] : weekDays;
   const gridCols = viewMode === 'day'
     ? 'grid-cols-[60px_1fr]'
@@ -392,28 +408,57 @@ export default function Agenda() {
           </h2>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Select value={professionalFilter} onValueChange={setProfessionalFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Profissional" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {activeProfessionals.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.person.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Professional filter chips */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => setProfessionalFilter('all')}
+              className={cn(
+                'h-[28px] px-3 rounded-full text-[12.5px] font-medium border transition-colors',
+                professionalFilter === 'all'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground',
+              )}
+            >
+              Todos
+            </button>
+            {activeProfessionals.map((p) => {
+              const [bg, fg] = hashColor(p.person.name);
+              const isSelected = professionalFilter === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setProfessionalFilter(p.id)}
+                  className={cn(
+                    'h-[28px] pl-1 pr-3 rounded-full text-[12.5px] font-medium border transition-colors flex items-center gap-1.5',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground',
+                  )}
+                >
+                  <span
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-semibold shrink-0"
+                    style={isSelected ? { background: 'hsl(var(--primary-foreground) / 0.25)', color: 'currentColor' } : { background: bg, color: fg }}
+                  >
+                    {initials(p.person.name)}
+                  </span>
+                  {p.person.name.split(' ')[0]}
+                </button>
+              );
+            })}
+          </div>
 
-          <Button variant={viewMode === 'day' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('day')}>
-            Dia
-          </Button>
-          <Button variant={viewMode === 'week' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('week')}>
-            Semana
-          </Button>
-          <Button variant={viewMode === 'month' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('month')}>
-            Mês
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant={viewMode === 'day' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('day')}>
+              Dia
+            </Button>
+            <Button variant={viewMode === 'week' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('week')}>
+              Semana
+            </Button>
+            <Button variant={viewMode === 'month' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('month')}>
+              Mês
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -581,6 +626,19 @@ export default function Agenda() {
                               />
                             );
                           })}
+
+                          {/* Current time indicator */}
+                          {isToday && isCurrentTimeVisible && (
+                            <div
+                              className="absolute left-0 right-0 z-20 pointer-events-none"
+                              style={{ top: currentTimeTop }}
+                            >
+                              <div className="relative flex items-center">
+                                <div className="w-2 h-2 rounded-full bg-primary shrink-0 -ml-1" />
+                                <div className="flex-1 h-px bg-primary" />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

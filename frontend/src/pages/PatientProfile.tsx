@@ -21,11 +21,9 @@ import { ptBR } from 'date-fns/locale';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
-import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
-import { PerinealAssessmentWizard } from '@/components/perineal-assessment/PerinealAssessmentWizard';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
-import type { Anamnesis, AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment } from '@/types/clinic';
+import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment } from '@/types/clinic';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -102,14 +100,9 @@ export default function PatientProfile() {
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [evolutionOpen, setEvolutionOpen] = useState(false);
   const [quickEvolution, setQuickEvolution] = useState('');
-  const [anamnesisOpen, setAnamnesisOpen] = useState(false);
-  const [editingAnamnesis, setEditingAnamnesis] = useState<Anamnesis | undefined>();
+
   const [packageOpen, setPackageOpen] = useState(false);
   const [cancelingPackage, setCancelingPackage] = useState<TreatmentPackage | null>(null);
-  const [perinealOpen, setPerinealOpen] = useState(false);
-  const [editingPerineal, setEditingPerineal] = useState<PerinealAssessment | undefined>();
-  const [perinealViewOpen, setPerinealViewOpen] = useState(false);
-  const [viewingPerineal, setViewingPerineal] = useState<PerinealAssessment | undefined>();
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -484,7 +477,7 @@ export default function PatientProfile() {
                 <Card className="p-0 overflow-hidden">
                   <div className="flex items-center justify-between p-4 border-b border-border">
                     <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Anamnese</div>
-                    <Button size="sm" onClick={() => { setEditingAnamnesis(undefined); setAnamnesisOpen(true); }}>
+                    <Button size="sm" onClick={() => navigate(`/patients/${id}/anamnesis/new`)}>
                       <Plus className="w-3.5 h-3.5 mr-1.5" />
                       Nova avaliação
                     </Button>
@@ -501,7 +494,7 @@ export default function PatientProfile() {
                                 {format(new Date(anamnesis.createdAt), 'dd/MM/yyyy')}
                                 {anamnesis.professional?.person?.name && ` · ${anamnesis.professional.person.name}`}
                               </p>
-                              <Button variant="ghost" size="sm" onClick={() => { setEditingAnamnesis(anamnesis); setAnamnesisOpen(true); }}>
+                              <Button variant="ghost" size="sm" onClick={() => navigate(`/patients/${id}/anamnesis/${anamnesis.id}`)}>
                                 <Edit className="w-3.5 h-3.5 mr-1" />
                                 Editar
                               </Button>
@@ -637,7 +630,7 @@ export default function PatientProfile() {
                 <Card className="p-0 overflow-hidden">
                   <div className="flex items-center justify-between p-4 border-b border-border">
                     <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Avaliações perineais</div>
-                    <Button size="sm" onClick={() => { setEditingPerineal(undefined); setPerinealOpen(true); }}>
+                    <Button size="sm" onClick={() => navigate(`/patients/${id}/perineal-assessment/new`)}>
                       <Plus className="w-3.5 h-3.5 mr-1.5" />
                       Nova avaliação
                     </Button>
@@ -662,11 +655,11 @@ export default function PatientProfile() {
                               </div>
                             </div>
                             <div className="flex gap-1 shrink-0">
-                              <Button variant="ghost" size="sm" onClick={() => { setViewingPerineal(assessment); setPerinealViewOpen(true); }}>
+                              <Button variant="ghost" size="sm" onClick={() => navigate(`/patients/${id}/perineal-assessment/${assessment.id}?view=1`)}>
                                 <Eye className="w-3.5 h-3.5 mr-1" />
                                 Ver
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => { setEditingPerineal(assessment); setPerinealOpen(true); }}>
+                              <Button variant="ghost" size="sm" onClick={() => navigate(`/patients/${id}/perineal-assessment/${assessment.id}`)}>
                                 <Edit className="w-3.5 h-3.5 mr-1" />
                                 Editar
                               </Button>
@@ -940,34 +933,6 @@ export default function PatientProfile() {
           onOpenChange={setEvolutionOpen}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-evolutions', id] })}
           patientId={id}
-        />
-      )}
-      {id && (
-        <AnamnesisFormDialog
-          open={anamnesisOpen}
-          onOpenChange={setAnamnesisOpen}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-anamneses', id] })}
-          patientId={id}
-          anamnesis={editingAnamnesis}
-        />
-      )}
-      {id && (
-        <PerinealAssessmentWizard
-          open={perinealOpen}
-          onOpenChange={setPerinealOpen}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-perineal-assessments', id] })}
-          patientId={id}
-          assessment={editingPerineal}
-        />
-      )}
-      {id && (
-        <PerinealAssessmentWizard
-          open={perinealViewOpen}
-          onOpenChange={setPerinealViewOpen}
-          onSuccess={() => {}}
-          patientId={id}
-          assessment={viewingPerineal}
-          readOnly
         />
       )}
       {id && (
