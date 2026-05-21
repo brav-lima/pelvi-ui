@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Stethoscope, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { maskCPF } from '@/lib/formatters';
 import { appVersion } from '@/lib/version';
 
@@ -83,28 +83,6 @@ export default function Login() {
           >
             Cuidando de quem cuida do assoalho pélvico.
           </h2>
-          <p className="mt-3.5 text-[14.5px] leading-[22px] text-white/72 max-w-[380px]">
-            Agenda, prontuário e financeiro em um só lugar, desenhado
-            para fisioterapia pélvica, psicologia e clínicas médicas.
-          </p>
-
-          <div className="flex gap-6 mt-7">
-            {[
-              { kpi: '+1.4k', lbl: 'profissionais ativos' },
-              { kpi: '320+',  lbl: 'clínicas no Brasil' },
-              { kpi: '98%',   lbl: 'uptime mensal' },
-            ].map(s => (
-              <div key={s.lbl}>
-                <div
-                  className="text-[22px] font-semibold text-white tabular-nums"
-                  style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}
-                >
-                  {s.kpi}
-                </div>
-                <div className="text-[11.5px] text-white/55 mt-0.5">{s.lbl}</div>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Footer */}
@@ -208,31 +186,6 @@ export default function Login() {
             </Button>
           </form>
 
-          {/* Dev credentials hint */}
-          <div className="flex gap-2.5 p-3 rounded-[10px] border border-border bg-secondary text-[12px] text-muted-foreground">
-            <div
-              className="flex items-center justify-center rounded-lg shrink-0"
-              style={{ width: 28, height: 28, background: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' }}
-            >
-              <Stethoscope className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <div className="text-foreground/80 font-medium mb-0.5">Credenciais de teste</div>
-              <div>
-                Admin{' '}
-                <span className="font-mono text-foreground">111.111.111-11</span>
-                {' · '}senha{' '}
-                <span className="font-mono text-foreground">123456</span>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-center text-[12.5px] text-muted-foreground">
-            Sua clínica ainda não tem Pelvi?{' '}
-            <a href="#" className="text-primary font-medium hover:underline">
-              Falar com vendas
-            </a>
-          </p>
         </div>
       </div>
     </div>

@@ -386,7 +386,7 @@ export default function Dashboard() {
                   Pagamentos pendentes
                 </CardTitle>
                 <p className="text-[12.5px] text-muted-foreground mt-0.5">
-                  R$ {formatCurrency(allPendingRecords.reduce((s, r) => s + r.amount, 0))} a receber
+                  R$ {formatCurrency(allPendingRecords.reduce((s, r) => s + Number(r.amount), 0))} a receber
                 </p>
               </div>
               <Button
