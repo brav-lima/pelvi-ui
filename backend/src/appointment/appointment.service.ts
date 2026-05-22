@@ -31,7 +31,7 @@ const appointmentIncludes = {
       person: { select: { id: true, name: true } },
     },
   },
-  procedure: { select: { id: true, name: true, durationMinutes: true } },
+  procedure: { select: { id: true, name: true, durationMinutes: true, price: true } },
   treatmentPackage: { select: { id: true, name: true } },
 } as const;
 
