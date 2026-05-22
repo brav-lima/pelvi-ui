@@ -6,35 +6,31 @@ export class SentryLogger extends ConsoleLogger {
   override log(message: unknown, context?: string) {
     const clean = sanitize(message);
     super.log(clean, context);
-    Sentry.addBreadcrumb({ message: clean, category: context, level: 'info' });
+    Sentry.logger.info(clean, { context });
   }
 
   override warn(message: unknown, context?: string) {
     const clean = sanitize(message);
     super.warn(clean, context);
-    Sentry.addBreadcrumb({ message: clean, category: context, level: 'warning' });
+    Sentry.logger.warn(clean, { context });
   }
 
-  // error() logs context only as breadcrumb — the exception itself is captured
+  // error() sends to Sentry Logs as context only — the exception itself is captured
   // in AllExceptionsFilter via Sentry.captureException to avoid double-counting.
   override error(message: unknown, stackOrContext?: string, context?: string) {
     const clean = sanitize(message);
     super.error(clean, stackOrContext, context);
-    Sentry.addBreadcrumb({
-      message: clean,
-      category: context ?? stackOrContext,
-      level: 'error',
-    });
+    Sentry.logger.error(clean, { context: context ?? stackOrContext });
   }
 
   override debug(message: unknown, context?: string) {
     const clean = sanitize(message);
     super.debug(clean, context);
-    Sentry.addBreadcrumb({ message: clean, category: context, level: 'debug' });
+    Sentry.logger.debug(clean, { context });
   }
 
   override verbose(message: unknown, context?: string) {
     super.verbose(sanitize(message), context);
-    // verbose skipped from Sentry — too noisy, no breadcrumb value
+    // verbose skipped from Sentry — too noisy
   }
 }
