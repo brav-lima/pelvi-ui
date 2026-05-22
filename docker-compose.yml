@@ -47,6 +47,8 @@ services:
       CORS_ORIGIN: http://localhost:8080
       NODE_ENV: dev
       PORT: 3000
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
     ports:
       - "3000:3000"
 
@@ -55,6 +57,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: http://localhost:3000
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
     container_name: pelvi-web
     depends_on:
       - api

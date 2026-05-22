@@ -1,3 +1,5 @@
+// Must be the very first import — Sentry instruments modules at require-time
+import './instrument';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';

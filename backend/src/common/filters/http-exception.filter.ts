@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nestjs';
 import {
   ArgumentsHost,
   Catch,
@@ -35,6 +36,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `Unhandled exception: ${exception}`,
         exception instanceof Error ? exception.stack : undefined,
       );
+    }
+
+    if (status >= 500) {
+      const jwtPayload = request.user as { sub?: string; organizationId?: string } | undefined;
+      Sentry.withScope((scope) => {
+        if (jwtPayload?.sub) scope.setUser({ id: jwtPayload.sub });
+        if (jwtPayload?.organizationId) scope.setTag('organizationId', jwtPayload.organizationId);
+        Sentry.captureException(exception);
+      });
     }
 
     response.status(status).json({

@@ -548,3 +548,29 @@ Backend (`backend/.env.dev`, Railway):
 
 Frontend (build-time only):
 - `VITE_API_URL` — Backend API base URL. Defaults to `http://localhost:3000`.
+- `VITE_SENTRY_DSN` — Sentry DSN for frontend error tracking (optional, no-op if absent).
+- `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — Build-time only, for source map upload via `sentryVitePlugin`.
+
+---
+
+## Observability (Sentry)
+
+Backend e frontend instrumentados com Sentry APM (`@sentry/nestjs` + `@sentry/react`).
+
+**Backend** (`backend/src/instrument.ts` + `backend/src/common/filters/http-exception.filter.ts`):
+- `instrument.ts` é importado como primeiro módulo em `main.ts` — chama `Sentry.init()` antes do NestJS carregar (necessário para a instrumentação de módulos funcionar).
+- `AllExceptionsFilter` captura apenas 5xx com `Sentry.captureException` — 4xx são ignorados para preservar a cota free tier.
+- Tag de `organizationId` e `userId` (via `request.user` / JwtPayload) são setadas por scope em cada evento.
+
+**Frontend** (`frontend/src/main.tsx` + `frontend/src/contexts/AuthContext.tsx`):
+- `Sentry.init()` chamado em `main.tsx` com `browserTracingIntegration` + `replayIntegration` (10% sample).
+- `Sentry.ErrorBoundary` envolve `<App />` em `main.tsx` — captura erros de render.
+- `Sentry.setUser()` chamado em `AuthContext` após login single-clinic, `selectClinic`, e restauração de sessão; `Sentry.setUser(null)` em `clearSession` (que cobre logout e expiração de sessão).
+- `tracePropagationTargets` aponta para `VITE_API_URL` — propaga header `sentry-trace` nas chamadas fetch para o backend.
+- Source maps gerados em build (`build.sourcemap: true`) e enviados ao Sentry via `sentryVitePlugin`.
+
+**Env vars necessárias:**
+- `SENTRY_DSN` (backend runtime) / `VITE_SENTRY_DSN` (frontend build arg)
+- `SENTRY_TRACES_SAMPLE_RATE` — default `0.1` (10%)
+- `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — build-time apenas, para upload de source maps
+- Railway: configurar em ambos os serviços (`pelvi-api` e `pelvi-web`)
