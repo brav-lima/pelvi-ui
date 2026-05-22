@@ -18,7 +18,7 @@ import {
   Loader2, Users, UserCog, CheckCircle2, AlertTriangle,
   Building2, Clock, UsersRound, CreditCard, Bell, Plug, ShieldCheck,
 } from 'lucide-react';
-import { organizationApi, subscriptionApi } from '@/lib/api';
+import { organizationApi, subscriptionApi, professionalsApi } from '@/lib/api';
 import type { OrganizationProfile, Plan, PlanUsage, SubscriptionData } from '@/types/clinic';
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -300,6 +300,11 @@ export default function Settings() {
     onError: () => toast.error('Erro ao cancelar assinatura. Tente novamente.'),
   });
 
+  const professionalsQuery = useQuery({
+    queryKey: ['professionals'],
+    queryFn: professionalsApi.list,
+  });
+
   const usage = usageQuery.data;
   const sub = subscriptionQuery.data?.subscription ?? null;
   const plans = plansQuery.data ?? [];
@@ -490,8 +495,58 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* ── Equipe e permissões placeholder ──────────────── */}
+          {/* ── Equipe e permissões ──────────────────────────── */}
           <div ref={setRef('team')} />
+
+          <Card>
+            <CardHeader className="pb-0 flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Equipe e permissões</CardTitle>
+                <p className="text-[12.5px] text-muted-foreground mt-0.5">Membros vinculados a esta clínica.</p>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-3 p-0">
+              {professionalsQuery.isLoading ? (
+                <div className="flex items-center gap-2 px-5 py-4 text-muted-foreground text-[13px]">
+                  <Loader2 className="w-4 h-4 animate-spin" />Carregando...
+                </div>
+              ) : (professionalsQuery.data ?? []).length === 0 ? (
+                <p className="px-5 py-4 text-[13px] text-muted-foreground">Nenhum membro encontrado.</p>
+              ) : (
+                (professionalsQuery.data ?? []).map((prof, i, arr) => {
+                  const roleLabel: Record<string, string> = {
+                    ADMIN: 'Administrador',
+                    PROFESSIONAL: 'Profissional',
+                    RECEPTIONIST: 'Recepcionista',
+                  };
+                  const rolePill: Record<string, string> = {
+                    ADMIN: 'bg-primary/10 text-primary border border-primary/20',
+                    PROFESSIONAL: 'bg-info/10 text-info border border-info/20',
+                    RECEPTIONIST: 'bg-accent text-accent-foreground border border-primary/15',
+                  };
+                  return (
+                    <div
+                      key={prof.id}
+                      className={`flex items-center gap-3 px-5 py-3${i < arr.length - 1 ? ' border-b border-border/60' : ''}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13.5px] font-medium truncate">{prof.person.name}</p>
+                        {prof.person.email && (
+                          <p className="text-[11.5px] text-muted-foreground font-mono mt-0.5 truncate">{prof.person.email}</p>
+                        )}
+                      </div>
+                      <span className={`inline-flex items-center h-[22px] px-2.5 rounded-full text-[11.5px] font-medium shrink-0 ${rolePill[prof.role] ?? 'bg-muted text-muted-foreground border'}`}>
+                        {roleLabel[prof.role] ?? prof.role}
+                      </span>
+                      <span className={`inline-flex items-center h-[22px] px-2.5 rounded-full text-[11.5px] font-medium border shrink-0 ${prof.active ? 'bg-success/10 text-success border-success/20' : 'bg-muted text-muted-foreground'}`}>
+                        {prof.active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
 
           {/* ── Plano e cobrança ──────────────────────────────── */}
           <div ref={setRef('plan')} />

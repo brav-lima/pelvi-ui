@@ -168,6 +168,56 @@ function RevenueChart({ data }: { data: MonthBar[] }) {
   );
 }
 
+function ProcedureMixCard({ appointments }: { appointments: import('@/types/clinic').Appointment[] }) {
+  const counts = new Map<string, number>();
+  for (const a of appointments) {
+    const name = a.procedure?.name;
+    if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const total = sorted.reduce((s, [, n]) => s + n, 0) || 1;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+          Mix de procedimentos
+        </CardTitle>
+        <p className="text-[12.5px] text-muted-foreground mt-0.5">Este mês</p>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {sorted.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <p className="text-[13px] text-muted-foreground">Sem consultas este mês</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {sorted.map(([name, count]) => {
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={name} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12.5px] text-muted-foreground truncate max-w-[60%]">{name}</span>
+                    <span className="text-[12px] font-medium tabular-nums text-muted-foreground">
+                      {count} · {pct}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -433,24 +483,28 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom row: revenue chart */}
-      <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
-              Receita mensal
-            </CardTitle>
-            <p className="text-[12.5px] text-muted-foreground mt-0.5">Últimos 6 meses</p>
-          </div>
-          <div className="flex items-center gap-3 text-[11.5px] text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary inline-block" />Recebido</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary/25 inline-block" />A receber</span>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <RevenueChart data={revenueChartData} />
-        </CardContent>
-      </Card>
+      {/* Bottom row: revenue chart + procedure mix */}
+      <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
+        <Card>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+                Receita mensal
+              </CardTitle>
+              <p className="text-[12.5px] text-muted-foreground mt-0.5">Últimos 6 meses</p>
+            </div>
+            <div className="flex items-center gap-3 text-[11.5px] text-muted-foreground">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary inline-block" />Recebido</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary/25 inline-block" />A receber</span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <RevenueChart data={revenueChartData} />
+          </CardContent>
+        </Card>
+
+        <ProcedureMixCard appointments={monthAppointments} />
+      </div>
     </div>
   );
 }
