@@ -8,8 +8,8 @@ Pelvi (pelvi-ui) is a **multi-tenant clinic management system** — a monorepo w
 
 - **Frontend** (`frontend/`) — React + TypeScript + Vite SPA (port 8080)
 - **Backend** (`backend/`) — NestJS + Prisma + PostgreSQL API (port 3000)
-- **Database**: Neon (serverless PostgreSQL) with branch-based environments
-- **Deployment**: Railway (two services: `pelvi-api` + `pelvi-web`)
+- **Database**: Neon (serverless PostgreSQL) — single prod branch; migration to self-hosted PostgreSQL on VPS under consideration
+- **Deployment**: VPS + Coolify (two services: `pelvi-api` + `pelvi-web`)
 - **Package manager**: Bun (both frontend and backend)
 
 ### Domain Context
@@ -482,8 +482,10 @@ $transaction: jest.fn((ops) => Promise.all(ops))
 
 | Branch | Environment | Purpose |
 |--------|-------------|---------|
-| `main` | Production | Stable prod — deploy via Railway automatically |
-| `staging` | Homologação | Pre-prod validation — created from `main` |
+| `main` | Production | Stable prod — deploy via Coolify automatically |
+| `staging` | Homologação | Pre-prod validation — created from `main` (not currently active) |
+
+**Current state**: only `main` / prod is running. The `staging` environment is not active at the moment.
 
 **PR flow**: all PRs target `staging` first. After validation, `staging` → `main` for prod deploy.
 
@@ -491,34 +493,34 @@ Never open PRs directly to `main`.
 
 ---
 
-## Deployment (Railway)
+## Deployment (Coolify / VPS)
 
-Two services deployed from the same monorepo on Railway. Each environment (`staging`, `prod`) has its own Railway services and Neon DB branch.
+Two services deployed from the same monorepo on a VPS using Coolify. Currently only the `prod` environment is active — no staging environment running.
 
 ### Backend (`pelvi-api`)
 - **Root directory**: `backend`
 - **Builder**: Dockerfile (`backend/Dockerfile`)
-- **Config**: `backend/railway.toml`
 - **Env vars**: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_KEY`, `CORS_ORIGIN`, `PORT`
 
 ### Frontend (`pelvi-web`)
 - **Root directory**: `frontend`
 - **Builder**: Dockerfile (`frontend/Dockerfile`)
 - **Stack**: Multi-stage build → Nginx serving static SPA
-- **Config**: `frontend/railway.toml` + `frontend/Dockerfile` + `frontend/nginx.conf`
+- **Config**: `frontend/Dockerfile` + `frontend/nginx.conf`
 - **Build arg**: `VITE_API_URL` — backend API URL injected at build time
 - **Nginx**: SPA routing (`try_files $uri $uri/ /index.html`), gzip, cache headers for static assets
 
 ### Nginx log severity note
-Nginx writes startup notices to stderr. Railway tags stderr as `error` — this is cosmetic and not a real error. Migrations logging similarly from Prisma.
+Nginx writes startup notices to stderr. Coolify may tag stderr as `error` — this is cosmetic and not a real error. Migrations logging similarly from Prisma.
 
 ---
 
 ## Database (Neon)
 
-- **Provider**: Neon (serverless PostgreSQL)
-- **Branching**: Uses Neon branches to mirror environments (`dev`, `staging`, `prod`)
-- **Env files**: `backend/.env.dev` (local dev, not committed). Use `backend/.env.test.example` as template for test env. Production env vars are injected by Railway — no `.env.prod` file needed.
+- **Provider**: Neon (serverless PostgreSQL) — free tier
+- **Branching**: Single `prod` branch in use. Neon branch-per-environment model is not actively used (no staging env running).
+- **Migration path under consideration**: Moving the database to a self-hosted PostgreSQL on a second VPS to improve performance and eliminate free tier constraints.
+- **Env files**: `backend/.env.dev` (local dev, not committed). Use `backend/.env.test.example` as template for test env. Production env vars are injected by Coolify — no `.env.prod` file needed.
 - Migrations: `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod (from `backend/`)
 
 ### Seed Data
@@ -536,7 +538,7 @@ Test credentials (all use password `123456`):
 
 ### Environment Variables
 
-Backend (`backend/.env.dev`, Railway):
+Backend (`backend/.env.dev`, Coolify):
 - `DATABASE_URL` — Neon PostgreSQL connection string (use direct URL, not pooled, for migrations)
 - `JWT_SECRET` — JWT signing secret
 - `JWT_REFRESH_SECRET` — Refresh token signing secret (separate from access token secret)
@@ -544,7 +546,7 @@ Backend (`backend/.env.dev`, Railway):
 - `ADMIN_API_URL` — pelvi-admin base URL (no trailing slash); e.g. `http://localhost:3001`
 - `ADMIN_EXTERNAL_API_KEY` — key sent as `x-clinic-api-key` to pelvi-admin; must match `CLINIC_EXTERNAL_API_KEY` in pelvi-admin
 - `CORS_ORIGIN` — Comma-separated allowed origins
-- `PORT` — Server port (Railway sets automatically)
+- `PORT` — Server port (Coolify sets automatically)
 
 Frontend (build-time only):
 - `VITE_API_URL` — Backend API base URL. Defaults to `http://localhost:3000`.
@@ -573,4 +575,4 @@ Backend e frontend instrumentados com Sentry APM (`@sentry/nestjs` + `@sentry/re
 - `SENTRY_DSN` (backend runtime) / `VITE_SENTRY_DSN` (frontend build arg)
 - `SENTRY_TRACES_SAMPLE_RATE` — default `0.1` (10%)
 - `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — build-time apenas, para upload de source maps
-- Railway: configurar em ambos os serviços (`pelvi-api` e `pelvi-web`)
+- Coolify: configurar em ambos os serviços (`pelvi-api` e `pelvi-web`)
