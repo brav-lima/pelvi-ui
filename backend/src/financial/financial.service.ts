@@ -5,6 +5,17 @@ import { CreateFinancialDto } from './dto/create-financial.dto';
 import { UpdateFinancialDto } from './dto/update-financial.dto';
 import { QueryFinancialDto } from './dto/query-financial.dto';
 
+const financialIncludes = {
+  patient: { select: { id: true, name: true } },
+  appointment: {
+    select: {
+      id: true,
+      startAt: true,
+      procedure: { select: { name: true } },
+    },
+  },
+} as const;
+
 @Injectable()
 export class FinancialService {
   constructor(private readonly prisma: PrismaService) {}
@@ -27,10 +38,7 @@ export class FinancialService {
         description: dto.description,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       },
-      include: {
-        patient: { select: { id: true, name: true } },
-        appointment: { select: { id: true, startAt: true } },
-      },
+      include: financialIncludes,
     });
   }
 
@@ -45,10 +53,7 @@ export class FinancialService {
 
     const firstDueDate = dto.dueDate ? new Date(dto.dueDate) : new Date();
 
-    const include = {
-      patient: { select: { id: true, name: true } as const },
-      appointment: { select: { id: true, startAt: true } as const },
-    };
+    const include = financialIncludes;
 
     const records = await this.prisma.$transaction(
       Array.from({ length: installments }, (_, i) => {
@@ -87,10 +92,7 @@ export class FinancialService {
     return this.prisma.financialRecord.findMany({
       where: { organizationId, patientId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: {
-        patient: { select: { id: true, name: true } },
-        appointment: { select: { id: true, startAt: true } },
-      },
+      include: financialIncludes,
     });
   }
 
@@ -99,10 +101,7 @@ export class FinancialService {
     const limit = query.limit ?? 50;
     const skip = (page - 1) * limit;
 
-    const include = {
-      patient: { select: { id: true, name: true } },
-      appointment: { select: { id: true, startAt: true } },
-    };
+    const include = financialIncludes;
 
     let where: Prisma.FinancialRecordWhereInput;
 
@@ -160,10 +159,7 @@ export class FinancialService {
   async findById(organizationId: string, id: string) {
     const record = await this.prisma.financialRecord.findFirst({
       where: { id, organizationId, deletedAt: null },
-      include: {
-        patient: { select: { id: true, name: true } },
-        appointment: { select: { id: true, startAt: true } },
-      },
+      include: financialIncludes,
     });
 
     if (!record) {
@@ -179,10 +175,7 @@ export class FinancialService {
     return this.prisma.financialRecord.update({
       where: { id },
       data: dto,
-      include: {
-        patient: { select: { id: true, name: true } },
-        appointment: { select: { id: true, startAt: true } },
-      },
+      include: financialIncludes,
     });
   }
 

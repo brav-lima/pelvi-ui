@@ -321,6 +321,7 @@ export interface FinancialRecord {
   createdAt: string;
   updatedAt: string;
   patient?: { id: string; name: string };
+  appointment?: { id: string; startAt: string; procedure?: { name: string } };
 }
 
 export interface FinancialSummary {
