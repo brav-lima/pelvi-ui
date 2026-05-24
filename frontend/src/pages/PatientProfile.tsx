@@ -156,6 +156,8 @@ export default function PatientProfile() {
 
   const nextAppointment = upcomingAppointments[0];
   const doneAppointments = appointments.filter(a => a.status === 'DONE');
+  const canceledAppointments = appointments.filter(a => a.status === 'CANCELED');
+  const engagementRate = appointments.length > 0 ? Math.round((doneAppointments.length / appointments.length) * 100) : null;
   const firstAppointment = doneAppointments.length > 0
     ? [...doneAppointments].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())[0]
     : null;
@@ -362,7 +364,7 @@ export default function PatientProfile() {
           <TabsTrigger value="appointments" className={TAB_TRIGGER}>
             <Calendar className="w-3.5 h-3.5 mr-1.5" />
             Consultas
-            <CountBadge n={doneAppointments.length} />
+            <CountBadge n={appointments.length} />
           </TabsTrigger>
           {hasAnamnesis && (
             <TabsTrigger value="anamnesis" className={TAB_TRIGGER}>
@@ -414,7 +416,7 @@ export default function PatientProfile() {
                   <div>
                     <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Histórico de consultas</div>
                     <div className="text-[12.5px] text-muted-foreground mt-0.5">
-                      {doneAppointments.length} registros · ordem mais recente primeiro
+                      {appointments.length} registros · ordem mais recente primeiro
                     </div>
                   </div>
                   <Button size="sm" onClick={() => setAppointmentOpen(true)}>
@@ -423,11 +425,11 @@ export default function PatientProfile() {
                   </Button>
                 </div>
                 <CardContent className="p-4">
-                  {doneAppointments.length === 0 ? (
+                  {appointments.length === 0 ? (
                     <p className="text-[13.5px] text-muted-foreground text-center py-8">Nenhuma consulta registrada</p>
                   ) : (
                     <div className="space-y-2">
-                      {doneAppointments.map((apt) => {
+                      {appointments.map((apt) => {
                         const start = parseISO(apt.startAt);
                         const canChange = apt.status !== 'CANCELED' && apt.status !== 'DONE';
                         return (
@@ -833,6 +835,31 @@ export default function PatientProfile() {
                     <div className="text-[13px] text-muted-foreground/50 italic">Não informada</div>
                   )}
                 </div>
+
+                {engagementRate !== null && (
+                  <>
+                    <hr className="border-border" />
+                    <div>
+                      <div className="text-[11.5px] text-muted-foreground font-medium mb-1.5">Engajamento</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className={cn('h-full rounded-full', engagementRate >= 70 ? 'bg-success' : engagementRate >= 40 ? 'bg-warning' : 'bg-destructive')}
+                            style={{ width: `${engagementRate}%` }}
+                          />
+                        </div>
+                        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">{engagementRate}%</span>
+                      </div>
+                      <div className="flex gap-3 mt-1.5">
+                        <span className="text-[11.5px] text-muted-foreground">{doneAppointments.length} realizadas</span>
+                        {canceledAppointments.length > 0 && (
+                          <span className="text-[11.5px] text-muted-foreground">{canceledAppointments.length} canceladas</span>
+                        )}
+                        <span className="text-[11.5px] text-muted-foreground">{appointments.length} total</span>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {perinealAssessments[0] && (
                   <>
