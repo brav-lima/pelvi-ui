@@ -43,10 +43,10 @@ const START_HOUR = 8;
 const END_HOUR = 21;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SLOT_MINUTES = 30;
-const PX_PER_MINUTE = 1; // 1px = 1min, so 1h = 60px
-const TOTAL_SLOTS = TOTAL_HOURS * (60 / SLOT_MINUTES); // 20 half-hour slots
-const GRID_HEIGHT = TOTAL_HOURS * 60 * PX_PER_MINUTE; // 600px
-const SLOT_HEIGHT = SLOT_MINUTES * PX_PER_MINUTE; // 30px
+const PX_PER_MINUTE = 1.5; // 1.5px = 1min, so 1h = 90px
+const TOTAL_SLOTS = TOTAL_HOURS * (60 / SLOT_MINUTES);
+const GRID_HEIGHT = TOTAL_HOURS * 60 * PX_PER_MINUTE; // 1170px
+const SLOT_HEIGHT = SLOT_MINUTES * PX_PER_MINUTE; // 45px
 
 // Half-hour slot definitions
 const halfHourSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
@@ -106,7 +106,14 @@ function DraggableAppointment({
   const startTime = format(parseISO(apt.startAt), 'HH:mm');
   const endDate = new Date(parseISO(apt.startAt).getTime() + duration * 60000);
   const endTime = format(endDate, 'HH:mm');
-  const isCompact = duration <= 30;
+
+  // Height-based display thresholds (PX_PER_MINUTE = 1.5):
+  // < 44px  (~< 30min): name only
+  // 44-67px (~30-44min): name + time
+  // ≥ 68px  (~45min+):  name + procedure + time
+  const cardHeight = typeof style.height === 'number' ? style.height : 0;
+  const showTime = cardHeight >= 44;
+  const showProcedure = cardHeight >= 68;
 
   return (
     <button
@@ -119,21 +126,22 @@ function DraggableAppointment({
         isDragging && 'opacity-30',
       )}
     >
-      <div className={cn('flex h-full', isCompact ? 'items-center px-1.5 gap-1' : 'flex-col p-1.5')}>
-        {isDraggable && !isCompact && (
-          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none self-end">
-            <GripVertical className="w-3 h-3 opacity-50" />
-          </span>
+      <div className="flex flex-col h-full p-1.5 gap-0.5 overflow-hidden">
+        <div className="flex items-start justify-between gap-1 min-w-0">
+          <p className="font-semibold leading-tight truncate min-w-0">{apt.patient?.name ?? 'Paciente'}</p>
+          {isDraggable && (
+            <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none -mt-0.5 -mr-0.5">
+              <GripVertical className="w-3 h-3 opacity-40" />
+            </span>
+          )}
+        </div>
+        {showProcedure && (
+          <p className="truncate opacity-75 leading-tight">{apt.procedure?.name ?? ''}</p>
         )}
-        <p className="font-medium truncate">{apt.patient?.name ?? 'Paciente'}</p>
-        {!isCompact && <p className="truncate opacity-80">{apt.procedure?.name ?? ''}</p>}
-        <p className={cn('opacity-70', isCompact ? 'ml-auto shrink-0' : 'mt-auto')}>
-          {startTime} - {endTime}
-        </p>
-        {isDraggable && isCompact && (
-          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none">
-            <GripVertical className="w-3 h-3 opacity-50" />
-          </span>
+        {showTime && (
+          <p className="opacity-60 leading-tight tabular-nums shrink-0 mt-auto">
+            {startTime}–{endTime}
+          </p>
         )}
       </div>
     </button>
@@ -570,8 +578,8 @@ export default function Agenda() {
                       {hourLabels.map(({ label, top }) => (
                         <div
                           key={label}
-                          className="absolute right-0 pr-2 text-xs text-muted-foreground -translate-y-1/2 tabular-nums"
-                          style={{ top }}
+                          className="absolute right-0 pr-2 text-xs text-muted-foreground tabular-nums"
+                          style={{ top: top + 3 }}
                         >
                           {label}
                         </div>
