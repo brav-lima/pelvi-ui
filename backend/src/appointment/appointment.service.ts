@@ -305,7 +305,7 @@ export class AppointmentService {
     await this.reminderQueue.add(
       'reminder',
       { appointmentId, patientId, organizationId, startAt: startAt.toISOString() },
-      { jobId: `reminder:${appointmentId}`, delay },
+      { jobId: `reminder-${appointmentId}`, delay },
     );
   }
 
@@ -320,7 +320,7 @@ export class AppointmentService {
   }
 
   private async cancelReminder(appointmentId: string): Promise<void> {
-    const job = await this.reminderQueue.getJob(`reminder:${appointmentId}`);
+    const job = await this.reminderQueue.getJob(`reminder-${appointmentId}`);
     await job?.remove();
   }
 
