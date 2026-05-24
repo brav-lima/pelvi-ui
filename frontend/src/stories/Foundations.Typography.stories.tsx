@@ -9,7 +9,7 @@ export default meta;
 type Story = StoryObj;
 
 const SPECIMENS: Array<{ name: string; classes: string; sample: string }> = [
-  { name: "Display / H1",    classes: "text-3xl font-bold",      sample: "Pelvi — Sistema de Gestão" },
+  { name: "Display / H1",    classes: "text-3xl font-bold",      sample: "Sou Pelvi — Sistema de Gestão" },
   { name: "Heading / H2",    classes: "text-2xl font-bold",      sample: "Página padrão (PageHeader)" },
   { name: "Heading / H3",    classes: "text-xl font-semibold",   sample: "Subtítulo de seção" },
   { name: "Heading / H4",    classes: "text-lg font-semibold",   sample: "Título de Card" },

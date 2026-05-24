@@ -32,7 +32,10 @@ export default function SelectClinic() {
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
             <Stethoscope className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Pelvi</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            <span className="font-medium opacity-50">Sou</span>{' '}
+            <span className="text-primary">Pelvi</span>
+          </h1>
         </div>
 
         <Card className="border-0 shadow-xl">
