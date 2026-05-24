@@ -201,9 +201,7 @@ export default function PerinealAssessmentPage() {
                 Salvo
               </Badge>
             )}
-            {saveStatus === 'idle' && !readOnly && (
-              <Badge variant="secondary" className="text-[12px]">Em andamento · auto-salvo</Badge>
-            )}
+
             {!readOnly && (
               <>
                 <Button variant="outline" size="sm" onClick={handleSaveAndExit} disabled={saveMutation.isPending}>

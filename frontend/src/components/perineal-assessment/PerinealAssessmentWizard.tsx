@@ -14,7 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { perinealAssessmentsApi } from '@/lib/api';
+import { perinealAssessmentsApi, ApiError } from '@/lib/api';
 import type { PerinealAssessment } from '@/types/clinic';
 import {
   perinealAssessmentSchema,
@@ -101,8 +101,16 @@ export function PerinealAssessmentWizard({
       onOpenChange(false);
       form.reset(EMPTY_DEFAULTS);
       setStep(0);
-    } catch {
-      toast.error('Erro ao salvar avaliação perineal');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 408) {
+        toast.warning('Tempo limite excedido. Verifique se a avaliação foi registrada antes de tentar novamente.');
+        onSuccess();
+        onOpenChange(false);
+        form.reset(EMPTY_DEFAULTS);
+        setStep(0);
+      } else {
+        toast.error('Erro ao salvar avaliação perineal');
+      }
     } finally {
       setLoading(false);
     }
@@ -110,8 +118,8 @@ export function PerinealAssessmentWizard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[760px] max-h-[92vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[760px] max-h-[92vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>
             {readOnly ? 'Visualizar Avaliação Perineal' : isEditing ? 'Editar Avaliação Perineal' : 'Nova Avaliação Perineal'}
           </DialogTitle>
@@ -120,14 +128,14 @@ export function PerinealAssessmentWizard({
           </DialogDescription>
         </DialogHeader>
 
-        <Alert variant="destructive" className="border-destructive/50">
+        <Alert variant="destructive" className="border-destructive/50 shrink-0">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="font-semibold">
             NUNCA UTILIZAR EM CASO DE DOR
           </AlertDescription>
         </Alert>
 
-        <div className="space-y-2">
+        <div className="space-y-2 shrink-0">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{STEP_TITLES[step]}</span>
             <span>
@@ -137,12 +145,14 @@ export function PerinealAssessmentWizard({
           <Progress value={progressValue} className="h-2" />
         </div>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <ReadOnlyContext.Provider value={readOnly}>
-            <StepComponent form={form} />
-          </ReadOnlyContext.Provider>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0 gap-4">
+          <div className="flex-1 overflow-y-auto">
+            <ReadOnlyContext.Provider value={readOnly}>
+              <StepComponent form={form} />
+            </ReadOnlyContext.Provider>
+          </div>
 
-          <DialogFooter className="gap-2 sm:justify-between sm:flex-row flex-col-reverse">
+          <DialogFooter className="gap-2 sm:justify-between sm:flex-row flex-col-reverse shrink-0 border-t border-border pt-4">
             <Button
               type="button"
               variant="ghost"
