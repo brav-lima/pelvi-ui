@@ -6,15 +6,19 @@ import { MemoryRouter } from 'react-router-dom';
 
 // ── Module mocks ───────────────────────────────────────────────────────────────
 
-vi.mock('@/lib/api', () => ({
-  appointmentsApi: { create: vi.fn() },
-  patientsApi: { list: vi.fn() },
-  professionalsApi: { list: vi.fn() },
-  proceduresApi: { list: vi.fn() },
-  treatmentPackagesApi: { list: vi.fn() },
-}));
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>();
+  return {
+    ...actual,
+    appointmentsApi: { create: vi.fn() },
+    patientsApi: { list: vi.fn() },
+    professionalsApi: { list: vi.fn() },
+    proceduresApi: { list: vi.fn() },
+    treatmentPackagesApi: { list: vi.fn() },
+  };
+});
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 vi.mock('@/components/ui/dialog', () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
@@ -70,7 +74,7 @@ vi.mock('@/components/ui/textarea', () => ({
   ),
 }));
 
-import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi } from '@/lib/api';
+import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
 import { toast } from 'sonner';
 import { AppointmentFormDialog } from './AppointmentFormDialog';
 
@@ -207,8 +211,8 @@ describe('AppointmentFormDialog', () => {
     });
   });
 
-  it('exibe mensagem de erro e toast quando a API falha', async () => {
-    vi.mocked(appointmentsApi.create).mockRejectedValue(new Error('Conflict'));
+  it('exibe mensagem de erro genérica quando a API falha com erro desconhecido', async () => {
+    vi.mocked(appointmentsApi.create).mockRejectedValue(new Error('unexpected'));
     renderDialog();
     await fillForm();
 
@@ -217,8 +221,45 @@ describe('AppointmentFormDialog', () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Erro ao criar agendamento');
     });
-    expect(screen.getByText(/conflito de horário/i)).toBeInTheDocument();
-    expect(vi.mocked(appointmentsApi.create).mock.calls[0]).toBeDefined();
+    expect(screen.getByText(/erro ao criar agendamento\. tente novamente/i)).toBeInTheDocument();
+  });
+
+  it('exibe mensagem de conflito de horário quando a API retorna 409', async () => {
+    vi.mocked(appointmentsApi.create).mockRejectedValue(new ApiError(409, 'Conflict'));
+    renderDialog();
+    await fillForm();
+
+    fireEvent.click(screen.getByRole('button', { name: /agendar/i }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Conflito de horário');
+    });
+    expect(screen.getByText(/já existe um agendamento/i)).toBeInTheDocument();
+  });
+
+  it('fecha o dialog e atualiza o cache ao receber timeout (408)', async () => {
+    const onSuccess = vi.fn();
+    const onOpenChange = vi.fn();
+    vi.mocked(appointmentsApi.create).mockRejectedValue(new ApiError(408, 'timeout'));
+    render(
+      <AppointmentFormDialog
+        open
+        onOpenChange={onOpenChange}
+        onSuccess={onSuccess}
+        defaultDate="2026-06-01"
+        defaultTime="09:00"
+      />,
+      { wrapper: makeWrapper() },
+    );
+
+    await fillForm();
+    fireEvent.click(screen.getByRole('button', { name: /agendar/i }));
+
+    await waitFor(() => {
+      expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('Tempo limite excedido'));
+      expect(onSuccess).toHaveBeenCalled();
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 
   it('inclui startAt em formato ISO construído a partir da data e horário', async () => {
