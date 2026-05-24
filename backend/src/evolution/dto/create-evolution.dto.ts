@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { SensitiveLegalBasis } from '@prisma/client';
 
 export class CreateEvolutionDto {
   @IsUUID('4', { message: 'ID do paciente inválido' })
@@ -11,4 +12,12 @@ export class CreateEvolutionDto {
   @IsOptional()
   @IsUUID('4', { message: 'ID do agendamento inválido' })
   appointmentId?: string;
+
+  @IsOptional()
+  @IsEnum(SensitiveLegalBasis, { message: 'Base legal inválida' })
+  legalBasis?: SensitiveLegalBasis;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'ID do consentimento inválido' })
+  consentId?: string;
 }

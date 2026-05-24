@@ -24,6 +24,8 @@ export class EvolutionService {
         professionalId: orgUser.id,
         appointmentId: dto.appointmentId,
         description: dto.description,
+        ...(dto.legalBasis && { legalBasis: dto.legalBasis }),
+        ...(dto.consentId && { consentId: dto.consentId }),
       },
       include: {
         professional: {
