@@ -286,8 +286,9 @@ export default function Dashboard() {
   // Days with appointments for mini-calendar
   const daysWithApts = new Set(monthAppointments.map((a) => format(parseISO(a.startAt), 'yyyy-MM-dd')));
 
-  // Ticket médio
-  const confirmedCount = todayAppointments.filter((a) => a.status === 'CONFIRMED').length;
+  const activeToday = todayAppointments.filter((a) => a.status !== 'CANCELED');
+  const activeUpcoming = upcomingAppointments.filter((a) => a.status !== 'CANCELED');
+  const confirmedCount = activeToday.filter((a) => a.status === 'CONFIRMED').length;
   if (loadingApts) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -319,16 +320,16 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-5 bg-card border border-border rounded-xl overflow-hidden">
         <KpiTile
           label="Consultas hoje"
-          value={todayAppointments.length}
+          value={activeToday.length}
           delta={confirmedCount ? `${confirmedCount} confirmadas` : undefined}
           deltaUp
-          trend={[9, 11, 8, 12, 14, 10, 13, todayAppointments.length]}
+          trend={[9, 11, 8, 12, 14, 10, 13, activeToday.length]}
           color="hsl(var(--info))"
         />
         <KpiTile
           label="Próximos 7 dias"
-          value={upcomingAppointments.length}
-          trend={[18, 22, 20, 25, 24, 28, upcomingAppointments.length]}
+          value={activeUpcoming.length}
+          trend={[18, 22, 20, 25, 24, 28, activeUpcoming.length]}
           color="hsl(var(--primary))"
         />
         <KpiTile
@@ -361,7 +362,7 @@ export default function Dashboard() {
                 Agenda de hoje
               </CardTitle>
               <p className="text-[12.5px] text-muted-foreground mt-0.5">
-                {todayAppointments.length} consultas · {confirmedCount} confirmadas
+                {activeToday.length} consultas · {confirmedCount} confirmadas
               </p>
             </div>
             <Button
@@ -374,14 +375,14 @@ export default function Dashboard() {
             </Button>
           </CardHeader>
           <CardContent className="pt-0">
-            {todayAppointments.length === 0 ? (
+            {activeToday.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <CalendarDays className="w-9 h-9 text-muted-foreground/30 mb-3" />
                 <p className="text-[13.5px] text-muted-foreground">Nenhuma consulta agendada para hoje</p>
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {todayAppointments.map((appointment) => {
+                {activeToday.map((appointment) => {
                   const start = parseISO(appointment.startAt);
                   return (
                     <div
@@ -503,7 +504,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <ProcedureMixCard appointments={monthAppointments} />
+        <ProcedureMixCard appointments={monthAppointments.filter((a) => a.status !== 'CANCELED')} />
       </div>
     </div>
   );

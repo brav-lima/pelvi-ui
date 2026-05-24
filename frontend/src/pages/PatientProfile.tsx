@@ -155,8 +155,9 @@ export default function PatientProfile() {
     .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 
   const nextAppointment = upcomingAppointments[0];
-  const firstAppointment = appointments.length > 0
-    ? [...appointments].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())[0]
+  const doneAppointments = appointments.filter(a => a.status === 'DONE');
+  const firstAppointment = doneAppointments.length > 0
+    ? [...doneAppointments].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())[0]
     : null;
   const todayAppointment = appointments.find(a =>
     isToday(new Date(a.startAt)) && (a.status === 'SCHEDULED' || a.status === 'CONFIRMED' || a.status === 'DONE')
@@ -331,7 +332,7 @@ export default function PatientProfile() {
               className="text-[22px] font-semibold tabular-nums leading-7"
               style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}
             >
-              {appointments.length}
+              {doneAppointments.length}
             </span>
           </div>
           <div className="flex flex-col gap-1">
@@ -361,7 +362,7 @@ export default function PatientProfile() {
           <TabsTrigger value="appointments" className={TAB_TRIGGER}>
             <Calendar className="w-3.5 h-3.5 mr-1.5" />
             Consultas
-            <CountBadge n={appointments.length} />
+            <CountBadge n={doneAppointments.length} />
           </TabsTrigger>
           {hasAnamnesis && (
             <TabsTrigger value="anamnesis" className={TAB_TRIGGER}>
@@ -413,7 +414,7 @@ export default function PatientProfile() {
                   <div>
                     <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Histórico de consultas</div>
                     <div className="text-[12.5px] text-muted-foreground mt-0.5">
-                      {appointments.length} registros · ordem mais recente primeiro
+                      {doneAppointments.length} registros · ordem mais recente primeiro
                     </div>
                   </div>
                   <Button size="sm" onClick={() => setAppointmentOpen(true)}>
@@ -422,11 +423,11 @@ export default function PatientProfile() {
                   </Button>
                 </div>
                 <CardContent className="p-4">
-                  {appointments.length === 0 ? (
+                  {doneAppointments.length === 0 ? (
                     <p className="text-[13.5px] text-muted-foreground text-center py-8">Nenhuma consulta registrada</p>
                   ) : (
                     <div className="space-y-2">
-                      {appointments.map((apt) => {
+                      {doneAppointments.map((apt) => {
                         const start = parseISO(apt.startAt);
                         const canChange = apt.status !== 'CANCELED' && apt.status !== 'DONE';
                         return (
