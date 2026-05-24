@@ -763,7 +763,7 @@ export default function Settings() {
                 <span className="font-semibold text-foreground">30 dias</span> após a confirmação.
               </span>
               <span className="block text-destructive/80">
-                Após esse período, o acesso será suspenso pela equipe Pelvi.
+                Após esse período, o acesso será suspenso pela equipe Sou Pelvi.
               </span>
             </DialogDescription>
           </DialogHeader>

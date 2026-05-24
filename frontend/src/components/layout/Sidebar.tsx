@@ -99,7 +99,8 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
             className="font-semibold text-[15px] text-sidebar-foreground leading-5"
             style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.012em' }}
           >
-            Pelvi
+            <span className="opacity-50">Sou</span>{' '}
+            <span className="text-primary">Pelvi</span>
           </span>
           <span
             className="text-[10.5px] mt-0.5 font-medium uppercase tracking-[0.06em]"

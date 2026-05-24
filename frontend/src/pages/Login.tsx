@@ -67,7 +67,8 @@ export default function Login() {
               className="font-semibold text-[15px] leading-5 text-white"
               style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.012em' }}
             >
-              Pelvi
+              <span className="opacity-50">Sou</span>{' '}
+              <span>Pelvi</span>
             </div>
             <div className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-white/55">
               Gestão clínica
@@ -87,7 +88,7 @@ export default function Login() {
 
         {/* Footer */}
         <div className="mt-7 flex justify-between text-[11px] text-white/45">
-          <span>© 2026 Pelvi · Todos os direitos reservados</span>
+          <span>© 2026 Sou Pelvi · Todos os direitos reservados</span>
           <span>v{appVersion}</span>
         </div>
       </div>
