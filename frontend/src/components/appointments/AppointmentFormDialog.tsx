@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi } from '@/lib/api';
+import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 
 const timeSlots = Array.from({ length: 26 }, (_, i) => {
@@ -141,9 +141,20 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       onOpenChange(false);
       form.reset();
       setSelectedPackageId('');
-    } catch {
-      toast.error('Erro ao criar agendamento');
-      setError('Erro ao criar agendamento. Verifique se não há conflito de horário.');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error('Conflito de horário');
+        setError('Já existe um agendamento neste período para este profissional.');
+      } else if (err instanceof ApiError && err.status === 408) {
+        toast.warning('Tempo limite excedido. Verifique a agenda — o agendamento pode ter sido criado.');
+        onSuccess();
+        onOpenChange(false);
+        form.reset();
+        setSelectedPackageId('');
+      } else {
+        toast.error('Erro ao criar agendamento');
+        setError('Erro ao criar agendamento. Tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
