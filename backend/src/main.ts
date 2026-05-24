@@ -13,7 +13,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: new SentryLogger() });
 
   // Helmet: cabeçalhos de segurança HTTP (LGPD Onda 1 — 2.1)
-  // CSP restritivo em produção; em dev desabilitado para não quebrar Swagger
+  // CSP restritivo em produção; permissivo em dev para não quebrar Swagger
   if (process.env.NODE_ENV === 'production') {
     app.use(
       helmet({
@@ -38,7 +38,22 @@ async function bootstrap() {
       }),
     );
   } else {
-    app.use(helmet({ contentSecurityPolicy: false }));
+    // Dev: CSP permissiva — unsafe-inline/eval necessários para Swagger UI
+    app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'", 'ws:', 'wss:'],
+            fontSrc: ["'self'", 'https:', 'data:'],
+            objectSrc: ["'none'"],
+          },
+        },
+      }),
+    );
   }
 
   const corsOrigin = process.env.CORS_ORIGIN
