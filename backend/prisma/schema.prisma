@@ -15,6 +15,24 @@ enum ClinicAccessStatus {
   BLOCKED
 }
 
+// Hipóteses legais Art. 11 LGPD para tratamento de dados sensíveis de saúde
+enum SensitiveLegalBasis {
+  // Art. 11, I — consentimento específico e destacado do titular
+  CONSENT
+  // Art. 11, II, a — cumprimento de obrigação legal ou regulatória
+  LEGAL_OBLIGATION
+  // Art. 11, II, b — execução de políticas públicas
+  PUBLIC_POLICY
+  // Art. 11, II, c — estudos por órgão de pesquisa (anonimizados)
+  RESEARCH
+  // Art. 11, II, f — exercício regular de direitos em contrato ou processo
+  CONTRACT_EXECUTION
+  // Art. 11, II, h — tutela da saúde por profissional habilitado (default clínico)
+  HEALTH_PROTECTION
+  // Art. 11, II, i — prevenção à fraude e segurança
+  FRAUD_PREVENTION
+}
+
 enum DocumentType {
   CNPJ
   CPF
@@ -252,13 +270,16 @@ model Appointment {
 // ──────────────────────────────────────────────
 
 model Anamnesis {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  patientId      String   @map("patient_id")
-  professionalId String   @map("professional_id")
-  data           Json
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id              String             @id @default(uuid())
+  organizationId  String             @map("organization_id")
+  patientId       String             @map("patient_id")
+  professionalId  String             @map("professional_id")
+  data            Json
+  legalBasis      SensitiveLegalBasis @default(HEALTH_PROTECTION) @map("legal_basis")
+  consentId       String?            @map("consent_id")
+  legalBasisNotes String?            @map("legal_basis_notes")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
   organization Organization     @relation(fields: [organizationId], references: [id])
   patient      Patient          @relation(fields: [patientId], references: [id])
@@ -275,13 +296,16 @@ model Anamnesis {
 // ──────────────────────────────────────────────
 
 model PerinealAssessment {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  patientId      String   @map("patient_id")
-  professionalId String   @map("professional_id")
-  data           Json
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id              String             @id @default(uuid())
+  organizationId  String             @map("organization_id")
+  patientId       String             @map("patient_id")
+  professionalId  String             @map("professional_id")
+  data            Json
+  legalBasis      SensitiveLegalBasis @default(HEALTH_PROTECTION) @map("legal_basis")
+  consentId       String?            @map("consent_id")
+  legalBasisNotes String?            @map("legal_basis_notes")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
   organization Organization     @relation(fields: [organizationId], references: [id])
   patient      Patient          @relation(fields: [patientId], references: [id])
@@ -297,14 +321,16 @@ model PerinealAssessment {
 // ──────────────────────────────────────────────
 
 model Evolution {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  patientId      String   @map("patient_id")
-  professionalId String   @map("professional_id")
-  appointmentId  String?  @map("appointment_id")
+  id             String             @id @default(uuid())
+  organizationId String             @map("organization_id")
+  patientId      String             @map("patient_id")
+  professionalId String             @map("professional_id")
+  appointmentId  String?            @map("appointment_id")
   description    String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  legalBasis     SensitiveLegalBasis @default(HEALTH_PROTECTION) @map("legal_basis")
+  consentId      String?            @map("consent_id")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
 
   organization Organization     @relation(fields: [organizationId], references: [id])
   patient      Patient          @relation(fields: [patientId], references: [id])

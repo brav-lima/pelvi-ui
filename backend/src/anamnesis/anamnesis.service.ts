@@ -25,6 +25,9 @@ export class AnamnesisService {
         patientId: dto.patientId,
         professionalId: orgUser.id,
         data: dto.data as Prisma.InputJsonValue,
+        ...(dto.legalBasis && { legalBasis: dto.legalBasis }),
+        ...(dto.consentId && { consentId: dto.consentId }),
+        ...(dto.legalBasisNotes && { legalBasisNotes: dto.legalBasisNotes }),
       },
       include: {
         patient: { select: { id: true, name: true } },
