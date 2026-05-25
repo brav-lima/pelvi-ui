@@ -87,6 +87,7 @@ model Organization {
   evolutions       Evolution[]
   financialRecords FinancialRecord[]
   treatmentPackages TreatmentPackage[]
+  clinicDocuments   ClinicDocument[]
 
   @@map("organizations")
 }
@@ -450,4 +451,45 @@ model TreatmentPackageProcedure {
 
   @@unique([treatmentPackageId, procedureId])
   @@map("treatment_package_procedures")
+}
+
+// ──────────────────────────────────────────────
+// ClinicDocument (Módulo de Documentos)
+// ──────────────────────────────────────────────
+
+enum ClinicDocumentType {
+  FILE
+  GENERATED
+}
+
+enum GeneratedDocumentTemplate {
+  ANAMNESIS_REPORT
+  APPOINTMENT_CERTIFICATE
+  ATTENDANCE_TERM
+  EVOLUTION_SUMMARY
+}
+
+model ClinicDocument {
+  id             String                     @id @default(uuid())
+  organizationId String?                    @map("organization_id")
+  name           String
+  description    String?
+  category       String?
+  type           ClinicDocumentType
+
+  fileKey        String?                    @map("file_key")
+  mimeType       String?                    @map("mime_type")
+  fileSize       Int?                       @map("file_size")
+
+  templateType   GeneratedDocumentTemplate? @map("template_type")
+
+  active         Boolean                    @default(true)
+  createdBy      String?                    @map("created_by")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+
+  organization   Organization?              @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, active])
+  @@map("clinic_documents")
 }

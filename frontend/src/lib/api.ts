@@ -285,6 +285,83 @@ export const organizationApi = {
   update: (data: UpdateOrganizationData) => api.patch<OrganizationProfile>('/organizations/me', data),
 };
 
+export interface ClinicDocument {
+  id: string;
+  organizationId: string | null;
+  name: string;
+  description: string | null;
+  category: string | null;
+  type: 'FILE' | 'GENERATED';
+  fileKey: string | null;
+  mimeType: string | null;
+  fileSize: number | null;
+  templateType: string | null;
+  active: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AvailableTemplate {
+  template: string;
+  name: string;
+  description: string;
+  requiredContext: string[];
+}
+
+async function requestBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
+      ...options,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(res.status, body.message || 'Erro na requisição');
+    }
+    return res.blob();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export function openPdfBlob(blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+export const documentsApi = {
+  list: () => api.get<ClinicDocument[]>('/documents'),
+  listTemplates: () => api.get<AvailableTemplate[]>('/documents/templates'),
+  upload: (formData: FormData) =>
+    fetch(`${API_BASE_URL}/api/v1/documents/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(res.status, body.message || 'Erro no upload');
+      }
+      return res.json() as Promise<ClinicDocument>;
+    }),
+  download: (id: string) =>
+    requestBlob(`/documents/${id}/download`),
+  generate: (template: string, context: Record<string, string>) =>
+    requestBlob(`/documents/generate/${template}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context }),
+    }),
+  update: (id: string, data: Partial<Pick<ClinicDocument, 'name' | 'description' | 'category' | 'active'>>) =>
+    api.patch<ClinicDocument>(`/documents/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/documents/${id}`),
+};
+
 export const subscriptionApi = {
   getStatus: () => api.get<PlanFeatureStatus>('/subscription/status'),
   getCurrent: () => api.get<SubscriptionData>('/subscription'),

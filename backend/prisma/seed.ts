@@ -468,6 +468,35 @@ async function main() {
 
   console.log('Evolutions created');
 
+  // Documentos de sistema — organizationId: null = visível para todas as clínicas
+  await prisma.clinicDocument.createMany({
+    data: [
+      {
+        organizationId: null,
+        name: 'Diário Miccional',
+        description: 'Registro diário das micções. Preencher durante 3 dias consecutivos.',
+        category: 'Avaliação',
+        type: 'FILE',
+        fileKey: 'system/diario-miccional.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 0,
+        active: true,
+      },
+      {
+        organizationId: null,
+        name: 'Termo de Consentimento — Fisioterapia Pélvica',
+        description: 'Termo de consentimento livre e esclarecido para tratamento fisioterapêutico pélvico.',
+        category: 'Consentimento',
+        type: 'FILE',
+        fileKey: 'system/termo-consentimento-fisioterapia-pelvica.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 0,
+        active: true,
+      },
+    ],
+    skipDuplicates: true,
+  });
+
   console.log('\n✅ Seed completed successfully!');
   console.log('\nTest credentials:');
   console.log('  CPF: 11111111111 (Admin - multi-clinic)');

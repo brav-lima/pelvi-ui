@@ -279,7 +279,8 @@ export type PlanFeature =
   | 'ROLES'
   | 'MULTI_PROFESSIONAL'
   | 'MULTI_CLINIC'
-  | 'PRIORITY_SUPPORT';
+  | 'PRIORITY_SUPPORT'
+  | 'DOCUMENTS';
 
 export type PlanTier = 'SOLO' | 'CLINICA' | 'REDE';
 export type PlanStatusLocal = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
