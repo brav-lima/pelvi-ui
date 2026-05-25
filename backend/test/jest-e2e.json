@@ -13,6 +13,9 @@
       }
     }]
   },
+  "moduleNameMapper": {
+    "^@react-pdf/renderer$": "<rootDir>/mocks/react-pdf.mock.js"
+  },
   "testTimeout": 30000,
   "forceExit": true
 }
