@@ -34,6 +34,7 @@ const FEATURE_LABELS: Record<string, string> = {
   MULTI_PROFESSIONAL:   'Multi-Profissional',
   MULTI_CLINIC:         'Multi-Clínica',
   PRIORITY_SUPPORT:     'Suporte Prioritário',
+  DOCUMENTS:            'Módulo de Documentos',
 };
 
 function formatCurrency(value: number) {

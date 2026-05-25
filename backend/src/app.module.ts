@@ -25,6 +25,7 @@ import { InternalModule } from './internal/internal.module';
 import { AdminApiModule } from './admin-api/admin-api.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { VersionModule } from './version/version.module';
+import { DocumentModule } from './document/document.module';
 import { AccessStatusMiddleware } from './auth/middleware/access-status.middleware';
 
 @Module({
@@ -62,6 +63,7 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     AdminApiModule,
     SubscriptionModule,
     VersionModule,
+    DocumentModule,
   ],
 })
 export class AppModule implements NestModule {

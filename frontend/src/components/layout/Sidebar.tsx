@@ -7,6 +7,7 @@ import {
   UserCog,
   ClipboardList,
   DollarSign,
+  FileText,
   Settings,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +57,7 @@ const navigation: NavItem[] = [
   { name: 'Profissionais', href: '/professionals', icon: UserCog,       roles: ['ADMIN'], feature: 'MULTI_PROFESSIONAL' },
   { name: 'Procedimentos', href: '/procedures',    icon: ClipboardList, roles: ['ADMIN', 'PROFESSIONAL'] },
   { name: 'Financeiro',    href: '/financial',     icon: DollarSign,    roles: ['ADMIN'], feature: 'FINANCIAL_BASIC' },
+  { name: 'Documentos',   href: '/documents',     icon: FileText,      feature: 'DOCUMENTS' },
 ];
 
 interface SidebarProps {

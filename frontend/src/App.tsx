@@ -28,6 +28,7 @@ const Financial = lazy(() => import("./pages/Financial"));
 const Settings = lazy(() => import("./pages/Settings"));
 const PerinealAssessmentPage = lazy(() => import("./pages/PerinealAssessmentPage"));
 const AnamnesisEditorPage = lazy(() => import("./pages/AnamnesisEditorPage"));
+const Documents = lazy(() => import("./pages/Documents"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -74,6 +75,7 @@ const App = () => (
                     <Route path="/anamnesis" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><FeatureRoute feature="ANAMNESIS"><Anamnesis /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/evolutions" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><FeatureRoute feature="EVOLUTIONS"><Evolutions /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/financial" element={<ProtectedRoute roles={['ADMIN']}><FeatureRoute feature="FINANCIAL_BASIC"><Financial /></FeatureRoute></ProtectedRoute>} />
+                    <Route path="/documents" element={<FeatureRoute feature="DOCUMENTS"><Documents /></FeatureRoute>} />
                     <Route path="/settings" element={<ProtectedRoute roles={['ADMIN']}><Settings /></ProtectedRoute>} />
                   </Route>
 

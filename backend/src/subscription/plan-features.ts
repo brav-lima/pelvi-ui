@@ -12,7 +12,8 @@ export type PlanFeature =
   | 'ROLES'
   | 'MULTI_PROFESSIONAL'
   | 'MULTI_CLINIC'
-  | 'PRIORITY_SUPPORT';
+  | 'PRIORITY_SUPPORT'
+  | 'DOCUMENTS';
 
 export const ALL_PLAN_FEATURES: PlanFeature[] = [
   'AGENDA',
@@ -27,4 +28,5 @@ export const ALL_PLAN_FEATURES: PlanFeature[] = [
   'MULTI_PROFESSIONAL',
   'MULTI_CLINIC',
   'PRIORITY_SUPPORT',
+  'DOCUMENTS',
 ];
