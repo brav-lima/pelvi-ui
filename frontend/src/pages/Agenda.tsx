@@ -679,8 +679,8 @@ export default function Agenda() {
       <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
         <DialogContent>
           <DialogHeader>
-            <div className="flex items-start justify-between gap-2">
-              <div>
+            <div className="flex items-start justify-between gap-2 pr-8">
+              <div className="text-left">
                 <DialogTitle>Detalhes do Agendamento</DialogTitle>
                 <DialogDescription>Informações completas da consulta</DialogDescription>
               </div>
