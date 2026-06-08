@@ -808,7 +808,10 @@ export default function Agenda() {
           if (!open) setEditAppointment(null);
         }}
         appointment={editAppointment ?? undefined}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['appointments'] });
+          setEditAppointment(null);
+        }}
       />
     </div>
   );
