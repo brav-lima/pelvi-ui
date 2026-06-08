@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { format, parseISO } from 'date-fns';
+import type { Appointment } from '@/types/clinic';
 import {
   Dialog,
   DialogContent,
@@ -49,12 +51,15 @@ interface AppointmentFormDialogProps {
   onSuccess: () => void;
   defaultDate?: string;
   defaultTime?: string;
+  appointment?: Appointment;
 }
 
-export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDate, defaultTime }: AppointmentFormDialogProps) {
+export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDate, defaultTime, appointment }: AppointmentFormDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+
+  const isEditMode = !!appointment;
 
   const { data: patientsData } = useQuery({
     queryKey: ['patients-select'],
@@ -92,17 +97,31 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
   useEffect(() => {
     if (open) {
-      form.reset({
-        patientId: '',
-        professionalId: '',
-        procedureId: '',
-        date: defaultDate ?? '',
-        time: defaultTime ?? '',
-        notes: '',
-      });
-      setSelectedPackageId('');
+      if (isEditMode && appointment) {
+        form.reset({
+          patientId: appointment.patientId,
+          professionalId: appointment.professionalId,
+          procedureId: appointment.procedureId,
+          date: format(parseISO(appointment.startAt), 'yyyy-MM-dd'),
+          time: format(parseISO(appointment.startAt), 'HH:mm'),
+          notes: appointment.notes ?? '',
+        });
+        setSelectedPackageId('');
+      } else {
+        form.reset({
+          patientId: '',
+          professionalId: '',
+          procedureId: '',
+          date: defaultDate ?? '',
+          time: defaultTime ?? '',
+          notes: '',
+        });
+        setSelectedPackageId('');
+      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Re-runs only on open/close. We do not re-populate mid-session if the
+    // appointment prop changes while the dialog is already open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const watchPatientId = form.watch('patientId');
@@ -124,19 +143,29 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     setLoading(true);
     setError('');
 
-    // Build startAt as local time (no Z suffix, which would mean UTC)
     const startAt = new Date(`${data.date}T${data.time}:00`).toISOString();
 
     try {
-      await appointmentsApi.create({
-        patientId: data.patientId,
-        professionalId: data.professionalId,
-        procedureId: data.procedureId,
-        startAt,
-        notes: data.notes || undefined,
-        treatmentPackageId: selectedPackageId || undefined,
-      });
-      toast.success('Agendamento criado com sucesso');
+      if (isEditMode && appointment) {
+        await appointmentsApi.update(appointment.id, {
+          patientId: data.patientId,
+          professionalId: data.professionalId,
+          procedureId: data.procedureId,
+          startAt,
+          notes: data.notes || undefined,
+        });
+        toast.success('Agendamento atualizado com sucesso');
+      } else {
+        await appointmentsApi.create({
+          patientId: data.patientId,
+          professionalId: data.professionalId,
+          procedureId: data.procedureId,
+          startAt,
+          notes: data.notes || undefined,
+          treatmentPackageId: selectedPackageId || undefined,
+        });
+        toast.success('Agendamento criado com sucesso');
+      }
       onSuccess();
       onOpenChange(false);
       form.reset();
@@ -146,14 +175,18 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         toast.error('Conflito de horário');
         setError('Já existe um agendamento neste período para este profissional.');
       } else if (err instanceof ApiError && err.status === 408) {
-        toast.warning('Tempo limite excedido. Verifique a agenda — o agendamento pode ter sido criado.');
+        toast.warning(
+          isEditMode
+            ? 'Tempo limite excedido. Verifique a agenda — o agendamento pode ter sido atualizado.'
+            : 'Tempo limite excedido. Verifique a agenda — o agendamento pode ter sido criado.'
+        );
         onSuccess();
         onOpenChange(false);
         form.reset();
         setSelectedPackageId('');
       } else {
-        toast.error('Erro ao criar agendamento');
-        setError('Erro ao criar agendamento. Tente novamente.');
+        toast.error(isEditMode ? 'Erro ao atualizar agendamento' : 'Erro ao criar agendamento');
+        setError(isEditMode ? 'Erro ao atualizar agendamento. Tente novamente.' : 'Erro ao criar agendamento. Tente novamente.');
       }
     } finally {
       setLoading(false);
@@ -164,9 +197,9 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo Agendamento</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Editar Agendamento' : 'Novo Agendamento'}</DialogTitle>
           <DialogDescription>
-            Preencha os dados para agendar uma consulta.
+            {isEditMode ? 'Altere os dados do agendamento.' : 'Preencha os dados para agendar uma consulta.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -224,7 +257,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           </div>
 
           {/* Package select (only if patient has active packages) */}
-          {watchPatientId && patientPackages.length > 0 && (
+          {!isEditMode && watchPatientId && patientPackages.length > 0 && (
             <div className="space-y-2">
               <Label>Pacote de Tratamento</Label>
               <Select
@@ -327,7 +360,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
               Cancelar
             </Button>
             <Button type="submit" loading={loading}>
-              Agendar
+              {isEditMode ? 'Salvar' : 'Agendar'}
             </Button>
           </DialogFooter>
         </form>
