@@ -496,7 +496,6 @@ export default function Agenda() {
                 const scheduled = dayAppts.filter((a) => a.status === 'SCHEDULED').length;
                 const confirmed = dayAppts.filter((a) => a.status === 'CONFIRMED').length;
                 const done = dayAppts.filter((a) => a.status === 'DONE').length;
-                const canceled = dayAppts.filter((a) => a.status === 'CANCELED').length;
 
                 return (
                   <button
@@ -530,11 +529,6 @@ export default function Agenda() {
                         {done > 0 && (
                           <Badge variant="soft-muted" className="text-[10px] px-1 py-0 h-4 tabular-nums">
                             {done}
-                          </Badge>
-                        )}
-                        {canceled > 0 && (
-                          <Badge variant="soft-destructive" className="text-[10px] px-1 py-0 h-4 tabular-nums">
-                            {canceled}
                           </Badge>
                         )}
                       </div>
