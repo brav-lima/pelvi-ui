@@ -248,6 +248,8 @@ export default function Agenda() {
     }),
   });
 
+  const visibleAppointments = appointments.filter((a) => a.status !== 'CANCELED');
+
   const { data: professionals = [] } = useQuery({
     queryKey: ['professionals'],
     queryFn: professionalsApi.list,
@@ -346,7 +348,7 @@ export default function Agenda() {
   };
 
   const getAppointmentsForDay = (date: Date) => {
-    return appointments.filter((a) => isSameDay(parseISO(a.startAt), date));
+    return visibleAppointments.filter((a) => isSameDay(parseISO(a.startAt), date));
   };
 
   const navigatePrev = () => {
