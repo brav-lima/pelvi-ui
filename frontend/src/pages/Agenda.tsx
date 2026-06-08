@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical, Pencil } from 'lucide-react';
 import { appointmentsApi, professionalsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -208,6 +208,7 @@ export default function Agenda() {
   const [professionalFilter, setProfessionalFilter] = useState<string>('all');
   const [draggedAppointment, setDraggedAppointment] = useState<Appointment | null>(null);
   const [slotPreset, setSlotPreset] = useState<{ date: string; time: string } | null>(null);
+  const [editAppointment, setEditAppointment] = useState<Appointment | null>(null);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -678,8 +679,25 @@ export default function Agenda() {
       <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Detalhes do Agendamento</DialogTitle>
-            <DialogDescription>Informações completas da consulta</DialogDescription>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <DialogTitle>Detalhes do Agendamento</DialogTitle>
+                <DialogDescription>Informações completas da consulta</DialogDescription>
+              </div>
+              {selectedAppointment && selectedAppointment.status !== 'CANCELED' && selectedAppointment.status !== 'DONE' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditAppointment(selectedAppointment);
+                    setSelectedAppointment(null);
+                  }}
+                >
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" />
+                  Editar
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           {selectedAppointment && (
             <div className="space-y-4">
@@ -780,6 +798,16 @@ export default function Agenda() {
         }}
         defaultDate={slotPreset?.date}
         defaultTime={slotPreset?.time}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
+      />
+
+      {/* Edit Appointment Dialog */}
+      <AppointmentFormDialog
+        open={!!editAppointment}
+        onOpenChange={(open) => {
+          if (!open) setEditAppointment(null);
+        }}
+        appointment={editAppointment ?? undefined}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
       />
     </div>
