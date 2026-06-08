@@ -119,7 +119,9 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         setSelectedPackageId('');
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Re-runs only on open/close. We do not re-populate mid-session if the
+    // appointment prop changes while the dialog is already open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const watchPatientId = form.watch('patientId');
@@ -173,7 +175,11 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         toast.error('Conflito de horário');
         setError('Já existe um agendamento neste período para este profissional.');
       } else if (err instanceof ApiError && err.status === 408) {
-        toast.warning('Tempo limite excedido. Verifique a agenda — o agendamento pode ter sido criado.');
+        toast.warning(
+          isEditMode
+            ? 'Tempo limite excedido. Verifique a agenda — o agendamento pode ter sido atualizado.'
+            : 'Tempo limite excedido. Verifique a agenda — o agendamento pode ter sido criado.'
+        );
         onSuccess();
         onOpenChange(false);
         form.reset();
@@ -251,7 +257,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           </div>
 
           {/* Package select (only if patient has active packages) */}
-          {watchPatientId && patientPackages.length > 0 && (
+          {!isEditMode && watchPatientId && patientPackages.length > 0 && (
             <div className="space-y-2">
               <Label>Pacote de Tratamento</Label>
               <Select
