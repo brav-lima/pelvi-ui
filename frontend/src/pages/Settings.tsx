@@ -16,7 +16,7 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, Users, UserCog, CheckCircle2, AlertTriangle,
-  Building2, Clock, UsersRound, CreditCard, Bell, Plug, ShieldCheck,
+  Building2, Clock, UsersRound, CreditCard,
 } from 'lucide-react';
 import { organizationApi, subscriptionApi, professionalsApi } from '@/lib/api';
 import type { OrganizationProfile, Plan, PlanUsage, SubscriptionData } from '@/types/clinic';
@@ -133,9 +133,6 @@ const NAV_SECTIONS = [
   { id: 'hours',    label: 'Horário de funcionamento',  icon: Clock },
   { id: 'team',     label: 'Equipe e permissões',       icon: UsersRound },
   { id: 'plan',     label: 'Plano e cobrança',          icon: CreditCard },
-  { id: 'notif',    label: 'Notificações',              icon: Bell },
-  { id: 'integ',    label: 'Integrações',               icon: Plug },
-  { id: 'security', label: 'Segurança',                 icon: ShieldCheck },
 ];
 
 const DAYS_MAP = [
@@ -158,15 +155,6 @@ const HOURS_DEFAULT = [
   { day: 'Domingo',       from: '—',     to: '—',     on: false },
 ];
 
-const NOTIF_KEYS = ['reminder24h', 'confirmationBefore1h', 'satisfactionSurvey', 'cancelNotifyPro'] as const;
-
-const NOTIF_DEFAULT = [
-  { title: 'Lembrete 24h antes da consulta',      sub: 'Pacientes recebem mensagem no WhatsApp.',   on: true },
-  { title: 'Confirmação de presença (1h antes)',  sub: 'Permite confirmar ou cancelar.',            on: true },
-  { title: 'Pesquisa de satisfação pós-sessão',   sub: 'Enviada 2h após o atendimento.',            on: false },
-  { title: 'Notificar profissional sobre cancelamento', sub: 'E-mail + push.',                    on: true },
-];
-
 const EMPTY_FORM = {
   name: '', legalName: '', document: '', stateRegistration: '',
   email: '', phone: '',
@@ -180,7 +168,6 @@ export default function Settings() {
   const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [hours, setHours] = useState(HOURS_DEFAULT);
-  const [notifs, setNotifs] = useState(NOTIF_DEFAULT);
   const [formData, setFormData] = useState(EMPTY_FORM);
 
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -215,10 +202,6 @@ export default function Settings() {
         return s ? { ...h, from: s.from ?? h.from, to: s.to ?? h.to, on: s.enabled ?? h.on } : h;
       }));
     }
-    const ns = p.settings?.notifications as Record<string, boolean> | undefined;
-    if (ns) {
-      setNotifs(NOTIF_DEFAULT.map((n, i) => ({ ...n, on: ns[NOTIF_KEYS[i]] ?? n.on })));
-    }
   }, [profileQuery.data]);
 
   const saveMutation = useMutation({
@@ -243,7 +226,6 @@ export default function Settings() {
           to: hours[i].to === '—' ? null : hours[i].to,
           enabled: hours[i].on,
         })),
-        notifications: Object.fromEntries(NOTIF_KEYS.map((k, i) => [k, notifs[i].on])),
       },
     }),
     onSuccess: () => {
@@ -395,7 +377,6 @@ export default function Settings() {
                   >
                     B
                   </div>
-                  <Button variant="outline" size="sm" className="mt-2 h-7 text-[12px] w-[88px]">Trocar logo</Button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {([
@@ -460,12 +441,9 @@ export default function Settings() {
           <div ref={setRef('hours')} />
 
           <Card>
-            <CardHeader className="pb-0 flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Horário de funcionamento</CardTitle>
-                <p className="text-[12.5px] text-muted-foreground mt-0.5">Bloqueia agendamentos fora desses horários.</p>
-              </div>
-              <Button variant="outline" size="sm" className="shrink-0 h-8 text-[12.5px]">Adicionar exceção</Button>
+            <CardHeader className="pb-0">
+              <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Horário de funcionamento</CardTitle>
+              <p className="text-[12.5px] text-muted-foreground mt-0.5">Bloqueia agendamentos fora desses horários.</p>
             </CardHeader>
             <CardContent className="pt-3 p-0">
               {hours.map((h, i) => (
@@ -500,11 +478,9 @@ export default function Settings() {
           <div ref={setRef('team')} />
 
           <Card>
-            <CardHeader className="pb-0 flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Equipe e permissões</CardTitle>
-                <p className="text-[12.5px] text-muted-foreground mt-0.5">Membros vinculados a esta clínica.</p>
-              </div>
+            <CardHeader className="pb-0">
+              <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Equipe e permissões</CardTitle>
+              <p className="text-[12.5px] text-muted-foreground mt-0.5">Membros vinculados a esta clínica.</p>
             </CardHeader>
             <CardContent className="pt-3 p-0">
               {professionalsQuery.isLoading ? (
@@ -639,90 +615,6 @@ export default function Settings() {
             </Card>
           )}
 
-          {/* ── Notificações ─────────────────────────────────── */}
-          <div ref={setRef('notif')} />
-
-          <Card>
-            <CardHeader className="pb-0">
-              <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Notificações</CardTitle>
-              <p className="text-[12.5px] text-muted-foreground mt-0.5">Mensagens automáticas para a paciente.</p>
-            </CardHeader>
-            <CardContent className="pt-3 p-0">
-              {notifs.map((n, i) => (
-                <div
-                  key={i}
-                  className={`flex items-center gap-4 px-5 py-3.5 ${i < notifs.length - 1 ? 'border-b border-border/60' : ''}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13.5px] font-medium">{n.title}</div>
-                    <div className="text-[12px] text-muted-foreground mt-0.5">{n.sub}</div>
-                  </div>
-                  <Switch
-                    checked={n.on}
-                    onCheckedChange={(v) => setNotifs(prev => prev.map((x, j) => j === i ? { ...x, on: v } : x))}
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* ── Integrações ──────────────────────────────────── */}
-          <div ref={setRef('integ')} />
-
-          <Card>
-            <CardHeader className="pb-0">
-              <CardTitle className="text-[14px]" style={{ fontFamily: 'var(--font-display)' }}>Integrações</CardTitle>
-              <p className="text-[12.5px] text-muted-foreground mt-0.5">Conecte serviços externos à sua clínica.</p>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  { name: 'WhatsApp Business', desc: 'Envio de lembretes e confirmações via WhatsApp.', status: 'Em breve' },
-                  { name: 'Google Agenda', desc: 'Sincronize agendamentos com o Google Calendar.', status: 'Em breve' },
-                  { name: 'Asaas / Cobrança', desc: 'Geração de cobranças e boletos automáticos.', status: 'Em breve' },
-                  { name: 'Nota fiscal (NFS-e)', desc: 'Emissão automática de notas fiscais de serviço.', status: 'Em breve' },
-                ].map((integ) => (
-                  <div
-                    key={integ.name}
-                    className="flex items-start gap-3 p-3.5 rounded-xl border border-border bg-muted/30"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13.5px] font-medium">{integ.name}</div>
-                      <div className="text-[12px] text-muted-foreground mt-0.5">{integ.desc}</div>
-                    </div>
-                    <span className="shrink-0 inline-flex items-center h-[20px] px-2 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border">
-                      {integ.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Segurança / Zona de risco ─────────────────────── */}
-          <div ref={setRef('security')} />
-
-          <Card className="border-destructive/30">
-            <CardHeader className="pb-0 border-b border-destructive/20">
-              <CardTitle className="text-[14px] text-destructive" style={{ fontFamily: 'var(--font-display)' }}>Zona de risco</CardTitle>
-              <p className="text-[12.5px] text-muted-foreground mt-0.5 pb-3">Ações irreversíveis. Recomendamos backup antes.</p>
-            </CardHeader>
-            <CardContent className="pt-4 flex items-center justify-between gap-4">
-              <div>
-                <div className="text-[13.5px] font-medium">Encerrar conta da clínica</div>
-                <div className="text-[12px] text-muted-foreground mt-1">
-                  Todos os dados serão retidos por 30 dias antes da exclusão definitiva (LGPD).
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60"
-              >
-                Encerrar conta
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
