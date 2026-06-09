@@ -19,7 +19,7 @@ import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
 
 const REFRESH_TTL_DAYS = 7;
 const REFRESH_TTL_SECONDS = REFRESH_TTL_DAYS * 24 * 60 * 60;
-const ACCESS_TTL_SECONDS = 15 * 60;
+const ACCESS_TTL_SECONDS = 60 * 60;
 
 const redisKey = {
   refresh: (hash: string) => `refresh:${hash}`,
