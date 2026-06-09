@@ -19,7 +19,7 @@ export function Step5PalpacaoDinamica({ form }: Props) {
         <SegmentedRadio
           control={form.control}
           name="palpacaoDinamica.forca"
-          label="Força (Oxford modificada)"
+          label="Força"
           hint="0–4"
           options={[
             { value: 'FORTE', label: 'Forte (0)' },
