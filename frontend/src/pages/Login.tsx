@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,9 +143,9 @@ export default function Login() {
                 <Label htmlFor="password" className="text-[12px] font-medium text-foreground/80">
                   Senha
                 </Label>
-                <a href="#" className="text-[12px] text-primary font-medium hover:underline">
+                <Link to="/esqueci-senha" className="text-[12px] text-primary font-medium hover:underline">
                   Esqueci minha senha
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <Input

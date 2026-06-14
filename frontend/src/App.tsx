@@ -30,6 +30,8 @@ const PerinealAssessmentPage = lazy(() => import("./pages/PerinealAssessmentPage
 const AnamnesisEditorPage = lazy(() => import("./pages/AnamnesisEditorPage"));
 const Documents = lazy(() => import("./pages/Documents"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 const queryClient = new QueryClient();
 
@@ -60,6 +62,8 @@ const App = () => (
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/select-clinic" element={<SelectClinic />} />
+                  <Route path="/esqueci-senha" element={<ForgotPassword />} />
+                  <Route path="/redefinir-senha" element={<ResetPassword />} />
 
                   <Route element={<MainLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
