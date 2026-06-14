@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -10,6 +11,7 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PersonService } from '../person/person.service';
 import { RedisService } from '../redis/redis.service';
+import { EmailService } from '../email/email.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -24,6 +26,7 @@ const ACCESS_TTL_SECONDS = 60 * 60;
 const redisKey = {
   refresh: (hash: string) => `refresh:${hash}`,
   blacklist: (jti: string) => `blacklist:${jti}`,
+  passwordReset: (token: string) => `pwd-reset:${token}`,
 };
 
 interface IssuedTokens {
@@ -39,6 +42,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly redis: RedisService,
+    private readonly emailService: EmailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -204,6 +208,39 @@ export class AuthService {
     });
 
     return { message: 'Senha alterada com sucesso' };
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const person = await this.prisma.person.findUnique({
+      where: { email },
+      select: { id: true, name: true, email: true, active: true },
+    });
+
+    if (!person || !person.active) {
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const appUrl = this.config.getOrThrow<string>('APP_URL');
+    const resetUrl = `${appUrl}/redefinir-senha?token=${token}`;
+
+    await this.redis.set(redisKey.passwordReset(token), person.id, 3600);
+    await this.emailService.sendPasswordReset(person.email, person.name, resetUrl);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const personId = await this.redis.get(redisKey.passwordReset(token));
+
+    if (!personId) {
+      throw new BadRequestException('Token inválido ou expirado');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.person.update({
+      where: { id: personId },
+      data: { passwordHash },
+    });
+    await this.redis.del(redisKey.passwordReset(token));
   }
 
   async rotateRefreshToken(

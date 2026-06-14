@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PersonService } from '../person/person.service';
 import { RedisService } from '../redis/redis.service';
+import { EmailService } from '../email/email.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -15,6 +16,7 @@ describe('AuthService', () => {
   let jwtService: { sign: jest.Mock };
   let config: { getOrThrow: jest.Mock };
   let redis: { get: jest.Mock; set: jest.Mock; del: jest.Mock; exists: jest.Mock };
+  let emailService: { sendPasswordReset: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -37,6 +39,7 @@ describe('AuthService', () => {
       del: jest.fn().mockResolvedValue(undefined),
       exists: jest.fn().mockResolvedValue(false),
     };
+    emailService = { sendPasswordReset: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -46,6 +49,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: config },
         { provide: RedisService, useValue: redis },
+        { provide: EmailService, useValue: emailService },
       ],
     }).compile();
 
@@ -392,6 +396,60 @@ describe('AuthService', () => {
         '1',
         expect.any(Number),
       );
+    });
+  });
+
+  describe('requestPasswordReset', () => {
+    it('deve armazenar token no Redis e enviar e-mail quando e-mail existe', async () => {
+      prisma.person.findUnique.mockResolvedValue({
+        id: 'person-1',
+        name: 'João',
+        email: 'joao@email.com',
+        active: true,
+      });
+
+      await service.requestPasswordReset('joao@email.com');
+
+      expect(redis.set).toHaveBeenCalledWith(
+        expect.stringMatching(/^pwd-reset:/),
+        'person-1',
+        3600,
+      );
+      expect(emailService.sendPasswordReset).toHaveBeenCalledWith(
+        'joao@email.com',
+        'João',
+        expect.stringContaining('/redefinir-senha?token='),
+      );
+    });
+
+    it('deve retornar sem erro quando e-mail não existe (não vaza informação)', async () => {
+      prisma.person.findUnique.mockResolvedValue(null);
+
+      await expect(service.requestPasswordReset('naoexiste@email.com')).resolves.not.toThrow();
+      expect(redis.set).not.toHaveBeenCalled();
+      expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('deve atualizar passwordHash e apagar token do Redis quando token válido', async () => {
+      redis.get.mockResolvedValue('person-1');
+      prisma.person.update.mockResolvedValue({});
+
+      await service.resetPassword('valid-token-64chars', 'novaSenha123');
+
+      expect(prisma.person.update).toHaveBeenCalledWith({
+        where: { id: 'person-1' },
+        data: { passwordHash: expect.any(String) },
+      });
+      expect(redis.del).toHaveBeenCalledWith('pwd-reset:valid-token-64chars');
+    });
+
+    it('deve lançar BadRequestException quando token inválido ou expirado', async () => {
+      redis.get.mockResolvedValue(null);
+
+      await expect(service.resetPassword('token-invalido', 'novaSenha123'))
+        .rejects.toThrow('Token inválido ou expirado');
     });
   });
 });
