@@ -17,8 +17,7 @@ export class EmailService {
 
   async sendPasswordReset(to: string, name: string, resetUrl: string): Promise<void> {
     const firstName = name.split(' ')[0];
-    // SDK v4 types don't include `template` yet — cast required
-    const { error } = await (this.resend.emails.send as any)({
+    const { error } = await this.resend.emails.send({
       from: this.from,
       to,
       template: {
