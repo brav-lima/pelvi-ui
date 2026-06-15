@@ -64,7 +64,7 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
   CANCELED: 'destructive',
 };
 
-const UNLIMITED_SENTINEL = 999999;
+const UNLIMITED_SENTINEL = 9999;
 
 function UsageLine({ icon: Icon, label, current, max }: {
   icon: typeof Users; label: string; current: number; max: number | null;
@@ -566,7 +566,26 @@ export default function Settings() {
                 <>
                   {[
                     { label: 'Status', value: <Badge variant={STATUS_VARIANT[sub.status] ?? 'secondary'}>{STATUS_LABEL[sub.status] ?? sub.status}</Badge> },
-                    { label: 'Plano', value: <span className="font-medium text-[13px]">{sub.plan.name}</span> },
+                    { label: 'Plano', value: (
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-medium text-[13px]">{sub.plan.name}</span>
+                        {sub.plan.name === 'Origem' && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-default">
+                                <Badge variant="secondary" className="text-[11px] gap-1 pr-1.5">
+                                  <Sparkles className="w-3 h-3 text-amber-500" />
+                                  Especial
+                                </Badge>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[200px] text-center text-[12px]">
+                              Plano especial para quem participa desde a Origem do sistema
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </span>
+                    ) },
                     { label: 'Valor', value: <span className="text-[13px]">{formatCurrency(sub.plan.priceMonthly)}/mês</span> },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex items-center justify-between text-[13px]">
