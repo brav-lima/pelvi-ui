@@ -413,7 +413,7 @@ describe('AuthService', () => {
       expect(redis.set).toHaveBeenCalledWith(
         expect.stringMatching(/^pwd-reset:/),
         'person-1',
-        3600,
+        1800,
       );
       expect(emailService.sendPasswordReset).toHaveBeenCalledWith(
         'joao@email.com',

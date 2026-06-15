@@ -224,7 +224,7 @@ export class AuthService {
     const appUrl = this.config.getOrThrow<string>('APP_URL');
     const resetUrl = `${appUrl}/redefinir-senha?token=${token}`;
 
-    await this.redis.set(redisKey.passwordReset(token), person.id, 3600);
+    await this.redis.set(redisKey.passwordReset(token), person.id, 1800);
     await this.emailService.sendPasswordReset(person.email, person.name, resetUrl);
   }
 
