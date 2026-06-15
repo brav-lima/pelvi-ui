@@ -30,7 +30,7 @@ export class InternalController {
   @Patch('clinics/:clinicId/access')
   @HttpCode(200)
   updateAccess(@Param('clinicId') clinicId: string, @Body() dto: UpdateAccessDto) {
-    return this.internalService.updateClinicAccess(clinicId, dto.status, dto.maxUsers, dto.maxPatients)
+    return this.internalService.updateClinicAccess(clinicId, dto.status, dto.maxUsers, dto.maxPatients, dto.plan)
   }
 
   @Post('persons')
