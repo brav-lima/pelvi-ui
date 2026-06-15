@@ -1,4 +1,4 @@
-import { IsIn, IsNotEmpty, IsOptional, IsInt, Min } from 'class-validator'
+import { IsIn, IsNotEmpty, IsOptional, IsInt, IsString, Min } from 'class-validator'
 
 export class UpdateAccessDto {
   @IsIn(['ACTIVE', 'BLOCKED'])
@@ -14,4 +14,8 @@ export class UpdateAccessDto {
   @IsInt()
   @Min(0)
   maxPatients?: number
+
+  @IsOptional()
+  @IsString()
+  plan?: string
 }
