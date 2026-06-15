@@ -12,6 +12,7 @@ import { RedisService } from '../../src/redis/redis.service';
 import { REMINDER_QUEUE } from '../../src/queue/jobs/reminder.job';
 import { PrismaTestService } from './prisma-test.service';
 import { AdminApiService } from '../../src/admin-api/admin-api.service';
+import { EmailService } from '../../src/email/email.service';
 import { ALL_PLAN_FEATURES } from '../../src/subscription/plan-features';
 
 function createInMemoryRedis() {
@@ -83,6 +84,8 @@ export async function createTestApp(): Promise<INestApplication> {
       changePlan: async () => ({}),
       cancelSubscription: async () => ({}),
     })
+    .overrideProvider(EmailService)
+    .useValue({ sendPasswordReset: async () => {} })
     .compile();
 
   const app = moduleRef.createNestApplication();

@@ -133,6 +133,12 @@ export const authApi = {
     api.patch<{ id: string; cpf: string; name: string; email: string | null; phone: string | null }>('/auth/profile', data),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.post<{ message: string }>('/auth/change-password', data),
+
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>('/auth/forgot-password', { email }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ message: string }>('/auth/reset-password', { token, newPassword }),
 };
 
 function queryString(params?: Record<string, unknown>): string {
