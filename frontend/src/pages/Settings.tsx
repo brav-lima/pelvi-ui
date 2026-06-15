@@ -13,10 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import {
   Loader2, Users, UserCog, CheckCircle2, AlertTriangle,
-  Building2, Clock, UsersRound, CreditCard,
+  Building2, Clock, UsersRound, CreditCard, Sparkles,
 } from 'lucide-react';
 import { organizationApi, subscriptionApi, professionalsApi } from '@/lib/api';
 import type { OrganizationProfile, Plan, PlanUsage, SubscriptionData } from '@/types/clinic';
@@ -59,10 +64,12 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | '
   CANCELED: 'destructive',
 };
 
+const UNLIMITED_SENTINEL = 999999;
+
 function UsageLine({ icon: Icon, label, current, max }: {
   icon: typeof Users; label: string; current: number; max: number | null;
 }) {
-  const unlimited = max === null;
+  const unlimited = max === null || max >= UNLIMITED_SENTINEL;
   const pct = unlimited ? 0 : Math.min(Math.round((current / max) * 100), 100);
   const nearLimit = !unlimited && pct >= 80;
   return (
@@ -87,15 +94,31 @@ function PlanCard({ plan, isCurrent, onSelect, isLoading }: {
   plan: Plan; isCurrent: boolean; onSelect: () => void; isLoading: boolean;
 }) {
   const features = Array.isArray(plan.features) ? plan.features : [];
+  const isOrigem = plan.name === 'Origem';
   return (
     <div className={`relative rounded-xl border p-4 flex flex-col gap-3 transition-colors ${
       isCurrent ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
     }`}>
-      {isCurrent && (
-        <span className="absolute top-3 right-3">
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+        {isOrigem && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-default">
+                <Badge variant="secondary" className="text-[11px] gap-1 pr-1.5">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  Especial
+                </Badge>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[200px] text-center text-[12px]">
+              Plano especial para quem participa desde a Origem do sistema
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {isCurrent && (
           <Badge variant="soft-success" className="text-[11px]">Plano atual</Badge>
-        </span>
-      )}
+        )}
+      </div>
       <div>
         <p className="font-semibold text-[13.5px]">{plan.name}</p>
         <p className="text-[22px] font-bold mt-0.5" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}>
@@ -106,11 +129,11 @@ function PlanCard({ plan, isCurrent, onSelect, isLoading }: {
       <ul className="space-y-1 text-[12.5px] text-muted-foreground flex-1">
         <li className="flex items-center gap-2">
           <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
-          {plan.maxPatients == null ? 'Pacientes ilimitados' : `Até ${plan.maxPatients} pacientes`}
+          {plan.maxPatients == null || plan.maxPatients >= UNLIMITED_SENTINEL ? 'Pacientes ilimitados' : `Até ${plan.maxPatients} pacientes`}
         </li>
         <li className="flex items-center gap-2">
           <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
-          {plan.maxUsers == null ? 'Usuários ilimitados' : `Até ${plan.maxUsers} usuários`}
+          {plan.maxUsers == null || plan.maxUsers >= UNLIMITED_SENTINEL ? 'Usuários ilimitados' : `Até ${plan.maxUsers} usuários`}
         </li>
         {features.map((f) => (
           <li key={f} className="flex items-center gap-2">
@@ -119,7 +142,7 @@ function PlanCard({ plan, isCurrent, onSelect, isLoading }: {
           </li>
         ))}
       </ul>
-      {!isCurrent && (
+      {!isCurrent && !isOrigem && (
         <Button size="sm" variant="outline" className="w-full mt-1 h-8 text-[12.5px]" onClick={onSelect} disabled={isLoading}>
           {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Selecionar plano'}
         </Button>
