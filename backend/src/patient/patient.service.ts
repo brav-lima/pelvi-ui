@@ -46,6 +46,7 @@ export class PatientService {
   }
 
   async findAll(organizationId: string, query: QueryPatientDto) {
+    const now = new Date();
     const { search, page = 1, limit = 20, orderBy, hasActivePackage, hasNoUpcomingAppointment } = query;
     const skip = (page - 1) * limit;
 
@@ -65,13 +66,13 @@ export class PatientService {
     if (hasNoUpcomingAppointment) {
       where.appointments = {
         none: {
-          startAt: { gte: new Date() },
+          startAt: { gte: now },
           status: { in: ['SCHEDULED', 'CONFIRMED'] },
         },
       };
     }
 
-    const prismaOrderBy = orderBy === 'name_desc' ? { name: 'desc' as const } : { name: 'asc' as const };
+    const prismaOrderBy = orderBy === 'name_desc' ? { name: 'desc' } : { name: 'asc' };
 
     const [data, total] = await Promise.all([
       this.prisma.patient.findMany({ where, orderBy: prismaOrderBy, skip, take: limit }),
