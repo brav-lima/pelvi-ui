@@ -49,11 +49,12 @@ type PatientFormData = z.infer<typeof patientSchema>;
 interface PatientFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess: (patient?: Patient) => void;
   patient?: Patient;
+  mode?: 'full' | 'quick';
 }
 
-export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: PatientFormDialogProps) {
+export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, mode = 'full' }: PatientFormDialogProps) {
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [error, setError] = useState('');
@@ -140,11 +141,13 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
     try {
       if (isEditing) {
         await patientsApi.update(patient.id, payload);
+        toast.success('Paciente atualizado com sucesso');
+        onSuccess();
       } else {
-        await patientsApi.create({ ...payload, name: data.name });
+        const created = await patientsApi.create({ ...payload, name: data.name });
+        toast.success('Paciente cadastrado com sucesso');
+        onSuccess(created);
       }
-      toast.success(isEditing ? 'Paciente atualizado com sucesso' : 'Paciente cadastrado com sucesso');
-      onSuccess();
       onOpenChange(false);
     } catch {
       toast.error('Erro ao salvar paciente');
@@ -158,11 +161,15 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar Paciente' : 'Novo Paciente'}</DialogTitle>
+          <DialogTitle>
+            {mode === 'quick' ? 'Cadastro Rápido de Paciente' : isEditing ? 'Editar Paciente' : 'Novo Paciente'}
+          </DialogTitle>
           <DialogDescription>
-            {isEditing
-              ? 'Atualize os dados do paciente.'
-              : 'Preencha os dados para cadastrar um novo paciente.'}
+            {mode === 'quick'
+              ? 'Cadastre o paciente para continuar o agendamento. Complete os dados depois no perfil.'
+              : isEditing
+                ? 'Atualize os dados do paciente.'
+                : 'Preencha os dados para cadastrar um novo paciente.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -181,8 +188,8 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
             )}
           </div>
 
-          {/* CPF + Nascimento */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* CPF */}
+          <div className={mode === 'quick' ? '' : 'grid grid-cols-2 gap-4'}>
             <div className="space-y-2">
               <Label htmlFor="cpf">CPF</Label>
               <Input
@@ -192,27 +199,31 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
                 onChange={(e) => form.setValue('cpf', maskCPF(e.target.value))}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">Data de Nascimento</Label>
-              <Input id="birthDate" type="date" {...form.register('birthDate')} />
-            </div>
+            {mode !== 'quick' && (
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">Data de Nascimento</Label>
+                <Input id="birthDate" type="date" {...form.register('birthDate')} />
+              </div>
+            )}
           </div>
 
-          {/* Email + Telefone */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                error={!!form.formState.errors.email}
-                aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
-                {...form.register('email')}
-              />
-              {form.formState.errors.email && (
-                <p id="email-error" className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-              )}
-            </div>
+          {/* Telefone (sempre visível) + Email (só em full) */}
+          <div className={mode === 'quick' ? '' : 'grid grid-cols-2 gap-4'}>
+            {mode !== 'quick' && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  error={!!form.formState.errors.email}
+                  aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
+                  {...form.register('email')}
+                />
+                {form.formState.errors.email && (
+                  <p id="email-error" className="text-sm text-destructive">{form.formState.errors.email.message}</p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="phone">Telefone</Label>
               <Input
@@ -224,92 +235,95 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient }: Pa
             </div>
           </div>
 
-          {/* Gênero */}
-          <div className="space-y-2">
-            <Label htmlFor="gender">Gênero</Label>
-            <Select
-              value={form.watch('gender') || ''}
-              onValueChange={(v) => form.setValue('gender', v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="M">Masculino</SelectItem>
-                <SelectItem value="F">Feminino</SelectItem>
-                <SelectItem value="O">Outro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Gênero — só em full */}
+          {mode !== 'quick' && (
+            <div className="space-y-2">
+              <Label htmlFor="gender">Gênero</Label>
+              <Select
+                value={form.watch('gender') || ''}
+                onValueChange={(v) => form.setValue('gender', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">Masculino</SelectItem>
+                  <SelectItem value="F">Feminino</SelectItem>
+                  <SelectItem value="O">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          {/* Endereço */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-foreground border-b border-border pb-1">Endereço</h4>
+          {/* Endereço — só em full */}
+          {mode !== 'quick' && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-foreground border-b border-border pb-1">Endereço</h4>
 
-            {/* CEP */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="addressCep">CEP</Label>
-                <div className="relative">
-                  <Input
-                    id="addressCep"
-                    placeholder="00000-000"
-                    maxLength={9}
-                    {...form.register('addressCep')}
-                    onBlur={handleCepBlur}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 8);
-                      form.setValue('addressCep', v.length > 5 ? `${v.slice(0, 5)}-${v.slice(5)}` : v);
-                    }}
-                  />
-                  {cepLoading && (
-                    <Loader2 className="absolute right-2 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
-                  )}
-                  {!cepLoading && (
-                    <Search className="absolute right-2 top-2.5 w-4 h-4 text-muted-foreground" />
-                  )}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="addressCep">CEP</Label>
+                  <div className="relative">
+                    <Input
+                      id="addressCep"
+                      placeholder="00000-000"
+                      maxLength={9}
+                      {...form.register('addressCep')}
+                      onBlur={handleCepBlur}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        form.setValue('addressCep', v.length > 5 ? `${v.slice(0, 5)}-${v.slice(5)}` : v);
+                      }}
+                    />
+                    {cepLoading && (
+                      <Loader2 className="absolute right-2 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                    {!cepLoading && (
+                      <Search className="absolute right-2 top-2.5 w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="addressStreet">Rua / Logradouro</Label>
+                  <Input id="addressStreet" {...form.register('addressStreet')} />
                 </div>
               </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="addressStreet">Rua / Logradouro</Label>
-                <Input id="addressStreet" {...form.register('addressStreet')} />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="addressNumber">Número</Label>
+                  <Input id="addressNumber" placeholder="123" {...form.register('addressNumber')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressComplement">Complemento</Label>
+                  <Input id="addressComplement" placeholder="Apto, Sala..." {...form.register('addressComplement')} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="addressNeighborhood">Bairro</Label>
+                  <Input id="addressNeighborhood" {...form.register('addressNeighborhood')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressCity">Cidade</Label>
+                  <Input id="addressCity" {...form.register('addressCity')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="addressState">UF</Label>
+                  <Input id="addressState" maxLength={2} placeholder="SP" {...form.register('addressState')} />
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Número + Complemento */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="addressNumber">Número</Label>
-                <Input id="addressNumber" placeholder="123" {...form.register('addressNumber')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="addressComplement">Complemento</Label>
-                <Input id="addressComplement" placeholder="Apto, Sala..." {...form.register('addressComplement')} />
-              </div>
+          {/* Observações — só em full */}
+          {mode !== 'quick' && (
+            <div className="space-y-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea id="notes" rows={3} {...form.register('notes')} />
             </div>
-
-            {/* Bairro + Cidade + Estado */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="addressNeighborhood">Bairro</Label>
-                <Input id="addressNeighborhood" {...form.register('addressNeighborhood')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="addressCity">Cidade</Label>
-                <Input id="addressCity" {...form.register('addressCity')} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="addressState">UF</Label>
-                <Input id="addressState" maxLength={2} placeholder="SP" {...form.register('addressState')} />
-              </div>
-            </div>
-          </div>
-
-          {/* Observações */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
-            <Textarea id="notes" rows={3} {...form.register('notes')} />
-          </div>
+          )}
 
           {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
