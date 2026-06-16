@@ -163,15 +163,18 @@ export default function Patients() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className={cn(
-          'inline-flex items-center h-[30px] px-3 rounded-full border text-[12.5px] font-medium cursor-default',
-          !filterActivePackage && !filterNoAppointment
-            ? 'bg-primary/10 border-primary/30 text-primary'
-            : 'bg-card border-border text-muted-foreground',
-        )}>
+        <button
+          onClick={() => { setFilterActivePackage(false); setFilterNoAppointment(false); }}
+          className={cn(
+            'inline-flex items-center h-[30px] px-3 rounded-full border text-[12.5px] font-medium transition-colors',
+            !filterActivePackage && !filterNoAppointment
+              ? 'bg-primary/10 border-primary/30 text-primary cursor-default'
+              : 'bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground cursor-pointer',
+          )}
+        >
           Todos
           {meta && <span className={cn('ml-1.5 text-[11px] px-1.5 py-px rounded-full tabular-nums', !filterActivePackage && !filterNoAppointment ? 'bg-card text-primary' : 'bg-secondary text-muted-foreground')}>{meta.total}</span>}
-        </div>
+        </button>
         {([
           {
             label: 'Com pacote',
@@ -227,12 +230,12 @@ export default function Patients() {
         <div className="bg-card border border-border rounded-xl flex flex-col items-center justify-center py-14 gap-3 text-center">
           <Users className="w-9 h-9 text-muted-foreground/40" />
           <p className="text-[13.5px] font-medium text-foreground/80">
-            {debouncedSearch ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
           </p>
           <p className="text-[12.5px] text-muted-foreground">
-            {debouncedSearch ? 'Tente buscar por outro nome ou CPF.' : 'Cadastre o primeiro paciente da clínica.'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.' : 'Cadastre o primeiro paciente da clínica.'}
           </p>
-          {!debouncedSearch && (
+          {!debouncedSearch && !filterActivePackage && !filterNoAppointment && (
             <Button size="sm" className="mt-1" onClick={() => setFormOpen(true)}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Novo paciente
