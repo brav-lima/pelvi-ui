@@ -63,7 +63,7 @@ export default function Patients() {
   useEffect(() => { setPage(1); }, [sortOrder, filterActivePackage, filterNoAppointment]);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['patients', debouncedSearch, page, sortOrder, filterActivePackage, filterNoAppointment],
+    queryKey: ['patients', debouncedSearch, page, sortOrder === 'name_asc' ? undefined : sortOrder, filterActivePackage, filterNoAppointment],
     queryFn: () => patientsApi.list({
       search: debouncedSearch,
       page,
