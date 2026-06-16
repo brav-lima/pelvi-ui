@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsInt, Min, Max, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, Max, IsIn, IsBoolean } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export class QueryPatientDto {
@@ -24,10 +24,12 @@ export class QueryPatientDto {
   orderBy?: 'name_asc' | 'name_desc';
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => String(value).toLowerCase() === 'true')
+  @IsBoolean()
   hasActivePackage?: boolean;
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => String(value).toLowerCase() === 'true')
+  @IsBoolean()
   hasNoUpcomingAppointment?: boolean;
 }
