@@ -148,7 +148,14 @@ function queryString(params?: Record<string, unknown>): string {
 }
 
 export const patientsApi = {
-  list: (params?: { search?: string; page?: number; limit?: number }) =>
+  list: (params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    orderBy?: 'name_asc' | 'name_desc';
+    hasActivePackage?: boolean;
+    hasNoUpcomingAppointment?: boolean;
+  }) =>
     api.get<PaginatedResponse<Patient>>(`/patients?${queryString(params)}`),
   getById: (id: string) => api.get<Patient>(`/patients/${id}`),
   create: (data: CreatePatientData) => api.post<Patient>('/patients', data),
