@@ -72,7 +72,7 @@ export class PatientService {
       };
     }
 
-    const prismaOrderBy = orderBy === 'name_desc' ? { name: 'desc' } : { name: 'asc' };
+    const prismaOrderBy = orderBy === 'name_desc' ? { name: 'desc' as const } : { name: 'asc' as const };
 
     const [data, total] = await Promise.all([
       this.prisma.patient.findMany({ where, orderBy: prismaOrderBy, skip, take: limit }),
