@@ -164,4 +164,75 @@ describe('PatientService', () => {
       expect(result.meta.totalPages).toBe(5);
     });
   });
+
+  describe('filtros e ordenação', () => {
+    beforeEach(() => {
+      prisma.patient.findMany.mockResolvedValue([]);
+      prisma.patient.count.mockResolvedValue(0);
+    });
+
+    it('orderBy name_desc deve passar { name: desc } ao findMany', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20, orderBy: 'name_desc' });
+
+      expect(prisma.patient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { name: 'desc' } }),
+      );
+    });
+
+    it('orderBy name_asc (default) deve passar { name: asc } ao findMany', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20 });
+
+      expect(prisma.patient.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { name: 'asc' } }),
+      );
+    });
+
+    it('hasActivePackage deve adicionar filtro de pacote ativo ao where', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20, hasActivePackage: true });
+
+      const callArgs = prisma.patient.findMany.mock.calls[0][0];
+      expect(callArgs.where.treatmentPackages).toEqual({ some: { status: 'ACTIVE' } });
+    });
+
+    it('hasActivePackage false não deve adicionar filtro de pacote ao where', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20, hasActivePackage: false });
+
+      const callArgs = prisma.patient.findMany.mock.calls[0][0];
+      expect(callArgs.where.treatmentPackages).toBeUndefined();
+    });
+
+    it('hasNoUpcomingAppointment deve adicionar filtro none de agendamentos futuros ao where', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20, hasNoUpcomingAppointment: true });
+
+      const callArgs = prisma.patient.findMany.mock.calls[0][0];
+      expect(callArgs.where.appointments).toEqual({
+        none: {
+          startAt: { gte: expect.any(Date) },
+          status: { in: ['SCHEDULED', 'CONFIRMED'] },
+        },
+      });
+    });
+
+    it('hasNoUpcomingAppointment false não deve adicionar filtro de agendamento ao where', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20, hasNoUpcomingAppointment: false });
+
+      const callArgs = prisma.patient.findMany.mock.calls[0][0];
+      expect(callArgs.where.appointments).toBeUndefined();
+    });
+
+    it('filtros combinados com search devem compor o where corretamente', async () => {
+      await service.findAll(orgA, {
+        page: 1,
+        limit: 20,
+        search: 'ana',
+        hasActivePackage: true,
+        hasNoUpcomingAppointment: true,
+      });
+
+      const callArgs = prisma.patient.findMany.mock.calls[0][0];
+      expect(callArgs.where.OR).toBeDefined();
+      expect(callArgs.where.treatmentPackages).toEqual({ some: { status: 'ACTIVE' } });
+      expect(callArgs.where.appointments).toBeDefined();
+    });
+  });
 });

@@ -1,7 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Loader2, ChevronLeft, ChevronRight, Users, Download, SlidersHorizontal, ChevronDown, Clock } from 'lucide-react';
+import { Plus, Search, Loader2, ChevronLeft, ChevronRight, Users, ChevronDown, Clock } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { patientsApi, appointmentsApi, treatmentPackagesApi } from '@/lib/api';
 import { formatCPFMasked, formatPhone } from '@/lib/formatters';
 import { useNavigate } from 'react-router-dom';
@@ -44,6 +50,9 @@ export default function Patients() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc'>('name_asc');
+  const [filterActivePackage, setFilterActivePackage] = useState(false);
+  const [filterNoAppointment, setFilterNoAppointment] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,9 +60,18 @@ export default function Patients() {
     return () => clearTimeout(t);
   }, [search]);
 
+  useEffect(() => { setPage(1); }, [sortOrder, filterActivePackage, filterNoAppointment]);
+
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['patients', debouncedSearch, page],
-    queryFn: () => patientsApi.list({ search: debouncedSearch, page, limit: 12 }),
+    queryKey: ['patients', debouncedSearch, page, sortOrder === 'name_asc' ? undefined : sortOrder, filterActivePackage, filterNoAppointment],
+    queryFn: () => patientsApi.list({
+      search: debouncedSearch,
+      page,
+      limit: 12,
+      orderBy: sortOrder !== 'name_asc' ? sortOrder : undefined,
+      hasActivePackage: filterActivePackage || undefined,
+      hasNoUpcomingAppointment: filterNoAppointment || undefined,
+    }),
   });
 
   const patients = data?.data ?? [];
@@ -126,10 +144,7 @@ export default function Patients() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            Exportar
-          </Button>
+          {/* TODO: exportar pacientes (CSV) — ver docs/ui-funcoes-sem-implementacao.md */}
           <Button onClick={() => setFormOpen(true)}>
             <Plus className="w-4 h-4 mr-1.5" />
             Novo paciente
@@ -148,35 +163,61 @@ export default function Patients() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className={cn(
-          'inline-flex items-center h-[30px] px-3 rounded-full border text-[12.5px] font-medium cursor-default',
-          'bg-primary/10 border-primary/30 text-primary',
-        )}>
+        <button
+          onClick={() => { setFilterActivePackage(false); setFilterNoAppointment(false); }}
+          className={cn(
+            'inline-flex items-center h-[30px] px-3 rounded-full border text-[12.5px] font-medium transition-colors',
+            !filterActivePackage && !filterNoAppointment
+              ? 'bg-primary/10 border-primary/30 text-primary cursor-default'
+              : 'bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground cursor-pointer',
+          )}
+        >
           Todos
-          {meta && <span className="ml-1.5 text-[11px] bg-card text-primary px-1.5 py-px rounded-full tabular-nums">{meta.total}</span>}
-        </div>
-        {[
-          { label: 'Com pacote', count: activePackages.length },
-          { label: 'Sem agendamento', count: null },
-        ].map(chip => (
-          <div
+          {meta && <span className={cn('ml-1.5 text-[11px] px-1.5 py-px rounded-full tabular-nums', !filterActivePackage && !filterNoAppointment ? 'bg-card text-primary' : 'bg-secondary text-muted-foreground')}>{meta.total}</span>}
+        </button>
+        {([
+          {
+            label: 'Com pacote',
+            active: filterActivePackage,
+            onToggle: () => setFilterActivePackage(v => !v),
+          },
+          {
+            label: 'Sem agendamento',
+            active: filterNoAppointment,
+            onToggle: () => setFilterNoAppointment(v => !v),
+          },
+        ] as const).map(chip => (
+          <button
             key={chip.label}
-            className="inline-flex items-center h-[30px] px-3 rounded-full border border-border bg-card text-[12.5px] font-medium text-muted-foreground cursor-default"
+            onClick={chip.onToggle}
+            className={cn(
+              'inline-flex items-center h-[30px] px-3 rounded-full border text-[12.5px] font-medium transition-colors',
+              chip.active
+                ? 'bg-primary/10 border-primary/30 text-primary'
+                : 'bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground',
+            )}
           >
             {chip.label}
-            {chip.count !== null && (
-              <span className="ml-1.5 text-[11px] bg-secondary text-muted-foreground px-1.5 py-px rounded-full tabular-nums">{chip.count}</span>
-            )}
-          </div>
+          </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 h-[34px] px-3 rounded-lg bg-card border border-border text-[13px] text-foreground font-medium cursor-default select-none">
-            Ordenar: Último atendimento
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-          </div>
-          <button className="flex items-center justify-center w-[34px] h-[34px] rounded-lg border border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="inline-flex items-center gap-1.5 h-[34px] px-3 rounded-lg bg-card border border-border text-[13px] text-foreground font-medium hover:bg-secondary transition-colors select-none">
+                {sortOrder === 'name_desc' ? 'Nome Z→A' : 'Nome A→Z'}
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortOrder('name_asc')}>
+                Nome A→Z
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortOrder('name_desc')}>
+                Nome Z→A
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* TODO: filtro avançado (gênero, faixa etária) — ver docs/ui-funcoes-sem-implementacao.md */}
         </div>
       </div>
 
@@ -189,12 +230,12 @@ export default function Patients() {
         <div className="bg-card border border-border rounded-xl flex flex-col items-center justify-center py-14 gap-3 text-center">
           <Users className="w-9 h-9 text-muted-foreground/40" />
           <p className="text-[13.5px] font-medium text-foreground/80">
-            {debouncedSearch ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
           </p>
           <p className="text-[12.5px] text-muted-foreground">
-            {debouncedSearch ? 'Tente buscar por outro nome ou CPF.' : 'Cadastre o primeiro paciente da clínica.'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.' : 'Cadastre o primeiro paciente da clínica.'}
           </p>
-          {!debouncedSearch && (
+          {!debouncedSearch && !filterActivePackage && !filterNoAppointment && (
             <Button size="sm" className="mt-1" onClick={() => setFormOpen(true)}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Novo paciente
