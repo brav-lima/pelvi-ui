@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import type { Appointment } from '@/types/clinic';
+import { Plus } from 'lucide-react';
+import type { Appointment, Patient } from '@/types/clinic';
+import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +60,8 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+  const [quickPatientOpen, setQuickPatientOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const isEditMode = !!appointment;
 
@@ -139,6 +143,15 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     ? activeProcedures.filter((p) => packageProcedureIds.includes(p.id))
     : activeProcedures;
 
+  const handleQuickPatientSuccess = (patient?: Patient) => {
+    queryClient.invalidateQueries({ queryKey: ['patients-select'] });
+    if (patient) {
+      form.setValue('patientId', patient.id, { shouldValidate: true });
+      setSelectedPackageId('');
+      form.setValue('procedureId', '');
+    }
+  };
+
   const onSubmit = async (data: AppointmentFormData) => {
     setLoading(true);
     setError('');
@@ -194,6 +207,7 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -205,7 +219,19 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="apt-patient">Paciente *</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="apt-patient">Paciente *</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto py-0 px-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setQuickPatientOpen(true)}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Novo paciente
+              </Button>
+            </div>
             <Select
               value={form.watch('patientId') || ''}
               onValueChange={(v) => {
@@ -366,5 +392,13 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         </form>
       </DialogContent>
     </Dialog>
+
+    <PatientFormDialog
+      open={quickPatientOpen}
+      onOpenChange={setQuickPatientOpen}
+      onSuccess={handleQuickPatientSuccess}
+      mode="quick"
+    />
+    </>
   );
 }
