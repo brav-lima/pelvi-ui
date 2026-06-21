@@ -35,6 +35,8 @@ const financialSchema = z.object({
   paymentMethod: z.string().optional(),
   installments: z.string().default('1'),
   dueDate: z.string().optional(),
+  isRecurring: z.boolean().default(false),
+  recurrenceMonths: z.string().default('12'),
 });
 
 type FinancialFormData = z.infer<typeof financialSchema>;
@@ -69,6 +71,8 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
       paymentMethod: '',
       installments: '1',
       dueDate: format(new Date(), 'yyyy-MM-dd'),
+      isRecurring: false,
+      recurrenceMonths: '12',
     },
   });
 
@@ -77,6 +81,8 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
   const watchDueDate = form.watch('dueDate') || '';
   const watchType = form.watch('type');
   const isInstallment = watchInstallments > 1;
+  const watchIsRecurring = form.watch('isRecurring');
+  const watchRecurrenceMonths = parseInt(form.watch('recurrenceMonths') || '12', 10);
   const showPatient = watchType === 'INCOME' || linkPatient;
 
   const installmentPreview = useMemo(() => {
@@ -101,6 +107,23 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
     });
   }, [isInstallment, watchAmount, watchDueDate, watchInstallments]);
 
+  const recurrencePreview = useMemo(() => {
+    if (!watchIsRecurring || !watchAmount || !watchDueDate) return null;
+    const amount = parseCurrency(watchAmount);
+    if (!amount || amount <= 0 || watchRecurrenceMonths < 2) return null;
+
+    const firstDate = new Date(watchDueDate + 'T00:00:00');
+    const lastDate = addMonths(firstDate, watchRecurrenceMonths - 1);
+
+    return {
+      months: watchRecurrenceMonths,
+      amount,
+      from: format(firstDate, 'MM/yyyy'),
+      to: format(lastDate, 'MM/yyyy'),
+      day: firstDate.getDate(),
+    };
+  }, [watchIsRecurring, watchAmount, watchDueDate, watchRecurrenceMonths]);
+
   const onSubmit = async (data: FinancialFormData) => {
     setLoading(true);
     setError('');
@@ -108,24 +131,44 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
     const installments = parseInt(data.installments, 10);
 
     try {
-      await financialApi.create({
-        patientId: data.patientId || undefined,
-        amount: parseCurrency(data.amount),
-        type: data.type,
-        description: data.description || undefined,
-        paymentMethod: data.paymentMethod || undefined,
-        ...(installments > 1 && {
-          installments,
-          dueDate: data.dueDate || undefined,
-        }),
-        ...(installments === 1 && data.dueDate && {
-          dueDate: data.dueDate,
-        }),
-      });
+      let payload: Parameters<typeof financialApi.create>[0];
 
-      const msg = installments > 1
-        ? `${installments} parcelas criadas com sucesso`
-        : 'Registro financeiro criado com sucesso';
+      if (data.isRecurring) {
+        payload = {
+          patientId: data.patientId || undefined,
+          amount: parseCurrency(data.amount),
+          type: data.type,
+          description: data.description || undefined,
+          paymentMethod: data.paymentMethod || undefined,
+          isRecurring: true,
+          recurrenceMonths: parseInt(data.recurrenceMonths, 10),
+          dueDate: data.dueDate || undefined,
+        };
+      } else {
+        payload = {
+          patientId: data.patientId || undefined,
+          amount: parseCurrency(data.amount),
+          type: data.type,
+          description: data.description || undefined,
+          paymentMethod: data.paymentMethod || undefined,
+          ...(installments > 1 && {
+            installments,
+            dueDate: data.dueDate || undefined,
+          }),
+          ...(installments === 1 && data.dueDate && {
+            dueDate: data.dueDate,
+          }),
+        };
+      }
+
+      await financialApi.create(payload);
+
+      const msg = data.isRecurring
+        ? `${parseInt(data.recurrenceMonths, 10)} registros recorrentes criados`
+        : installments > 1
+          ? `${installments} parcelas criadas com sucesso`
+          : 'Registro financeiro criado com sucesso';
+
       toast.success(msg);
       onSuccess();
       onOpenChange(false);
@@ -291,7 +334,12 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
               <Label>Parcelas</Label>
               <Select
                 value={form.watch('installments')}
-                onValueChange={(v) => form.setValue('installments', v)}
+                onValueChange={(v) => {
+                  form.setValue('installments', v);
+                  if (parseInt(v, 10) > 1) {
+                    form.setValue('isRecurring', false);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -305,6 +353,57 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
               </Select>
             </div>
           </div>
+
+          {/* Recorrência — só visível quando à vista */}
+          {!isInstallment && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  id="isRecurring"
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                  checked={form.watch('isRecurring')}
+                  onChange={(e) => form.setValue('isRecurring', e.target.checked)}
+                />
+                <Label htmlFor="isRecurring" className="cursor-pointer font-normal">
+                  Recorrência mensal
+                </Label>
+              </div>
+
+              {watchIsRecurring && (
+                <div className="space-y-2">
+                  <Label>Repetir por (meses)</Label>
+                  <Select
+                    value={form.watch('recurrenceMonths')}
+                    onValueChange={(v) => form.setValue('recurrenceMonths', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 59 }, (_, i) => i + 2).map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} meses</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {recurrencePreview && (
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    Recorrência gerada
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {recurrencePreview.months} registros de{' '}
+                    <span className="font-medium">R$ {formatCurrency(recurrencePreview.amount)}</span>
+                    {' '}· todo dia {recurrencePreview.day}
+                    {' '}· {recurrencePreview.from} – {recurrencePreview.to}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Preview de parcelas */}
           {isInstallment && installmentPreview.length > 0 && (
@@ -338,7 +437,11 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
               Cancelar
             </Button>
             <Button type="submit" loading={loading}>
-              {isInstallment ? `Registrar ${watchInstallments}x` : 'Registrar'}
+              {watchIsRecurring
+                ? `Registrar ${watchRecurrenceMonths}x recorrente`
+                : isInstallment
+                  ? `Registrar ${watchInstallments}x`
+                  : 'Registrar'}
             </Button>
           </DialogFooter>
         </form>

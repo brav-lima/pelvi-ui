@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FinancialStatus, FinancialType, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinancialDto } from './dto/create-financial.dto';
 import { UpdateFinancialDto } from './dto/update-financial.dto';
@@ -22,6 +23,10 @@ export class FinancialService {
 
   async create(organizationId: string, dto: CreateFinancialDto) {
     const installments = dto.installments ?? 1;
+
+    if (dto.isRecurring && (dto.recurrenceMonths ?? 0) > 1) {
+      return this.createRecurring(organizationId, dto, dto.recurrenceMonths!);
+    }
 
     if (installments > 1) {
       return this.createInstallments(organizationId, dto, installments);
@@ -88,6 +93,39 @@ export class FinancialService {
     return records;
   }
 
+  private async createRecurring(
+    organizationId: string,
+    dto: CreateFinancialDto,
+    months: number,
+  ) {
+    const groupId = randomUUID();
+    const firstDueDate = dto.dueDate ? new Date(dto.dueDate + 'T00:00:00') : new Date();
+    const include = financialIncludes;
+
+    return this.prisma.$transaction(
+      Array.from({ length: months }, (_, i) => {
+        const dueDate = new Date(firstDueDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
+
+        return this.prisma.financialRecord.create({
+          data: {
+            organizationId,
+            patientId: dto.patientId,
+            appointmentId: dto.appointmentId,
+            amount: dto.amount,
+            type: dto.type,
+            paymentMethod: dto.paymentMethod,
+            description: dto.description,
+            dueDate,
+            recurrenceGroupId: groupId,
+            recurrenceIndex: i,
+          },
+          include,
+        });
+      }),
+    );
+  }
+
   async findByPatient(organizationId: string, patientId: string) {
     return this.prisma.financialRecord.findMany({
       where: { organizationId, patientId, deletedAt: null },
@@ -136,7 +174,15 @@ export class FinancialService {
       where = {
         organizationId,
         deletedAt: null,
-        createdAt: { gte: startDate, lt: endDate },
+        OR: [
+          {
+            dueDate: { gte: startDate, lt: endDate },
+          },
+          {
+            dueDate: null,
+            createdAt: { gte: startDate, lt: endDate },
+          },
+        ],
       };
     }
 
@@ -179,8 +225,24 @@ export class FinancialService {
     });
   }
 
-  async remove(organizationId: string, id: string) {
-    await this.findById(organizationId, id);
+  async remove(
+    organizationId: string,
+    id: string,
+    mode: 'single' | 'this_and_future' = 'single',
+  ) {
+    const record = await this.findById(organizationId, id);
+
+    if (mode === 'this_and_future' && record.recurrenceGroupId) {
+      return this.prisma.financialRecord.updateMany({
+        where: {
+          organizationId,
+          recurrenceGroupId: record.recurrenceGroupId,
+          recurrenceIndex: { gte: record.recurrenceIndex ?? 0 },
+          deletedAt: null,
+        },
+        data: { deletedAt: new Date() },
+      });
+    }
 
     return this.prisma.financialRecord.update({
       where: { id },
@@ -195,7 +257,10 @@ export class FinancialService {
     const where = {
       organizationId,
       deletedAt: null,
-      createdAt: { gte: startDate, lt: endDate },
+      OR: [
+        { dueDate: { gte: startDate, lt: endDate } },
+        { dueDate: null, createdAt: { gte: startDate, lt: endDate } },
+      ],
     };
 
     const [received, pending, expenses] = await Promise.all([

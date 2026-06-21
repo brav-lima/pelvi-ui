@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -44,4 +45,14 @@ export class CreateFinancialDto {
   @IsOptional()
   @IsDateString({}, { message: 'Data de vencimento inválida' })
   dueDate?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isRecurring?: boolean;
+
+  @IsOptional()
+  @IsInt({ message: 'Número de meses deve ser inteiro' })
+  @Min(2, { message: 'Mínimo de 2 meses' })
+  @Max(60, { message: 'Máximo de 60 meses' })
+  recurrenceMonths?: number;
 }

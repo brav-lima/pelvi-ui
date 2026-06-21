@@ -18,6 +18,7 @@ describe('FinancialService', () => {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         delete: jest.fn(),
         aggregate: jest.fn(),
       },
@@ -149,6 +150,101 @@ describe('FinancialService', () => {
     });
   });
 
+  describe('create (recorrência)', () => {
+    it('deve criar N registros com valor integral (sem divisão)', async () => {
+      const dto = {
+        amount: 1500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 3,
+        dueDate: '2026-06-10',
+        description: 'Aluguel',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.financialRecord.create).toHaveBeenCalledTimes(3);
+      const calls = prisma.financialRecord.create.mock.calls;
+      expect(calls[0][0].data.amount).toBe(1500);
+      expect(calls[1][0].data.amount).toBe(1500);
+      expect(calls[2][0].data.amount).toBe(1500);
+    });
+
+    it('deve compartilhar o mesmo recurrenceGroupId em todos os registros', async () => {
+      const dto = {
+        amount: 1500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 2,
+        dueDate: '2026-06-10',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      const calls = prisma.financialRecord.create.mock.calls;
+      const g0 = calls[0][0].data.recurrenceGroupId;
+      const g1 = calls[1][0].data.recurrenceGroupId;
+      expect(g0).toBeDefined();
+      expect(g0).toBe(g1);
+    });
+
+    it('deve atribuir recurrenceIndex sequencial começando em 0', async () => {
+      const dto = {
+        amount: 500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 3,
+        dueDate: '2026-06-10',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      const calls = prisma.financialRecord.create.mock.calls;
+      expect(calls[0][0].data.recurrenceIndex).toBe(0);
+      expect(calls[1][0].data.recurrenceIndex).toBe(1);
+      expect(calls[2][0].data.recurrenceIndex).toBe(2);
+    });
+
+    it('deve avançar dueDate mês a mês mantendo o dia', async () => {
+      const dto = {
+        amount: 500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 3,
+        dueDate: '2026-06-10',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      const calls = prisma.financialRecord.create.mock.calls;
+      const d0: Date = calls[0][0].data.dueDate;
+      const d1: Date = calls[1][0].data.dueDate;
+      const d2: Date = calls[2][0].data.dueDate;
+      // junho → julho → agosto (0-indexed months)
+      expect(d0.getMonth()).toBe(5);
+      expect(d1.getMonth()).toBe(6);
+      expect(d2.getMonth()).toBe(7);
+      // dia preservado
+      expect(d0.getDate()).toBe(10);
+      expect(d1.getDate()).toBe(10);
+      expect(d2.getDate()).toBe(10);
+    });
+
+    it('não deve usar $transaction quando não é recorrente', async () => {
+      const dto = { amount: 200, type: FinancialType.INCOME };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-1' });
+
+      await service.create(orgId, dto as any);
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
   describe('findAll', () => {
     it('deve filtrar por startDate e endDate quando informados', async () => {
       prisma.financialRecord.findMany.mockResolvedValue([]);
@@ -175,8 +271,14 @@ describe('FinancialService', () => {
 
       const callArgs = prisma.financialRecord.findMany.mock.calls[0][0];
       expect(callArgs.where.organizationId).toBe(orgId);
-      expect(callArgs.where.createdAt.gte).toEqual(new Date(2025, 2, 1));  // março
-      expect(callArgs.where.createdAt.lt).toEqual(new Date(2025, 3, 1));   // abril
+      expect(callArgs.where.OR).toHaveLength(2);
+      // primeiro branch: registros com dueDate no mês
+      expect(callArgs.where.OR[0].dueDate.gte).toEqual(new Date(2025, 2, 1));
+      expect(callArgs.where.OR[0].dueDate.lt).toEqual(new Date(2025, 3, 1));
+      // segundo branch: registros sem dueDate, filtro por createdAt
+      expect(callArgs.where.OR[1].dueDate).toBeNull();
+      expect(callArgs.where.OR[1].createdAt.gte).toEqual(new Date(2025, 2, 1));
+      expect(callArgs.where.OR[1].createdAt.lt).toEqual(new Date(2025, 3, 1));
     });
 
     it('deve respeitar page e limit passados', async () => {
@@ -243,12 +345,12 @@ describe('FinancialService', () => {
   });
 
   describe('remove', () => {
-    it('deve aplicar soft delete quando pertence à organização', async () => {
-      const existing = { id: 'fin-1', organizationId: orgId };
+    it('deve aplicar soft delete quando pertence à organização (mode=single)', async () => {
+      const existing = { id: 'fin-1', organizationId: orgId, recurrenceGroupId: null, recurrenceIndex: null };
       prisma.financialRecord.findFirst.mockResolvedValue(existing);
       prisma.financialRecord.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
 
-      await service.remove(orgId, 'fin-1');
+      await service.remove(orgId, 'fin-1', 'single');
 
       expect(prisma.financialRecord.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -256,15 +358,56 @@ describe('FinancialService', () => {
           data: expect.objectContaining({ deletedAt: expect.any(Date) }),
         }),
       );
+      expect(prisma.financialRecord.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('deve usar single delete por padrão quando mode omitido', async () => {
+      const existing = { id: 'fin-1', organizationId: orgId, recurrenceGroupId: 'grp-1', recurrenceIndex: 0 };
+      prisma.financialRecord.findFirst.mockResolvedValue(existing);
+      prisma.financialRecord.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
+
+      await service.remove(orgId, 'fin-1');
+
+      expect(prisma.financialRecord.update).toHaveBeenCalled();
+      expect(prisma.financialRecord.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('deve soft-deletar este e posteriores quando mode=this_and_future', async () => {
+      const existing = { id: 'fin-2', organizationId: orgId, recurrenceGroupId: 'grp-1', recurrenceIndex: 2 };
+      prisma.financialRecord.findFirst.mockResolvedValue(existing);
+      prisma.financialRecord.updateMany.mockResolvedValue({ count: 3 });
+
+      await service.remove(orgId, 'fin-2', 'this_and_future');
+
+      expect(prisma.financialRecord.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: orgId,
+            recurrenceGroupId: 'grp-1',
+            recurrenceIndex: { gte: 2 },
+            deletedAt: null,
+          }),
+          data: expect.objectContaining({ deletedAt: expect.any(Date) }),
+        }),
+      );
+      expect(prisma.financialRecord.update).not.toHaveBeenCalled();
+    });
+
+    it('deve cair em single delete quando recurrenceGroupId é null e mode=this_and_future', async () => {
+      const existing = { id: 'fin-3', organizationId: orgId, recurrenceGroupId: null, recurrenceIndex: null };
+      prisma.financialRecord.findFirst.mockResolvedValue(existing);
+      prisma.financialRecord.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
+
+      await service.remove(orgId, 'fin-3', 'this_and_future');
+
+      expect(prisma.financialRecord.update).toHaveBeenCalled();
+      expect(prisma.financialRecord.updateMany).not.toHaveBeenCalled();
     });
 
     it('deve lançar NotFoundException antes de deletar quando não existe na org', async () => {
       prisma.financialRecord.findFirst.mockResolvedValue(null);
 
-      await expect(service.remove(orgId, 'fin-inexistente')).rejects.toThrow(
-        NotFoundException,
-      );
-
+      await expect(service.remove(orgId, 'fin-inexistente')).rejects.toThrow(NotFoundException);
       expect(prisma.financialRecord.update).not.toHaveBeenCalled();
     });
   });
@@ -298,14 +441,18 @@ describe('FinancialService', () => {
       expect(result.balance).toBe(0);
     });
 
-    it('deve filtrar pelo mês e ano corretos', async () => {
+    it('deve filtrar pelo mês e ano corretos usando dueDate ?? createdAt', async () => {
       prisma.financialRecord.aggregate.mockResolvedValue({ _sum: { amount: null } });
 
       await service.summary(orgId, { month: 6, year: 2025 });
 
       const firstCall = prisma.financialRecord.aggregate.mock.calls[0][0];
-      expect(firstCall.where.createdAt.gte).toEqual(new Date(2025, 5, 1));  // junho
-      expect(firstCall.where.createdAt.lt).toEqual(new Date(2025, 6, 1));   // julho
+      const startDate = new Date(2025, 5, 1);
+      const endDate = new Date(2025, 6, 1);
+      expect(firstCall.where.OR[0].dueDate.gte).toEqual(startDate);
+      expect(firstCall.where.OR[0].dueDate.lt).toEqual(endDate);
+      expect(firstCall.where.OR[1].createdAt.gte).toEqual(startDate);
+      expect(firstCall.where.OR[1].createdAt.lt).toEqual(endDate);
     });
   });
 });
