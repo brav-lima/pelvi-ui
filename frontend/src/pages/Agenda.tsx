@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -201,6 +202,7 @@ type ViewMode = 'day' | 'week' | 'month';
 
 export default function Agenda() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -253,7 +255,7 @@ export default function Agenda() {
 
   const { data: professionals = [] } = useQuery({
     queryKey: ['professionals'],
-    queryFn: professionalsApi.list,
+    queryFn: () => professionalsApi.list(),
   });
 
   const activeProfessionals = professionals.filter((p) => p.active);
@@ -708,7 +710,19 @@ export default function Agenda() {
               <div className="grid gap-3">
                 <div>
                   <p className="text-sm text-muted-foreground">Paciente</p>
-                  <p className="font-medium">{selectedAppointment.patient?.name ?? '-'}</p>
+                  {selectedAppointment.patient ? (
+                    <button
+                      className="font-medium text-primary underline underline-offset-2 hover:opacity-80 text-left"
+                      onClick={() => {
+                        setSelectedAppointment(null);
+                        navigate(`/patients/${selectedAppointment.patient!.id}`);
+                      }}
+                    >
+                      {selectedAppointment.patient.name}
+                    </button>
+                  ) : (
+                    <p className="font-medium">-</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Profissional</p>
@@ -770,7 +784,7 @@ export default function Agenda() {
                       onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'DONE' })}
                     >
                       <CalendarCheck className="w-4 h-4 mr-2" />
-                      Finalizar
+                      Atendimento concluído
                     </Button>
                     <Button
                       variant="outline"
