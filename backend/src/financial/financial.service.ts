@@ -237,7 +237,7 @@ export class FinancialService {
         where: {
           organizationId,
           recurrenceGroupId: record.recurrenceGroupId,
-          recurrenceIndex: { gte: record.recurrenceIndex },
+          recurrenceIndex: { gte: record.recurrenceIndex ?? 0 },
           deletedAt: null,
         },
         data: { deletedAt: new Date() },
