@@ -99,7 +99,7 @@ export class FinancialService {
     months: number,
   ) {
     const groupId = randomUUID();
-    const firstDueDate = new Date(dto.dueDate! + 'T00:00:00');
+    const firstDueDate = dto.dueDate ? new Date(dto.dueDate + 'T00:00:00') : new Date();
     const include = financialIncludes;
 
     return this.prisma.$transaction(
@@ -257,7 +257,10 @@ export class FinancialService {
     const where = {
       organizationId,
       deletedAt: null,
-      createdAt: { gte: startDate, lt: endDate },
+      OR: [
+        { dueDate: { gte: startDate, lt: endDate } },
+        { dueDate: null, createdAt: { gte: startDate, lt: endDate } },
+      ],
     };
 
     const [received, pending, expenses] = await Promise.all([

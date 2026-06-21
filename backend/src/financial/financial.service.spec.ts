@@ -441,14 +441,18 @@ describe('FinancialService', () => {
       expect(result.balance).toBe(0);
     });
 
-    it('deve filtrar pelo mês e ano corretos', async () => {
+    it('deve filtrar pelo mês e ano corretos usando dueDate ?? createdAt', async () => {
       prisma.financialRecord.aggregate.mockResolvedValue({ _sum: { amount: null } });
 
       await service.summary(orgId, { month: 6, year: 2025 });
 
       const firstCall = prisma.financialRecord.aggregate.mock.calls[0][0];
-      expect(firstCall.where.createdAt.gte).toEqual(new Date(2025, 5, 1));  // junho
-      expect(firstCall.where.createdAt.lt).toEqual(new Date(2025, 6, 1));   // julho
+      const startDate = new Date(2025, 5, 1);
+      const endDate = new Date(2025, 6, 1);
+      expect(firstCall.where.OR[0].dueDate.gte).toEqual(startDate);
+      expect(firstCall.where.OR[0].dueDate.lt).toEqual(endDate);
+      expect(firstCall.where.OR[1].createdAt.gte).toEqual(startDate);
+      expect(firstCall.where.OR[1].createdAt.lt).toEqual(endDate);
     });
   });
 });
