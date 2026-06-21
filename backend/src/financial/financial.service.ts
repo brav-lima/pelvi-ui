@@ -225,8 +225,24 @@ export class FinancialService {
     });
   }
 
-  async remove(organizationId: string, id: string) {
-    await this.findById(organizationId, id);
+  async remove(
+    organizationId: string,
+    id: string,
+    mode: 'single' | 'this_and_future' = 'single',
+  ) {
+    const record = await this.findById(organizationId, id);
+
+    if (mode === 'this_and_future' && record.recurrenceGroupId) {
+      return this.prisma.financialRecord.updateMany({
+        where: {
+          organizationId,
+          recurrenceGroupId: record.recurrenceGroupId,
+          recurrenceIndex: { gte: record.recurrenceIndex },
+          deletedAt: null,
+        },
+        data: { deletedAt: new Date() },
+      });
+    }
 
     return this.prisma.financialRecord.update({
       where: { id },

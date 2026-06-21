@@ -345,12 +345,12 @@ describe('FinancialService', () => {
   });
 
   describe('remove', () => {
-    it('deve aplicar soft delete quando pertence à organização', async () => {
-      const existing = { id: 'fin-1', organizationId: orgId };
+    it('deve aplicar soft delete quando pertence à organização (mode=single)', async () => {
+      const existing = { id: 'fin-1', organizationId: orgId, recurrenceGroupId: null, recurrenceIndex: null };
       prisma.financialRecord.findFirst.mockResolvedValue(existing);
       prisma.financialRecord.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
 
-      await service.remove(orgId, 'fin-1');
+      await service.remove(orgId, 'fin-1', 'single');
 
       expect(prisma.financialRecord.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -358,15 +358,56 @@ describe('FinancialService', () => {
           data: expect.objectContaining({ deletedAt: expect.any(Date) }),
         }),
       );
+      expect(prisma.financialRecord.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('deve usar single delete por padrão quando mode omitido', async () => {
+      const existing = { id: 'fin-1', organizationId: orgId, recurrenceGroupId: 'grp-1', recurrenceIndex: 0 };
+      prisma.financialRecord.findFirst.mockResolvedValue(existing);
+      prisma.financialRecord.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
+
+      await service.remove(orgId, 'fin-1');
+
+      expect(prisma.financialRecord.update).toHaveBeenCalled();
+      expect(prisma.financialRecord.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('deve soft-deletar este e posteriores quando mode=this_and_future', async () => {
+      const existing = { id: 'fin-2', organizationId: orgId, recurrenceGroupId: 'grp-1', recurrenceIndex: 2 };
+      prisma.financialRecord.findFirst.mockResolvedValue(existing);
+      prisma.financialRecord.updateMany.mockResolvedValue({ count: 3 });
+
+      await service.remove(orgId, 'fin-2', 'this_and_future');
+
+      expect(prisma.financialRecord.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: orgId,
+            recurrenceGroupId: 'grp-1',
+            recurrenceIndex: { gte: 2 },
+            deletedAt: null,
+          }),
+          data: expect.objectContaining({ deletedAt: expect.any(Date) }),
+        }),
+      );
+      expect(prisma.financialRecord.update).not.toHaveBeenCalled();
+    });
+
+    it('deve cair em single delete quando recurrenceGroupId é null e mode=this_and_future', async () => {
+      const existing = { id: 'fin-3', organizationId: orgId, recurrenceGroupId: null, recurrenceIndex: null };
+      prisma.financialRecord.findFirst.mockResolvedValue(existing);
+      prisma.financialRecord.update.mockResolvedValue({ ...existing, deletedAt: new Date() });
+
+      await service.remove(orgId, 'fin-3', 'this_and_future');
+
+      expect(prisma.financialRecord.update).toHaveBeenCalled();
+      expect(prisma.financialRecord.updateMany).not.toHaveBeenCalled();
     });
 
     it('deve lançar NotFoundException antes de deletar quando não existe na org', async () => {
       prisma.financialRecord.findFirst.mockResolvedValue(null);
 
-      await expect(service.remove(orgId, 'fin-inexistente')).rejects.toThrow(
-        NotFoundException,
-      );
-
+      await expect(service.remove(orgId, 'fin-inexistente')).rejects.toThrow(NotFoundException);
       expect(prisma.financialRecord.update).not.toHaveBeenCalled();
     });
   });
