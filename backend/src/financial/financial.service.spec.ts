@@ -175,8 +175,14 @@ describe('FinancialService', () => {
 
       const callArgs = prisma.financialRecord.findMany.mock.calls[0][0];
       expect(callArgs.where.organizationId).toBe(orgId);
-      expect(callArgs.where.createdAt.gte).toEqual(new Date(2025, 2, 1));  // março
-      expect(callArgs.where.createdAt.lt).toEqual(new Date(2025, 3, 1));   // abril
+      expect(callArgs.where.OR).toHaveLength(2);
+      // primeiro branch: registros com dueDate no mês
+      expect(callArgs.where.OR[0].dueDate.gte).toEqual(new Date(2025, 2, 1));
+      expect(callArgs.where.OR[0].dueDate.lt).toEqual(new Date(2025, 3, 1));
+      // segundo branch: registros sem dueDate, filtro por createdAt
+      expect(callArgs.where.OR[1].dueDate).toBeNull();
+      expect(callArgs.where.OR[1].createdAt.gte).toEqual(new Date(2025, 2, 1));
+      expect(callArgs.where.OR[1].createdAt.lt).toEqual(new Date(2025, 3, 1));
     });
 
     it('deve respeitar page e limit passados', async () => {
