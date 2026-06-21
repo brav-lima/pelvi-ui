@@ -27,39 +27,15 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Inline sparkline — renders a tiny SVG path from an array of numbers
-function Spark({ data, color = 'currentColor' }: { data: number[]; color?: string }) {
-  const w = 100;
-  const h = 30;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * (h - 4) - 2;
-    return [x, y] as [number, number];
-  });
-  const path = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  const area = `${path} L${w},${h} L0,${h} Z`;
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-full">
-      <path d={area} fill={color} fillOpacity="0.15" />
-      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 interface KpiTileProps {
   label: string;
   value: string | number;
   delta?: string;
   deltaUp?: boolean;
-  trend?: number[];
-  color?: string;
   last?: boolean;
 }
 
-function KpiTile({ label, value, delta, deltaUp, trend, color = 'hsl(var(--primary))', last }: KpiTileProps) {
+function KpiTile({ label, value, delta, deltaUp, last }: KpiTileProps) {
   return (
     <div className={`flex flex-col gap-1.5 p-4 ${!last ? 'border-r border-border' : ''} min-w-0`}>
       <div className="text-[12px] font-medium text-muted-foreground">{label}</div>
@@ -81,11 +57,6 @@ function KpiTile({ label, value, delta, deltaUp, trend, color = 'hsl(var(--prima
             {deltaUp ? '↑' : '↓'} {delta}
           </span>
           <span className="text-muted-foreground font-normal">vs mês anterior</span>
-        </div>
-      )}
-      {trend && (
-        <div className="mt-1 h-[30px]" style={{ color }}>
-          <Spark data={trend} color={color} />
         </div>
       )}
     </div>
@@ -323,32 +294,22 @@ export default function Dashboard() {
           value={activeToday.length}
           delta={confirmedCount ? `${confirmedCount} confirmadas` : undefined}
           deltaUp
-          trend={[9, 11, 8, 12, 14, 10, 13, activeToday.length]}
-          color="hsl(var(--info))"
         />
         <KpiTile
           label="Próximos 7 dias"
           value={activeUpcoming.length}
-          trend={[18, 22, 20, 25, 24, 28, activeUpcoming.length]}
-          color="hsl(var(--primary))"
         />
         <KpiTile
           label="Pacientes ativos"
           value={patientsData?.meta?.total ?? 0}
-          trend={[142, 148, 155, 161, 170, 178, patientsData?.meta?.total ?? 0]}
-          color="hsl(var(--success))"
         />
         <KpiTile
           label="Receita do mês"
           value={`R$ ${formatCurrency(summary?.totalReceived)}`}
-          trend={[18, 19, 22, 21, 24, 26, summary?.totalReceived ? 33 : 0]}
-          color="hsl(var(--primary))"
         />
         <KpiTile
           label="Faturas pendentes"
           value={pendingCount}
-          trend={[14, 13, 14, 15, 12, 13, 14, 12, 13, 12, pendingCount]}
-          color="hsl(var(--warning, 38 92% 50%))"
           last
         />
       </div>
