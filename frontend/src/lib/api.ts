@@ -283,13 +283,14 @@ export const financialApi = {
     api.get<FinancialSummary>(`/financial/summary?${queryString(params)}`),
   getById: async (id: string) =>
     normalizeFinancialRecord(await api.get<RawFinancialRecord>(`/financial/${id}`)),
-  create: async (data: { patientId?: string; amount: number; type: string; description?: string; paymentMethod?: string; appointmentId?: string; installments?: number; dueDate?: string }) => {
+  create: async (data: { patientId?: string; amount: number; type: string; description?: string; paymentMethod?: string; appointmentId?: string; installments?: number; dueDate?: string; isRecurring?: boolean; recurrenceMonths?: number }) => {
     const result = await api.post<RawFinancialRecord | RawFinancialRecord[]>('/financial', data);
     return Array.isArray(result) ? normalizeFinancialRecords(result) : normalizeFinancialRecord(result);
   },
   update: async (id: string, data: Record<string, unknown>) =>
     normalizeFinancialRecord(await api.patch<RawFinancialRecord>(`/financial/${id}`, data)),
-  remove: (id: string) => api.delete<void>(`/financial/${id}`),
+  remove: (id: string, mode: 'single' | 'this_and_future' = 'single') =>
+    api.delete<void>(`/financial/${id}?mode=${mode}`),
 };
 
 export const organizationApi = {

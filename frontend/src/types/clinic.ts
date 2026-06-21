@@ -318,6 +318,8 @@ export interface FinancialRecord {
   paymentMethod?: string;
   description?: string;
   dueDate?: string;
+  recurrenceGroupId?: string;
+  recurrenceIndex?: number;
   installment?: InstallmentInfo;
   createdAt: string;
   updatedAt: string;
