@@ -18,6 +18,7 @@ describe('FinancialService', () => {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         delete: jest.fn(),
         aggregate: jest.fn(),
       },
@@ -146,6 +147,101 @@ describe('FinancialService', () => {
       const calls = prisma.financialRecord.create.mock.calls;
       expect(calls[0][0].data.description).toBe('Parcela 1/2');
       expect(calls[1][0].data.description).toBe('Parcela 2/2');
+    });
+  });
+
+  describe('create (recorrência)', () => {
+    it('deve criar N registros com valor integral (sem divisão)', async () => {
+      const dto = {
+        amount: 1500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 3,
+        dueDate: '2026-06-10',
+        description: 'Aluguel',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.financialRecord.create).toHaveBeenCalledTimes(3);
+      const calls = prisma.financialRecord.create.mock.calls;
+      expect(calls[0][0].data.amount).toBe(1500);
+      expect(calls[1][0].data.amount).toBe(1500);
+      expect(calls[2][0].data.amount).toBe(1500);
+    });
+
+    it('deve compartilhar o mesmo recurrenceGroupId em todos os registros', async () => {
+      const dto = {
+        amount: 1500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 2,
+        dueDate: '2026-06-10',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      const calls = prisma.financialRecord.create.mock.calls;
+      const g0 = calls[0][0].data.recurrenceGroupId;
+      const g1 = calls[1][0].data.recurrenceGroupId;
+      expect(g0).toBeDefined();
+      expect(g0).toBe(g1);
+    });
+
+    it('deve atribuir recurrenceIndex sequencial começando em 0', async () => {
+      const dto = {
+        amount: 500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 3,
+        dueDate: '2026-06-10',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      const calls = prisma.financialRecord.create.mock.calls;
+      expect(calls[0][0].data.recurrenceIndex).toBe(0);
+      expect(calls[1][0].data.recurrenceIndex).toBe(1);
+      expect(calls[2][0].data.recurrenceIndex).toBe(2);
+    });
+
+    it('deve avançar dueDate mês a mês mantendo o dia', async () => {
+      const dto = {
+        amount: 500,
+        type: FinancialType.EXPENSE,
+        isRecurring: true,
+        recurrenceMonths: 3,
+        dueDate: '2026-06-10',
+      };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-x' });
+
+      await service.create(orgId, dto as any);
+
+      const calls = prisma.financialRecord.create.mock.calls;
+      const d0: Date = calls[0][0].data.dueDate;
+      const d1: Date = calls[1][0].data.dueDate;
+      const d2: Date = calls[2][0].data.dueDate;
+      // junho → julho → agosto (0-indexed months)
+      expect(d0.getMonth()).toBe(5);
+      expect(d1.getMonth()).toBe(6);
+      expect(d2.getMonth()).toBe(7);
+      // dia preservado
+      expect(d0.getDate()).toBe(10);
+      expect(d1.getDate()).toBe(10);
+      expect(d2.getDate()).toBe(10);
+    });
+
+    it('não deve usar $transaction quando não é recorrente', async () => {
+      const dto = { amount: 200, type: FinancialType.INCOME };
+      prisma.financialRecord.create.mockResolvedValue({ id: 'fin-1' });
+
+      await service.create(orgId, dto as any);
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

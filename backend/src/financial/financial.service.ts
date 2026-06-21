@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FinancialStatus, FinancialType, Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFinancialDto } from './dto/create-financial.dto';
 import { UpdateFinancialDto } from './dto/update-financial.dto';
@@ -22,6 +23,10 @@ export class FinancialService {
 
   async create(organizationId: string, dto: CreateFinancialDto) {
     const installments = dto.installments ?? 1;
+
+    if (dto.isRecurring && (dto.recurrenceMonths ?? 0) > 1) {
+      return this.createRecurring(organizationId, dto, dto.recurrenceMonths!);
+    }
 
     if (installments > 1) {
       return this.createInstallments(organizationId, dto, installments);
@@ -86,6 +91,39 @@ export class FinancialService {
     );
 
     return records;
+  }
+
+  private async createRecurring(
+    organizationId: string,
+    dto: CreateFinancialDto,
+    months: number,
+  ) {
+    const groupId = randomUUID();
+    const firstDueDate = new Date(dto.dueDate! + 'T00:00:00');
+    const include = financialIncludes;
+
+    return this.prisma.$transaction(
+      Array.from({ length: months }, (_, i) => {
+        const dueDate = new Date(firstDueDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
+
+        return this.prisma.financialRecord.create({
+          data: {
+            organizationId,
+            patientId: dto.patientId,
+            appointmentId: dto.appointmentId,
+            amount: dto.amount,
+            type: dto.type,
+            paymentMethod: dto.paymentMethod,
+            description: dto.description,
+            dueDate,
+            recurrenceGroupId: groupId,
+            recurrenceIndex: i,
+          },
+          include,
+        });
+      }),
+    );
   }
 
   async findByPatient(organizationId: string, patientId: string) {
