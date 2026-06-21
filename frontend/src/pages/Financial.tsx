@@ -27,6 +27,77 @@ import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog'
 import { LivroCaixaSheet } from '@/components/financial/LivroCaixaSheet';
 import { useHasRole } from '@/components/auth/RoleGuard';
 
+function DeleteRecordDialog({
+  record,
+  onDelete,
+}: {
+  record: { id: string; recurrenceGroupId?: string; amount: number };
+  onDelete: (id: string, mode: 'single' | 'this_and_future') => void;
+}) {
+  const [mode, setMode] = useState<'single' | 'this_and_future'>('single');
+  const isRecurring = !!record.recurrenceGroupId;
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div>
+              {isRecurring ? (
+                <div className="space-y-3">
+                  <p>Este registro faz parte de uma série recorrente.</p>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input
+                        type="radio"
+                        name={`deleteMode-${record.id}`}
+                        value="single"
+                        checked={mode === 'single'}
+                        onChange={() => setMode('single')}
+                      />
+                      Excluir apenas este registro
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input
+                        type="radio"
+                        name={`deleteMode-${record.id}`}
+                        value="this_and_future"
+                        checked={mode === 'this_and_future'}
+                        onChange={() => setMode('this_and_future')}
+                      />
+                      Excluir este e todos os posteriores
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <span>
+                  Tem certeza que deseja excluir este registro financeiro?
+                  Esta ação não pode ser desfeita.
+                </span>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => onDelete(record.id, mode)}
+          >
+            Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function Financial() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -59,7 +130,8 @@ export default function Financial() {
   const pendingCount = records.filter(r => r.status === 'PENDING').length;
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => financialApi.remove(id),
+    mutationFn: ({ id, mode }: { id: string; mode: 'single' | 'this_and_future' }) =>
+      financialApi.remove(id, mode),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['financial', 'month'] });
       queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
@@ -258,31 +330,10 @@ export default function Financial() {
                                 </AlertDialogContent>
                               </AlertDialog>
                             )}
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Excluir Registro</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Tem certeza que deseja excluir este registro financeiro?
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    onClick={() => deleteMutation.mutate(record.id)}
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <DeleteRecordDialog
+                              record={record}
+                              onDelete={(id, mode) => deleteMutation.mutate({ id, mode })}
+                            />
                           </div>
                         </td>
                       )}

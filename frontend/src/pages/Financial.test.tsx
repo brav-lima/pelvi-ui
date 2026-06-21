@@ -257,7 +257,7 @@ describe('Financial — excluir registro', () => {
     fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Excluir' }));
 
     await waitFor(() => {
-      expect(financialApi.remove).toHaveBeenCalledWith('r2');
+      expect(financialApi.remove).toHaveBeenCalledWith('r2', 'single');
     });
   });
 
