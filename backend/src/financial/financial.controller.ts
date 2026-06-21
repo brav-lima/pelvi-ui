@@ -76,7 +76,11 @@ export class FinancialController {
   @Delete(':id')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Remover registro financeiro' })
-  remove(@OrgId() orgId: string, @Param('id') id: string) {
-    return this.financialService.remove(orgId, id);
+  remove(
+    @OrgId() orgId: string,
+    @Param('id') id: string,
+    @Query('mode') mode: 'single' | 'this_and_future' = 'single',
+  ) {
+    return this.financialService.remove(orgId, id, mode);
   }
 }
