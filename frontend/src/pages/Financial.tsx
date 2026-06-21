@@ -191,7 +191,7 @@ export default function Financial() {
                   {records.map((record) => (
                     <tr key={record.id} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
                       <td className="py-3 px-4 text-sm text-foreground">
-                        {format(new Date(record.createdAt), 'dd/MM/yyyy')}
+                        {format(new Date(record.dueDate ?? record.createdAt), 'dd/MM/yyyy')}
                       </td>
                       <td className="py-3 px-4 text-sm font-medium text-foreground">
                         {record.patient?.name ? (

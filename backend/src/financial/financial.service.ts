@@ -136,7 +136,15 @@ export class FinancialService {
       where = {
         organizationId,
         deletedAt: null,
-        createdAt: { gte: startDate, lt: endDate },
+        OR: [
+          {
+            dueDate: { gte: startDate, lt: endDate },
+          },
+          {
+            dueDate: null,
+            createdAt: { gte: startDate, lt: endDate },
+          },
+        ],
       };
     }
 
