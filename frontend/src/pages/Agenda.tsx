@@ -812,7 +812,7 @@ export default function Agenda() {
                           onClick={() => setPendingDoneConfirm(true)}
                         >
                           <CalendarCheck className="w-4 h-4 mr-2" />
-                          Atendimento concluído
+                          Concluído
                         </Button>
                         <Button
                           variant="outline"
