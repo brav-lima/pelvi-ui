@@ -330,7 +330,7 @@ export default function Settings() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Page header */}
-      <div className="flex items-end justify-between gap-4">
+      <div>
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-[26px] font-semibold leading-8" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}>
@@ -343,13 +343,6 @@ export default function Settings() {
             )}
           </div>
           <p className="text-[13px] text-muted-foreground mt-1">Personalize sua clínica e equipe.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setFormData(EMPTY_FORM)}>Restaurar padrões</Button>
-          <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}
-            Salvar alterações
-          </Button>
         </div>
       </div>
 
@@ -656,6 +649,15 @@ export default function Settings() {
               </CardContent>
             </Card>
           )}
+
+          {/* Save actions */}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setFormData(EMPTY_FORM)}>Restaurar padrões</Button>
+            <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}
+              Salvar alterações
+            </Button>
+          </div>
 
         </div>
       </div>
