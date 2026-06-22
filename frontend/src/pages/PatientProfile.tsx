@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useFeature } from '@/contexts/SubscriptionContext';
+import { ANAMNESIS_SECTION_LABELS, formatAnamnesisKey } from '@/components/anamnesis/anamnesis-templates';
 
 const AVATAR_COLORS = [
   ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'],
@@ -516,17 +517,19 @@ export default function PatientProfile() {
                             </div>
                             <div className="space-y-4">
                               {Object.entries(anamnesis.data).map(([key, value]) => {
+                                if (key === '_template') return null;
+                                const sectionLabel = ANAMNESIS_SECTION_LABELS[key] ?? formatAnamnesisKey(key);
                                 if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                                   const section = value as Record<string, unknown>;
                                   return (
                                     <div key={key} className="border border-border rounded-lg p-4">
-                                      <h4 className="text-[13.5px] font-semibold text-foreground mb-3 pb-2 border-b border-border">{key}</h4>
+                                      <h4 className="text-[13.5px] font-semibold text-foreground mb-3 pb-2 border-b border-border">{sectionLabel}</h4>
                                       <div className="grid gap-3 sm:grid-cols-2">
                                         {Object.entries(section).map(([fk, fv]) => (
                                           <div key={fk} className="p-3 rounded-lg bg-secondary/50">
-                                            <p className="text-[12px] text-muted-foreground">{fk}</p>
+                                            <p className="text-[12px] text-muted-foreground">{formatAnamnesisKey(fk)}</p>
                                             <p className="text-[13px] font-medium mt-1">
-                                              {fv != null && String(fv).trim() !== '' ? String(fv) : 'Não informado'}
+                                              {Array.isArray(fv) ? fv.join(', ') : (fv != null && String(fv).trim() !== '' ? String(fv) : 'Não informado')}
                                             </p>
                                           </div>
                                         ))}
@@ -536,9 +539,9 @@ export default function PatientProfile() {
                                 }
                                 return (
                                   <div key={key} className="p-3 rounded-lg bg-secondary/50">
-                                    <p className="text-[12px] text-muted-foreground">{key}</p>
+                                    <p className="text-[12px] text-muted-foreground">{sectionLabel}</p>
                                     <p className="text-[13px] font-medium mt-1">
-                                      {value != null && String(value).trim() !== '' ? String(value) : 'Não informado'}
+                                      {Array.isArray(value) ? value.join(', ') : (value != null && String(value).trim() !== '' ? String(value) : 'Não informado')}
                                     </p>
                                   </div>
                                 );

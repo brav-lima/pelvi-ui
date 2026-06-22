@@ -101,6 +101,7 @@ export default function AnamnesisEditorPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<AnamnesisTemplate | null>(null);
   const [activeSection, setActiveSection] = useState(0);
   const [formData, setFormData] = useState<Record<string, SD>>({});
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   const { data: patient, isLoading: loadingPatient } = useQuery({
     queryKey: ['patient', patientId],
@@ -134,12 +135,15 @@ export default function AnamnesisEditorPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existing?.id]);
 
+  const effectiveId = savedId ?? (isNew ? null : anamnesisId ?? null);
+
   const saveMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      isNew
-        ? anamnesisApi.create({ patientId: patientId!, data })
-        : anamnesisApi.update(anamnesisId!, { data }),
-    onSuccess: () => {
+      effectiveId
+        ? anamnesisApi.update(effectiveId, { data })
+        : anamnesisApi.create({ patientId: patientId!, data }),
+    onSuccess: (result) => {
+      if (!effectiveId) setSavedId(result.id);
       queryClient.invalidateQueries({ queryKey: ['patient-anamneses', patientId] });
       toast.success('Anamnese salva com sucesso');
     },
