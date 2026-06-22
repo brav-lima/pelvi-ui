@@ -231,9 +231,10 @@ export default function Dashboard() {
     queryKey: ['financial', 'month', month, year],
     queryFn: () => financialApi.list({ month, year }),
   });
-  const allPendingRecords = (monthFinancial?.data ?? []).filter((r) => r.status === 'PENDING');
-  const pendingRecords = allPendingRecords.slice(0, 4);
-  const pendingCount = allPendingRecords.length;
+  const allPendingExpenses = (monthFinancial?.data ?? []).filter((r) => r.status === 'PENDING' && r.type === 'EXPENSE');
+  const allPendingIncome = (monthFinancial?.data ?? []).filter((r) => r.status === 'PENDING' && r.type === 'INCOME');
+  const pendingRecords = allPendingExpenses.slice(0, 4);
+  const pendingCount = allPendingIncome.length;
 
   // Last 6 months summaries for revenue chart
   const last6Months = Array.from({ length: 6 }, (_, i) => {
@@ -398,7 +399,7 @@ export default function Dashboard() {
                   Pagamentos pendentes
                 </CardTitle>
                 <p className="text-[12.5px] text-muted-foreground mt-0.5">
-                  R$ {formatCurrency(allPendingRecords.reduce((s, r) => s + Number(r.amount), 0))} a receber
+                  R$ {formatCurrency(allPendingExpenses.reduce((s, r) => s + Number(r.amount), 0))} a pagar
                 </p>
               </div>
               <Button
@@ -433,7 +434,7 @@ export default function Dashboard() {
                           {format(new Date(record.createdAt), 'dd/MM/yyyy')}
                         </p>
                       </div>
-                      <span className="text-[13px] font-medium tabular-nums shrink-0" style={{ color: 'hsl(38 92% 40%)' }}>
+                      <span className="text-[13px] font-medium tabular-nums shrink-0" style={{ color: 'hsl(var(--destructive))' }}>
                         R$ {formatCurrency(record.amount)}
                       </span>
                     </div>
