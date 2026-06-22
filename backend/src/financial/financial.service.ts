@@ -41,7 +41,7 @@ export class FinancialService {
         type: dto.type,
         paymentMethod: dto.paymentMethod,
         description: dto.description,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        dueDate: dto.dueDate ? new Date(dto.dueDate + 'T12:00:00Z') : undefined,
       },
       include: financialIncludes,
     });
@@ -56,7 +56,7 @@ export class FinancialService {
     const remainder =
       Math.round((dto.amount - baseAmount * installments) * 100) / 100;
 
-    const firstDueDate = dto.dueDate ? new Date(dto.dueDate) : new Date();
+    const firstDueDate = dto.dueDate ? new Date(dto.dueDate + 'T12:00:00Z') : new Date();
 
     const include = financialIncludes;
 
@@ -99,7 +99,7 @@ export class FinancialService {
     months: number,
   ) {
     const groupId = randomUUID();
-    const firstDueDate = dto.dueDate ? new Date(dto.dueDate + 'T00:00:00') : new Date();
+    const firstDueDate = dto.dueDate ? new Date(dto.dueDate + 'T12:00:00Z') : new Date();
     const include = financialIncludes;
 
     return Promise.all(
