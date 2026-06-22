@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AnamnesisService } from './anamnesis.service';
@@ -46,5 +46,11 @@ export class AnamnesisController {
     @Body() dto: UpdateAnamnesisDto,
   ) {
     return this.anamnesisService.update(orgId, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@OrgId() orgId: string, @Param('id') id: string) {
+    return this.anamnesisService.remove(orgId, id);
   }
 }

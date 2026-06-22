@@ -68,6 +68,11 @@ export class AnamnesisService {
     return anamnesis;
   }
 
+  async remove(organizationId: string, id: string) {
+    await this.findById(organizationId, id);
+    return this.prisma.anamnesis.delete({ where: { id } });
+  }
+
   async update(organizationId: string, id: string, dto: UpdateAnamnesisDto) {
     const existing = await this.findById(organizationId, id);
 

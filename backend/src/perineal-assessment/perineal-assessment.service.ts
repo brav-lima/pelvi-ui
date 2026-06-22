@@ -68,6 +68,11 @@ export class PerinealAssessmentService {
     return assessment;
   }
 
+  async remove(organizationId: string, id: string) {
+    await this.findById(organizationId, id);
+    return this.prisma.perinealAssessment.delete({ where: { id } });
+  }
+
   async update(
     organizationId: string,
     id: string,

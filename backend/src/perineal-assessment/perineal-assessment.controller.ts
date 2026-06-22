@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { PerinealAssessmentService } from './perineal-assessment.service';
@@ -48,5 +48,11 @@ export class PerinealAssessmentController {
     @Body() dto: UpdatePerinealAssessmentDto,
   ) {
     return this.perinealAssessmentService.update(orgId, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@OrgId() orgId: string, @Param('id') id: string) {
+    return this.perinealAssessmentService.remove(orgId, id);
   }
 }
