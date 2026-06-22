@@ -15,31 +15,6 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import type { User, PlanFeature } from '@/types/clinic';
 import { appVersion } from '@/lib/version';
 
-const AVATAR_COLORS = [
-  ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'], // plum (brand)
-  ['hsl(142 55% 93%)', 'hsl(142 60% 22%)'], // green
-  ['hsl(199 75% 93%)', 'hsl(199 70% 28%)'], // info
-  ['hsl(38 80% 93%)',  'hsl(30 75% 30%)'],  // amber
-  ['hsl(285 50% 94%)', 'hsl(285 50% 32%)'], // violet
-  ['hsl(290 8% 92%)',  'hsl(290 18% 28%)'], // neutral
-] as const;
-
-function hashColor(name: string): readonly [string, string] {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = ((h * 31 + name.charCodeAt(i)) >>> 0);
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
-
-function initials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Administrador',
-  PROFESSIONAL: 'Profissional',
-  RECEPTIONIST: 'Recepcionista',
-};
-
 type Role = User['role'];
 
 interface NavItem {
@@ -173,37 +148,6 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
             <Settings className="w-4 h-4 shrink-0" />
             <span>Configurações</span>
           </NavLink>
-        </div>
-      )}
-
-      {/* User footer */}
-      {user && (
-        <div className="border-t border-sidebar-border p-3 flex items-center gap-2.5">
-          <div
-            className="rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0"
-            style={{
-              width: 32,
-              height: 32,
-              background: hashColor(user.name)[0],
-              color: hashColor(user.name)[1],
-            }}
-          >
-            {initials(user.name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p
-              className="text-[12.5px] font-medium leading-4 truncate"
-              style={{ color: 'hsl(var(--sidebar-foreground))' }}
-            >
-              {user.name}
-            </p>
-            <p
-              className="text-[10px] uppercase tracking-[0.05em] font-medium mt-0.5"
-              style={{ color: 'hsl(var(--sidebar-muted, 280 6% 64%))' }}
-            >
-              {ROLE_LABELS[user.role] ?? user.role}
-            </p>
-          </div>
         </div>
       )}
     </aside>
