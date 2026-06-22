@@ -102,7 +102,7 @@ export class FinancialService {
     const firstDueDate = dto.dueDate ? new Date(dto.dueDate + 'T00:00:00') : new Date();
     const include = financialIncludes;
 
-    return this.prisma.$transaction(
+    return Promise.all(
       Array.from({ length: months }, (_, i) => {
         const dueDate = new Date(firstDueDate);
         dueDate.setMonth(dueDate.getMonth() + i);

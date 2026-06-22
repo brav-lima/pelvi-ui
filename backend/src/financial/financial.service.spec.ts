@@ -164,7 +164,6 @@ describe('FinancialService', () => {
 
       await service.create(orgId, dto as any);
 
-      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.financialRecord.create).toHaveBeenCalledTimes(3);
       const calls = prisma.financialRecord.create.mock.calls;
       expect(calls[0][0].data.amount).toBe(1500);
@@ -235,13 +234,13 @@ describe('FinancialService', () => {
       expect(d2.getDate()).toBe(10);
     });
 
-    it('não deve usar $transaction quando não é recorrente', async () => {
+    it('deve criar exatamente 1 registro quando não é recorrente', async () => {
       const dto = { amount: 200, type: FinancialType.INCOME };
       prisma.financialRecord.create.mockResolvedValue({ id: 'fin-1' });
 
       await service.create(orgId, dto as any);
 
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.financialRecord.create).toHaveBeenCalledTimes(1);
     });
   });
 
