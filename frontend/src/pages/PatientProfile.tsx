@@ -9,7 +9,7 @@ import {
   ArrowLeft, Edit, Eye, Phone, Mail, MapPin, Calendar,
   TrendingUp, Plus, Loader2, CheckCircle, XCircle,
   CalendarCheck, Package, DollarSign, Wallet,
-  ClipboardList, Stethoscope, FileText, User,
+  ClipboardList, Stethoscope, FileText, User, Trash2,
 } from 'lucide-react';
 import {
   patientsApi, appointmentsApi, anamnesisApi, evolutionsApi,
@@ -26,10 +26,11 @@ import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment } from '@/types/clinic';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useFeature } from '@/contexts/SubscriptionContext';
+import { ANAMNESIS_SECTION_LABELS, formatAnamnesisKey } from '@/components/anamnesis/anamnesis-templates';
 
 const AVATAR_COLORS = [
   ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'],
@@ -103,6 +104,24 @@ export default function PatientProfile() {
 
   const [packageOpen, setPackageOpen] = useState(false);
   const [cancelingPackage, setCancelingPackage] = useState<TreatmentPackage | null>(null);
+
+  const deleteAnamnesismutation = useMutation({
+    mutationFn: (anamnesisId: string) => anamnesisApi.remove(anamnesisId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient-anamneses', id] });
+      toast.success('Avaliação excluída');
+    },
+    onError: () => toast.error('Erro ao excluir avaliação'),
+  });
+
+  const deletePerinealMutation = useMutation({
+    mutationFn: (assessmentId: string) => perinealAssessmentsApi.remove(assessmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient-perineal-assessments', id] });
+      toast.success('Avaliação perineal excluída');
+    },
+    onError: () => toast.error('Erro ao excluir avaliação perineal'),
+  });
 
   const { data: patient, isLoading, refetch } = useQuery({
     queryKey: ['patient', id],
@@ -509,24 +528,52 @@ export default function PatientProfile() {
                                 {format(new Date(anamnesis.createdAt), 'dd/MM/yyyy')}
                                 {anamnesis.professional?.person?.name && ` · ${anamnesis.professional.person.name}`}
                               </p>
-                              <Button variant="ghost" size="sm" onClick={() => navigate(`/patients/${id}/anamnesis/${anamnesis.id}`)}>
-                                <Edit className="w-3.5 h-3.5 mr-1" />
-                                Editar
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => navigate(`/patients/${id}/anamnesis/${anamnesis.id}`)}>
+                                  <Edit className="w-3.5 h-3.5 mr-1" />
+                                  Editar
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Excluir avaliação</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta ação não pode ser desfeita. A avaliação será permanentemente excluída.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        onClick={() => deleteAnamnesismutation.mutate(anamnesis.id)}
+                                      >
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             </div>
                             <div className="space-y-4">
                               {Object.entries(anamnesis.data).map(([key, value]) => {
+                                if (key === '_template') return null;
+                                const sectionLabel = ANAMNESIS_SECTION_LABELS[key] ?? formatAnamnesisKey(key);
                                 if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                                   const section = value as Record<string, unknown>;
                                   return (
                                     <div key={key} className="border border-border rounded-lg p-4">
-                                      <h4 className="text-[13.5px] font-semibold text-foreground mb-3 pb-2 border-b border-border">{key}</h4>
+                                      <h4 className="text-[13.5px] font-semibold text-foreground mb-3 pb-2 border-b border-border">{sectionLabel}</h4>
                                       <div className="grid gap-3 sm:grid-cols-2">
                                         {Object.entries(section).map(([fk, fv]) => (
                                           <div key={fk} className="p-3 rounded-lg bg-secondary/50">
-                                            <p className="text-[12px] text-muted-foreground">{fk}</p>
+                                            <p className="text-[12px] text-muted-foreground">{formatAnamnesisKey(fk)}</p>
                                             <p className="text-[13px] font-medium mt-1">
-                                              {fv != null && String(fv).trim() !== '' ? String(fv) : 'Não informado'}
+                                              {Array.isArray(fv) ? fv.join(', ') : (fv != null && String(fv).trim() !== '' ? String(fv) : 'Não informado')}
                                             </p>
                                           </div>
                                         ))}
@@ -536,9 +583,9 @@ export default function PatientProfile() {
                                 }
                                 return (
                                   <div key={key} className="p-3 rounded-lg bg-secondary/50">
-                                    <p className="text-[12px] text-muted-foreground">{key}</p>
+                                    <p className="text-[12px] text-muted-foreground">{sectionLabel}</p>
                                     <p className="text-[13px] font-medium mt-1">
-                                      {value != null && String(value).trim() !== '' ? String(value) : 'Não informado'}
+                                      {Array.isArray(value) ? value.join(', ') : (value != null && String(value).trim() !== '' ? String(value) : 'Não informado')}
                                     </p>
                                   </div>
                                 );
@@ -678,6 +725,30 @@ export default function PatientProfile() {
                                 <Edit className="w-3.5 h-3.5 mr-1" />
                                 Editar
                               </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir avaliação perineal</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação não pode ser desfeita. A avaliação será permanentemente excluída.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      onClick={() => deletePerinealMutation.mutate(assessment.id)}
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </div>
                         ))}

@@ -18,17 +18,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
-import { ANAMNESIS_TEMPLATES } from '@/components/anamnesis/anamnesis-templates';
+import { ANAMNESIS_SECTION_LABELS, formatAnamnesisKey } from '@/components/anamnesis/anamnesis-templates';
 import type { Anamnesis as AnamnesisType } from '@/types/clinic';
-
-const SECTION_LABELS: Record<string, string> = Object.fromEntries(
-  ANAMNESIS_TEMPLATES.flatMap(t => t.sections.map(s => [s.id, s.label])),
-);
-
-function formatFieldKey(key: string): string {
-  const result = key.replace(/([A-Z])/g, ' $1').toLowerCase();
-  return result.charAt(0).toUpperCase() + result.slice(1);
-}
 
 export default function Anamnesis() {
   const queryClient = useQueryClient();
@@ -74,7 +65,8 @@ export default function Anamnesis() {
 
   const renderAnamnesisData = (data: Record<string, unknown>) => {
     return Object.entries(data).map(([key, value]) => {
-      const sectionLabel = SECTION_LABELS[key] ?? formatFieldKey(key);
+      if (key === '_template') return null;
+      const sectionLabel = ANAMNESIS_SECTION_LABELS[key] ?? formatAnamnesisKey(key);
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const section = value as Record<string, unknown>;
         return (
@@ -85,7 +77,7 @@ export default function Anamnesis() {
             <div className="grid gap-4 sm:grid-cols-2">
               {Object.entries(section).map(([fieldKey, fieldValue]) => (
                 <div key={fieldKey}>
-                  <p className="text-sm text-muted-foreground mb-1">{formatFieldKey(fieldKey)}</p>
+                  <p className="text-sm text-muted-foreground mb-1">{formatAnamnesisKey(fieldKey)}</p>
                   <p className="text-sm font-medium text-foreground bg-muted/50 p-2 rounded">
                     {Array.isArray(fieldValue) ? fieldValue.join(', ') : String(fieldValue ?? '-')}
                   </p>

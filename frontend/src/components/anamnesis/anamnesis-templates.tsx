@@ -831,3 +831,12 @@ export const ANAMNESIS_TEMPLATES: AnamnesisTemplate[] = [
     ],
   },
 ];
+
+export const ANAMNESIS_SECTION_LABELS: Record<string, string> = Object.fromEntries(
+  ANAMNESIS_TEMPLATES.flatMap(t => t.sections.map(s => [s.id, s.label])),
+);
+
+export function formatAnamnesisKey(key: string): string {
+  const result = key.replace(/([A-Z])/g, ' $1').toLowerCase();
+  return result.charAt(0).toUpperCase() + result.slice(1);
+}

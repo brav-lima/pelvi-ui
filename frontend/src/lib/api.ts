@@ -211,6 +211,7 @@ export const anamnesisApi = {
     api.post<Anamnesis>('/anamneses', data),
   update: (id: string, data: { data: Record<string, unknown> }) =>
     api.patch<Anamnesis>(`/anamneses/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/anamneses/${id}`),
 };
 
 export const perinealAssessmentsApi = {
@@ -221,6 +222,7 @@ export const perinealAssessmentsApi = {
     api.post<PerinealAssessment>('/perineal-assessments', data),
   update: (id: string, data: { data: Record<string, unknown> }) =>
     api.patch<PerinealAssessment>(`/perineal-assessments/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/perineal-assessments/${id}`),
 };
 
 export const evolutionsApi = {
