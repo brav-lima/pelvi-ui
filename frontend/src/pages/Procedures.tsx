@@ -264,7 +264,7 @@ export default function Procedures() {
                 {
                   label: 'Ticket médio',
                   value: `R$ ${formatCurrency(
-                    procedures.filter(p => p.active).reduce((s, p) => s + p.price, 0) / Math.max(activeCount, 1),
+                    procedures.filter(p => p.active).reduce((s, p) => s + Number(p.price), 0) / Math.max(activeCount, 1),
                   )}`,
                 },
               ].map(item => (
