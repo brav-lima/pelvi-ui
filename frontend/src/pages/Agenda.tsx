@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical, Pencil, RotateCcw } from 'lucide-react';
 import { appointmentsApi, professionalsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -211,6 +211,7 @@ export default function Agenda() {
   const [draggedAppointment, setDraggedAppointment] = useState<Appointment | null>(null);
   const [slotPreset, setSlotPreset] = useState<{ date: string; time: string } | null>(null);
   const [editAppointment, setEditAppointment] = useState<Appointment | null>(null);
+  const [pendingDoneConfirm, setPendingDoneConfirm] = useState(false);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -266,10 +267,12 @@ export default function Agenda() {
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       setSelectedAppointment(updated);
+      setPendingDoneConfirm(false);
       const labels: Record<string, string> = {
         CONFIRMED: 'Agendamento confirmado',
         CANCELED: 'Agendamento cancelado',
-        DONE: 'Agendamento finalizado',
+        DONE: 'Atendimento concluído',
+        SCHEDULED: 'Atendimento reaberto',
       };
       toast.success(labels[updated.status] ?? 'Status atualizado');
     },
@@ -678,7 +681,7 @@ export default function Agenda() {
       )}
 
       {/* Appointment Details Modal */}
-      <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedAppointment(null)}>
+      <Dialog open={!!selectedAppointment} onOpenChange={() => { setSelectedAppointment(null); setPendingDoneConfirm(false); }}>
         <DialogContent>
           <DialogHeader>
             <div className="flex items-start justify-between gap-2 pr-8">
@@ -766,7 +769,82 @@ export default function Agenda() {
                 <>
                   <Separator />
                   <DialogFooter className="flex-col sm:flex-row gap-2">
-                    {selectedAppointment.status === 'SCHEDULED' && (
+                    {pendingDoneConfirm ? (
+                      <>
+                        <p className="text-sm text-muted-foreground flex-1 flex items-center">
+                          Confirmar conclusão do atendimento?
+                        </p>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          disabled={statusMutation.isPending}
+                          onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'DONE' })}
+                        >
+                          <CalendarCheck className="w-4 h-4 mr-2" />
+                          Confirmar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          disabled={statusMutation.isPending}
+                          onClick={() => setPendingDoneConfirm(false)}
+                        >
+                          Voltar
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {selectedAppointment.status === 'SCHEDULED' && (
+                          <Button
+                            variant="outline"
+                            className="flex-1 text-success border-success/30 hover:bg-success/10"
+                            disabled={statusMutation.isPending}
+                            onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'CONFIRMED' })}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Confirmar
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          disabled={statusMutation.isPending}
+                          onClick={() => setPendingDoneConfirm(true)}
+                        >
+                          <CalendarCheck className="w-4 h-4 mr-2" />
+                          Atendimento concluído
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                          disabled={statusMutation.isPending}
+                          onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'CANCELED' })}
+                        >
+                          <XCircle className="w-4 h-4 mr-2" />
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
+                  </DialogFooter>
+                </>
+              )}
+
+              {/* Reopen DONE appointment */}
+              {selectedAppointment.status === 'DONE' && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Reabrir atendimento como:</p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        disabled={statusMutation.isPending}
+                        onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'SCHEDULED' })}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Agendado
+                      </Button>
                       <Button
                         variant="outline"
                         className="flex-1 text-success border-success/30 hover:bg-success/10"
@@ -774,28 +852,10 @@ export default function Agenda() {
                         onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'CONFIRMED' })}
                       >
                         <CheckCircle className="w-4 h-4 mr-2" />
-                        Confirmar
+                        Confirmado
                       </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      disabled={statusMutation.isPending}
-                      onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'DONE' })}
-                    >
-                      <CalendarCheck className="w-4 h-4 mr-2" />
-                      Atendimento concluído
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                      disabled={statusMutation.isPending}
-                      onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'CANCELED' })}
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Cancelar
-                    </Button>
-                  </DialogFooter>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
