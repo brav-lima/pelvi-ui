@@ -214,10 +214,22 @@ export default function PatientProfile() {
     onError: () => toast.error('Erro ao alterar status'),
   });
 
+  const CLASSIFICACAO_LABELS: Record<string, string> = {
+    IMPERCEBIDO: 'Imperceptível',
+    HIPERTONICO: 'Hipertônico',
+    HIPERATIVO: 'Hiperativo',
+    HIPOTROFICO: 'Hipotrófico',
+    HIPOTONICO: 'Hipotônico',
+    INCOORDENADO: 'Incoordenado',
+    DESPROGRAMADO: 'Desprogramado',
+  };
+
   const perinealPreview = (a: PerinealAssessment): string => {
     const data = a.data as Record<string, unknown> | undefined;
     const diag = data?.diagnostico as { classificacoes?: string[] } | undefined;
-    if (diag?.classificacoes?.length) return diag.classificacoes.join(' • ');
+    if (diag?.classificacoes?.length) {
+      return diag.classificacoes.map(c => CLASSIFICACAO_LABELS[c] ?? c).join(' • ');
+    }
     return 'Avaliação registrada';
   };
 

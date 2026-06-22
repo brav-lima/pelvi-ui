@@ -18,7 +18,17 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AnamnesisFormDialog } from '@/components/anamnesis/AnamnesisFormDialog';
+import { ANAMNESIS_TEMPLATES } from '@/components/anamnesis/anamnesis-templates';
 import type { Anamnesis as AnamnesisType } from '@/types/clinic';
+
+const SECTION_LABELS: Record<string, string> = Object.fromEntries(
+  ANAMNESIS_TEMPLATES.flatMap(t => t.sections.map(s => [s.id, s.label])),
+);
+
+function formatFieldKey(key: string): string {
+  const result = key.replace(/([A-Z])/g, ' $1').toLowerCase();
+  return result.charAt(0).toUpperCase() + result.slice(1);
+}
 
 export default function Anamnesis() {
   const queryClient = useQueryClient();
@@ -64,19 +74,20 @@ export default function Anamnesis() {
 
   const renderAnamnesisData = (data: Record<string, unknown>) => {
     return Object.entries(data).map(([key, value]) => {
+      const sectionLabel = SECTION_LABELS[key] ?? formatFieldKey(key);
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const section = value as Record<string, unknown>;
         return (
           <div key={key} className="border border-border rounded-lg p-4">
             <h4 className="font-semibold text-foreground mb-4 pb-2 border-b border-border">
-              {key}
+              {sectionLabel}
             </h4>
             <div className="grid gap-4 sm:grid-cols-2">
               {Object.entries(section).map(([fieldKey, fieldValue]) => (
                 <div key={fieldKey}>
-                  <p className="text-sm text-muted-foreground mb-1">{fieldKey}</p>
+                  <p className="text-sm text-muted-foreground mb-1">{formatFieldKey(fieldKey)}</p>
                   <p className="text-sm font-medium text-foreground bg-muted/50 p-2 rounded">
-                    {String(fieldValue ?? '-')}
+                    {Array.isArray(fieldValue) ? fieldValue.join(', ') : String(fieldValue ?? '-')}
                   </p>
                 </div>
               ))}
@@ -88,9 +99,9 @@ export default function Anamnesis() {
         <div key={key} className="border border-border rounded-lg p-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">{key}</p>
+              <p className="text-sm text-muted-foreground mb-1">{sectionLabel}</p>
               <p className="text-sm font-medium text-foreground bg-muted/50 p-2 rounded">
-                {String(value ?? '-')}
+                {Array.isArray(value) ? value.join(', ') : String(value ?? '-')}
               </p>
             </div>
           </div>
