@@ -364,19 +364,7 @@ export default function PerinealAssessmentPage() {
               </Card>
             )}
 
-            {/* Guia clínico */}
-            <Card style={{ background: 'hsl(var(--primary) / 0.04)', borderColor: 'hsl(var(--primary) / 0.18)' }}>
-              <div className="px-4 pt-4 pb-3 border-b" style={{ borderColor: 'hsl(var(--primary) / 0.18)' }}>
-                <div className="text-[13.5px] font-semibold text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-                  Guia clínico
-                </div>
-              </div>
-              <CardContent className="p-4">
-                <p className="text-[12.5px] leading-[18px]" style={{ color: 'hsl(var(--primary) / 0.85)' }}>
-                  {STEP_GUIDES[step]}
-                </p>
-              </CardContent>
-            </Card>
+            {/* Guia clínico — temporariamente oculto */}
           </div>
         </div>
       </div>
