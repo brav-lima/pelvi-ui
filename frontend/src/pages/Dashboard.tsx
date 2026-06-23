@@ -350,6 +350,7 @@ export default function Dashboard() {
                     <div
                       key={appointment.id}
                       className="flex items-center gap-3 px-3.5 py-2.5 rounded-[10px] border border-transparent bg-secondary hover:bg-muted hover:border-border transition-colors cursor-pointer"
+                      onClick={() => navigate(`/patients/${appointment.patientId}`)}
                     >
                       <div className="flex flex-col items-center justify-center w-[52px] shrink-0 bg-card border border-border rounded-lg py-1.5">
                         <span
