@@ -121,7 +121,6 @@ export function Step5PalpacaoDinamica({ form }: Props) {
               <SegmentedRadio
                 control={form.control}
                 name="palpacaoDinamica.involuntariaTosse.quando"
-                label="Quando"
                 options={quandoOptions}
               />
             )}
@@ -139,7 +138,6 @@ export function Step5PalpacaoDinamica({ form }: Props) {
               <SegmentedRadio
                 control={form.control}
                 name="palpacaoDinamica.involuntariaValsalva.quando"
-                label="Quando"
                 options={quandoOptions}
               />
             )}

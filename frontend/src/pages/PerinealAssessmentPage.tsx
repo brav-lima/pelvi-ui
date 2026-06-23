@@ -387,7 +387,7 @@ export default function PerinealAssessmentPage() {
 function getStepSub(step: number): string {
   const subs = [
     '',
-    'Atividade muscular durante manobras funcionais.',
+    '',
     '',
     '',
     '',
