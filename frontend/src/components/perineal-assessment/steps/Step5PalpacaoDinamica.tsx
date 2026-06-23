@@ -1,6 +1,6 @@
 import type { UseFormReturn } from 'react-hook-form';
 import { SegmentedRadio } from '../fields/SegmentedRadio';
-import { lateralidadeOptions, movDirecaoOptions, tempoTripleOptions } from '../options';
+import { lateralidadeOptions, movDirecaoOptions, quandoOptions, tempoTripleOptions } from '../options';
 import type { PerinealAssessmentFormData } from '../schema';
 
 interface Props {
@@ -118,26 +118,12 @@ export function Step5PalpacaoDinamica({ form }: Props) {
               options={tempoTripleOptions}
             />
             {invTosseMain === 'CRANIAL' && (
-              <div className="space-y-2 pt-1">
-                <SegmentedRadio
-                  control={form.control}
-                  name="palpacaoDinamica.involuntariaTosse.antes"
-                  label="Antes"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="palpacaoDinamica.involuntariaTosse.durante"
-                  label="Durante"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="palpacaoDinamica.involuntariaTosse.depois"
-                  label="Depois"
-                  options={tempoTripleOptions}
-                />
-              </div>
+              <SegmentedRadio
+                control={form.control}
+                name="palpacaoDinamica.involuntariaTosse.quando"
+                label="Quando"
+                options={quandoOptions}
+              />
             )}
           </div>
 
@@ -150,26 +136,12 @@ export function Step5PalpacaoDinamica({ form }: Props) {
               options={tempoTripleOptions}
             />
             {invValsalvaMain === 'CRANIAL' && (
-              <div className="space-y-2 pt-1">
-                <SegmentedRadio
-                  control={form.control}
-                  name="palpacaoDinamica.involuntariaValsalva.antes"
-                  label="Antes"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="palpacaoDinamica.involuntariaValsalva.durante"
-                  label="Durante"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="palpacaoDinamica.involuntariaValsalva.depois"
-                  label="Depois"
-                  options={tempoTripleOptions}
-                />
-              </div>
+              <SegmentedRadio
+                control={form.control}
+                name="palpacaoDinamica.involuntariaValsalva.quando"
+                label="Quando"
+                options={quandoOptions}
+              />
             )}
           </div>
         </div>

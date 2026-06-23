@@ -5,6 +5,7 @@ import { CheckboxGroup } from '../fields/CheckboxGroup';
 import {
   movDirecaoOptions,
   presencaOptions,
+  quandoOptions,
   sinalBinaryOptions,
   sinalOptions,
   tempoTripleOptions,
@@ -110,26 +111,12 @@ export function Step2InspecaoDinamica({ form }: Props) {
               options={tempoTripleOptions}
             />
             {preContracaoTosseMain === 'CRANIAL' && (
-              <div className="space-y-2 pt-1">
-                <SegmentedRadio
-                  control={form.control}
-                  name="inspecaoDinamica.levantadores.preContracaoTosse.antes"
-                  label="Antes"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="inspecaoDinamica.levantadores.preContracaoTosse.durante"
-                  label="Durante"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="inspecaoDinamica.levantadores.preContracaoTosse.depois"
-                  label="Depois"
-                  options={tempoTripleOptions}
-                />
-              </div>
+              <SegmentedRadio
+                control={form.control}
+                name="inspecaoDinamica.levantadores.preContracaoTosse.quando"
+                label="Quando"
+                options={quandoOptions}
+              />
             )}
           </div>
 
@@ -142,26 +129,12 @@ export function Step2InspecaoDinamica({ form }: Props) {
               options={tempoTripleOptions}
             />
             {preContracaoValsalvaMain === 'CRANIAL' && (
-              <div className="space-y-2 pt-1">
-                <SegmentedRadio
-                  control={form.control}
-                  name="inspecaoDinamica.levantadores.preContracaoValsalva.antes"
-                  label="Antes"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="inspecaoDinamica.levantadores.preContracaoValsalva.durante"
-                  label="Durante"
-                  options={tempoTripleOptions}
-                />
-                <SegmentedRadio
-                  control={form.control}
-                  name="inspecaoDinamica.levantadores.preContracaoValsalva.depois"
-                  label="Depois"
-                  options={tempoTripleOptions}
-                />
-              </div>
+              <SegmentedRadio
+                control={form.control}
+                name="inspecaoDinamica.levantadores.preContracaoValsalva.quando"
+                label="Quando"
+                options={quandoOptions}
+              />
             )}
           </div>
         </div>
