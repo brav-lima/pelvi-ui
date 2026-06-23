@@ -73,6 +73,7 @@ export const perinealAssessmentSchema = z.object({
             .optional(),
           relaxamentoMovCaudal: movDirecao.optional(),
           relaxamentoAtraso: sinal.optional(),
+          abertura: movDirecao.optional(),
           preContracaoTosse: tempoBlock,
           preContracaoValsalva: tempoBlock,
         })
@@ -147,6 +148,12 @@ export const perinealAssessmentSchema = z.object({
       iliococcigeos: escala3.optional(),
       piriformes: escala3.optional(),
       obturadores: escala3.optional(),
+      musculaturaSuperficial: z.string().optional(),
+      rabdosfincter: z.string().optional(),
+      musculaturaProfunda: z.string().optional(),
+      rotadoresQuadril: z.string().optional(),
+      tecidosConectivosSuperficiais: z.string().optional(),
+      tecidosConnectivosProfundos: z.string().optional(),
     })
     .partial()
     .optional(),
@@ -154,7 +161,13 @@ export const perinealAssessmentSchema = z.object({
   // 5. Palpação Dinâmica
   palpacaoDinamica: z
     .object({
+      movimento: z.enum(['COMPLETO', 'PVS_PR_ICS', 'PVS_PR', 'PVS', 'AUSENTE']).optional(),
+      relaxamento: z.enum(['COMPLETO', 'INCOMPLETO', 'PARCIAL_DOWN', 'PARCIAL_UP', 'AUSENTE']).optional(),
+      relaxamentoAtraso: z.enum(['+', '-']).optional(),
+      abertura: movDirecao.optional(),
       forca: z.enum(['FORTE', 'RAZOAVEL', 'FRACO', 'ESBOCO', 'AUSENTE']).optional(),
+      potencia: z.enum(['GT20', 'DE20A11', 'DE10A6', 'DE4A1', 'ZERO']).optional(),
+      endurance: z.enum(['GT10S', 'DE9A7S', 'DE6A4S', 'DE3A1S', 'ZERO']).optional(),
       involuntariaTosse: tempoBlock,
       involuntariaValsalva: tempoBlock,
       simetria: lateralidade.optional(),
@@ -216,5 +229,5 @@ export const STEP_TITLES = [
   '3. Testes Neurológicos',
   '4. Palpação Estática',
   '5. Palpação Dinâmica',
-  '6. Diagnóstico',
+  '6. Diagnóstico cinesiológico funcional',
 ] as const;

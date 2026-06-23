@@ -43,23 +43,7 @@ const reflexos: Array<{
   { key: 'levantadores', label: 'Levantadores' },
 ];
 
-const sacroOptions = [
-  { value: 'S2', label: 'S2' },
-  { value: 'S3', label: 'S3' },
-  { value: 'S4', label: 'S4' },
-];
-
-const tinelOptions = [
-  { value: 'I', label: 'I' },
-  { value: 'II', label: 'II' },
-  { value: 'III', label: 'III' },
-  { value: 'IV', label: 'IV' },
-];
-
 export function Step3TestesNeurologicos({ form }: Props) {
-  const tinelDireito = form.watch('testesNeurologicos.tinel.direito');
-  const tinelEsquerdo = form.watch('testesNeurologicos.tinel.esquerdo');
-
   return (
     <div className="space-y-6">
       <section className="space-y-3">
@@ -89,70 +73,6 @@ export function Step3TestesNeurologicos({ form }: Props) {
               options={escala3Options}
             />
           ))}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Cóccix</h5>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <SegmentedRadio
-            control={form.control}
-            name="testesNeurologicos.coccix.lateral"
-            label="Lateral"
-            options={[
-              { value: 'E', label: 'E' },
-              { value: 'C', label: 'C' },
-              { value: 'D', label: 'D' },
-            ]}
-          />
-          <SegmentedRadio
-            control={form.control}
-            name="testesNeurologicos.coccix.sagital"
-            label="Sagital"
-            options={[
-              { value: 'ANT', label: 'Anterior' },
-              { value: 'N', label: 'Normal' },
-              { value: 'PST', label: 'Posterior' },
-            ]}
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Tinel</h5>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <SegmentedRadio
-              control={form.control}
-              name="testesNeurologicos.tinel.direito"
-              label="Direito"
-              options={tinelOptions}
-            />
-            {tinelDireito === 'I' && (
-              <SegmentedRadio
-                control={form.control}
-                name="testesNeurologicos.tinel.direitoSacro"
-                label="Sacro (D)"
-                options={sacroOptions}
-              />
-            )}
-          </div>
-          <div className="space-y-2">
-            <SegmentedRadio
-              control={form.control}
-              name="testesNeurologicos.tinel.esquerdo"
-              label="Esquerdo"
-              options={tinelOptions}
-            />
-            {tinelEsquerdo === 'I' && (
-              <SegmentedRadio
-                control={form.control}
-                name="testesNeurologicos.tinel.esquerdoSacro"
-                label="Sacro (E)"
-                options={sacroOptions}
-              />
-            )}
-          </div>
         </div>
       </section>
     </div>
