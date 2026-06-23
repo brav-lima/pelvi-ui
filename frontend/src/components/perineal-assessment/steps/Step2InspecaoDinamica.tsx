@@ -144,9 +144,10 @@ export function Step2InspecaoDinamica({ form }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40">
-                <th className="text-left p-2 font-medium w-1/3"></th>
+                <th className="text-left p-2 font-medium w-1/4"></th>
                 <th className="text-center p-2 font-medium">Tosse</th>
                 <th className="text-center p-2 font-medium">Valsalva</th>
+                <th className="text-center p-2 font-medium">Abertura</th>
               </tr>
             </thead>
             <tbody>
@@ -178,6 +179,19 @@ export function Step2InspecaoDinamica({ form }: Props) {
                     )}
                   />
                 </td>
+                <td className="p-2 text-center">
+                  <Controller
+                    control={form.control}
+                    name="inspecaoDinamica.escapeIntraTeste.aberturaUretral"
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={!!field.value}
+                        disabled={readOnly}
+                        onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
+                      />
+                    )}
+                  />
+                </td>
               </tr>
               <tr>
                 <td className="p-2 font-medium">Anal</td>
@@ -198,6 +212,19 @@ export function Step2InspecaoDinamica({ form }: Props) {
                   <Controller
                     control={form.control}
                     name="inspecaoDinamica.escapeIntraTeste.valsalvaAnal"
+                    render={({ field }) => (
+                      <Checkbox
+                        checked={!!field.value}
+                        disabled={readOnly}
+                        onCheckedChange={(c) => field.onChange(c === true ? true : undefined)}
+                      />
+                    )}
+                  />
+                </td>
+                <td className="p-2 text-center">
+                  <Controller
+                    control={form.control}
+                    name="inspecaoDinamica.escapeIntraTeste.aberturaAnal"
                     render={({ field }) => (
                       <Checkbox
                         checked={!!field.value}

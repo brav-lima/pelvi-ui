@@ -2,24 +2,11 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { SegmentedRadio } from '../fields/SegmentedRadio';
-import { escala3Options, sinalOptions } from '../options';
 import type { PerinealAssessmentFormData } from '../schema';
 
 interface Props {
   form: UseFormReturn<PerinealAssessmentFormData>;
 }
-
-const musculos: Array<{
-  key: 'rabdo' | 'puboanal' | 'puborretal' | 'iliococcigeos' | 'piriformes' | 'obturadores';
-  label: string;
-}> = [
-  { key: 'rabdo', label: 'Rabdoesfíncter (RBD)' },
-  { key: 'puboanal', label: 'Puboanal' },
-  { key: 'puborretal', label: 'Puborretal' },
-  { key: 'iliococcigeos', label: 'Iliococcígeos' },
-  { key: 'piriformes', label: 'Piriformes' },
-  { key: 'obturadores', label: 'Obturadores' },
-];
 
 const tinelOptions = [
   { value: 'I', label: 'I' },
@@ -52,47 +39,16 @@ export function Step4PalpacaoEstatica({ form }: Props) {
 
   return (
     <div className="space-y-5">
-      <SegmentedRadio
-        control={form.control}
-        name="palpacaoEstatica.trofismo"
-        label="Trofismo"
-        options={escala3Options}
-      />
-
-      <SegmentedRadio
-        control={form.control}
-        name="palpacaoEstatica.superficiais"
-        label="Superficiais"
-        options={sinalOptions}
-      />
-
-      <div className="border rounded-md p-3 space-y-3">
-        <h6 className="text-sm font-semibold">Pubovaginal / Puboperineal</h6>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <SegmentedRadio
-            control={form.control}
-            name="palpacaoEstatica.pubovaginalPuboperineal.tonus"
-            label="Tônus"
-            options={escala3Options}
-          />
-          <SegmentedRadio
-            control={form.control}
-            name="palpacaoEstatica.pubovaginalPuboperineal.sinal"
-            label="Sinal"
-            options={sinalOptions}
-          />
-        </div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-3">
-        {musculos.map((m) => (
-          <SegmentedRadio
-            key={m.key}
-            control={form.control}
-            name={`palpacaoEstatica.${m.key}` as const}
-            label={m.label}
-            options={escala3Options}
-          />
+      <div className="space-y-3">
+        {textFields.map((f) => (
+          <div key={f.key} className="space-y-1.5">
+            <Label htmlFor={f.key} className="text-sm">{f.label}</Label>
+            <Textarea
+              id={f.key}
+              rows={2}
+              {...form.register(`palpacaoEstatica.${f.key}` as const)}
+            />
+          </div>
         ))}
       </div>
 
@@ -159,19 +115,6 @@ export function Step4PalpacaoEstatica({ form }: Props) {
           </div>
         </div>
       </section>
-
-      <div className="space-y-3">
-        {textFields.map((f) => (
-          <div key={f.key} className="space-y-1.5">
-            <Label htmlFor={f.key} className="text-sm">{f.label}</Label>
-            <Textarea
-              id={f.key}
-              rows={2}
-              {...form.register(`palpacaoEstatica.${f.key}` as const)}
-            />
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
