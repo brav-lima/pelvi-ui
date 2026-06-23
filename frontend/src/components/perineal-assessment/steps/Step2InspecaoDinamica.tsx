@@ -114,7 +114,6 @@ export function Step2InspecaoDinamica({ form }: Props) {
               <SegmentedRadio
                 control={form.control}
                 name="inspecaoDinamica.levantadores.preContracaoTosse.quando"
-                label="Quando"
                 options={quandoOptions}
               />
             )}
@@ -132,7 +131,6 @@ export function Step2InspecaoDinamica({ form }: Props) {
               <SegmentedRadio
                 control={form.control}
                 name="inspecaoDinamica.levantadores.preContracaoValsalva.quando"
-                label="Quando"
                 options={quandoOptions}
               />
             )}
