@@ -40,3 +40,9 @@ export const tempoTripleOptions = [
   { value: 'AUSENTE', label: 'Ausente' },
   { value: 'CAUDAL', label: 'Caudal' },
 ];
+
+export const quandoOptions = [
+  { value: 'ANTES', label: 'Antes' },
+  { value: 'DURANTE', label: 'Durante' },
+  { value: 'DEPOIS', label: 'Depois' },
+];

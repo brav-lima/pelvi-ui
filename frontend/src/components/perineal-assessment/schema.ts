@@ -22,9 +22,7 @@ export type TempoTriple = z.infer<typeof tempoTriple>;
 const tempoBlock = z
   .object({
     main: tempoTriple.optional(),
-    antes: tempoTriple.optional(),
-    durante: tempoTriple.optional(),
-    depois: tempoTriple.optional(),
+    quando: z.enum(['ANTES', 'DURANTE', 'DEPOIS']).optional(),
   })
   .partial();
 
