@@ -82,6 +82,8 @@ export const perinealAssessmentSchema = z.object({
           tosseAnal: z.boolean().optional(),
           valsalvaUretral: z.boolean().optional(),
           valsalvaAnal: z.boolean().optional(),
+          aberturaUretral: z.boolean().optional(),
+          aberturaAnal: z.boolean().optional(),
         })
         .partial(),
     })
