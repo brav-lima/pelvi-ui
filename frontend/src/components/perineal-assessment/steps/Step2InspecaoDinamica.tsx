@@ -1,11 +1,11 @@
 import { Controller, type UseFormReturn } from 'react-hook-form';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { SegmentedRadio } from '../fields/SegmentedRadio';
 import { CheckboxGroup } from '../fields/CheckboxGroup';
 import {
   movDirecaoOptions,
   presencaOptions,
+  sinalBinaryOptions,
   sinalOptions,
   tempoTripleOptions,
 } from '../options';
@@ -27,6 +27,7 @@ export function Step2InspecaoDinamica({ form }: Props) {
   const readOnly = useReadOnly();
   const preContracaoTosseMain = form.watch('inspecaoDinamica.levantadores.preContracaoTosse.main');
   const preContracaoValsalvaMain = form.watch('inspecaoDinamica.levantadores.preContracaoValsalva.main');
+  const relaxamentoMov = form.watch('inspecaoDinamica.levantadores.relaxamentoMovCaudal');
 
   return (
     <div className="space-y-6">
@@ -53,18 +54,17 @@ export function Step2InspecaoDinamica({ form }: Props) {
       </section>
 
       <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Levantadores — atividade voluntária</h5>
+        <h5 className="font-semibold text-sm">Músculos levantadores</h5>
         <SegmentedRadio
           control={form.control}
           name="inspecaoDinamica.levantadores.contracaoMovCranial"
-          label="Contração — movimento cranial"
+          label="Contração — movimento"
           options={movDirecaoOptions}
         />
         <CheckboxGroup
           control={form.control}
           name="inspecaoDinamica.levantadores.coContracoes"
           label="Co-contrações"
-          hint="múltipla escolha"
           options={[
             { value: 'RESPIRATORIOS', label: 'Respiratórios' },
             { value: 'ABDOMINAIS', label: 'Abdominais' },
@@ -76,14 +76,25 @@ export function Step2InspecaoDinamica({ form }: Props) {
         <SegmentedRadio
           control={form.control}
           name="inspecaoDinamica.levantadores.relaxamentoMovCaudal"
-          label="Relaxamento — movimento caudal"
-          options={movDirecaoOptions}
+          label="Relaxamento — movimento"
+          options={[
+            { value: 'PRESENTE', label: 'Presente' },
+            { value: 'AUSENTE', label: 'Ausente' },
+          ]}
         />
+        {relaxamentoMov === 'PRESENTE' && (
+          <SegmentedRadio
+            control={form.control}
+            name="inspecaoDinamica.levantadores.relaxamentoAtraso"
+            label="Atraso"
+            options={sinalBinaryOptions}
+          />
+        )}
         <SegmentedRadio
           control={form.control}
-          name="inspecaoDinamica.levantadores.relaxamentoAtraso"
-          label="Relaxamento — atraso"
-          options={sinalOptions}
+          name="inspecaoDinamica.levantadores.abertura"
+          label="Abertura"
+          options={movDirecaoOptions}
         />
       </section>
 
@@ -158,7 +169,6 @@ export function Step2InspecaoDinamica({ form }: Props) {
 
       <section className="space-y-3">
         <h5 className="font-semibold text-sm">Escape intra-teste</h5>
-        <p className="text-xs text-muted-foreground">Marque os escapes observados.</p>
         <div className="border rounded-md overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -230,9 +240,6 @@ export function Step2InspecaoDinamica({ form }: Props) {
             </tbody>
           </table>
         </div>
-        <Label className="text-xs text-muted-foreground italic">
-          Suspender se houver dor.
-        </Label>
       </section>
     </div>
   );

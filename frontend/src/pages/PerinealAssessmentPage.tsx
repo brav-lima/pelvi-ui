@@ -27,7 +27,7 @@ const STEP_SHORT = [
   'Testes neurológicos',
   'Palpação estática',
   'Palpação dinâmica',
-  'Diagnóstico',
+  'Diagnóstico cinesiológico funcional',
 ];
 
 const STEP_GUIDES: string[] = [
@@ -386,12 +386,12 @@ export default function PerinealAssessmentPage() {
 
 function getStepSub(step: number): string {
   const subs = [
-    'Medidas observacionais em repouso.',
+    '',
     'Atividade muscular durante manobras funcionais.',
-    'Avaliação reflexa e sensitiva da região perineal (S2-S4).',
-    'Anatomia Palpatória 3D® — tonicidade muscular em repouso.',
-    'Força e resposta muscular durante esforço.',
-    'Síntese diagnóstica funcional.',
+    '',
+    '',
+    '',
+    '',
   ];
   return subs[step] ?? '';
 }

@@ -10,10 +10,6 @@ interface Props {
 export function Step1InspecaoEstatica({ form }: Props) {
   return (
     <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        Medidas observacionais em repouso. Selecione a faixa correspondente para cada item.
-      </p>
-
       <SegmentedRadio
         control={form.control}
         name="inspecaoEstatica.tonusBulbocav"

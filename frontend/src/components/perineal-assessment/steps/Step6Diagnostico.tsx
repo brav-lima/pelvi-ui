@@ -39,9 +39,8 @@ export function Step6Diagnostico({ form }: Props) {
         control={form.control}
         name="diagnostico.classificacoes"
         label="Classificação geral"
-        hint="múltipla escolha"
         options={[
-          { value: 'IMPERCEBIDO', label: 'Imperceptível' },
+          { value: 'IMPERCEBIDO', label: 'Impercebido' },
           { value: 'HIPERTONICO', label: 'Hipertônico' },
           { value: 'HIPERATIVO', label: 'Hiperativo' },
           { value: 'HIPOTROFICO', label: 'Hipotrófico' },
@@ -52,7 +51,7 @@ export function Step6Diagnostico({ form }: Props) {
       />
 
       <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Detalhamento — superficiais</h5>
+        <h5 className="font-semibold text-sm">Superficiais</h5>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {superficiais.map((m) => (
             <SegmentedRadio
@@ -67,7 +66,7 @@ export function Step6Diagnostico({ form }: Props) {
       </section>
 
       <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Detalhamento — levantadores</h5>
+        <h5 className="font-semibold text-sm">Levantadores</h5>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {levantadores.map((m) => (
             <SegmentedRadio
@@ -82,7 +81,7 @@ export function Step6Diagnostico({ form }: Props) {
       </section>
 
       <section className="space-y-3">
-        <h5 className="font-semibold text-sm">Detalhamento — rotadores</h5>
+        <h5 className="font-semibold text-sm">Rotadores</h5>
         <div className="grid grid-cols-2 gap-3">
           <SegmentedRadio
             control={form.control}
