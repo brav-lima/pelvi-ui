@@ -1,5 +1,6 @@
 // backend/src/task/task.service.ts
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -20,6 +21,13 @@ export class TaskService {
 
   async create(orgId: string, personId: string, dto: CreateTaskDto) {
     const orgUser = await this.resolveOrgUser(orgId, personId);
+
+    const assignee = await this.prisma.organizationUser.findFirst({
+      where: { id: dto.assignedToId, organizationId: orgId },
+    });
+    if (!assignee || !assignee.active) {
+      throw new BadRequestException('Responsável não pertence a esta clínica');
+    }
 
     return this.prisma.task.create({
       data: {
@@ -106,7 +114,15 @@ export class TaskService {
     if (editFields.description !== undefined) data.description = editFields.description ?? null;
     if (editFields.priority !== undefined) data.priority = editFields.priority;
     if (editFields.dueDate !== undefined) data.dueDate = editFields.dueDate ? new Date(editFields.dueDate) : null;
-    if (editFields.assignedToId !== undefined) data.assignedToId = editFields.assignedToId;
+    if (editFields.assignedToId !== undefined) {
+      const assignee = await this.prisma.organizationUser.findFirst({
+        where: { id: editFields.assignedToId, organizationId: orgId },
+      });
+      if (!assignee || !assignee.active) {
+        throw new BadRequestException('Responsável não pertence a esta clínica');
+      }
+      data.assignedToId = editFields.assignedToId;
+    }
 
     return this.prisma.task.update({
       where: { id },

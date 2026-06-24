@@ -382,14 +382,14 @@ export const documentsApi = {
 };
 
 export const tasksApi = {
-  list: (params?: { status?: string; priority?: string; assignedToId?: string }) =>
+  list: (params?: { status?: string; priority?: TaskPriority; assignedToId?: string }) =>
     api.get<Task[]>(`/tasks?${queryString(params)}`),
   my: (status?: string) =>
     api.get<Task[]>(`/tasks/my${status ? `?status=${status}` : ''}`),
   create: (data: {
     title: string;
     description?: string;
-    priority?: string;
+    priority?: TaskPriority;
     dueDate?: string | null;
     assignedToId: string;
   }) => api.post<Task>('/tasks', data),
@@ -398,10 +398,10 @@ export const tasksApi = {
     data: {
       title?: string;
       description?: string | null;
-      priority?: string;
+      priority?: TaskPriority;
       dueDate?: string | null;
       assignedToId?: string;
-      status?: string;
+      status?: TaskStatus;
     },
   ) => api.patch<Task>(`/tasks/${id}`, data),
   remove: (id: string) => api.delete<void>(`/tasks/${id}`),

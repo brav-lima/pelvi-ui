@@ -41,6 +41,7 @@ describe('TaskService', () => {
       },
       organizationUser: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
       },
     };
 
@@ -54,6 +55,7 @@ describe('TaskService', () => {
   describe('create', () => {
     it('deve criar tarefa com createdById resolvido via orgUser', async () => {
       prisma.organizationUser.findUnique.mockResolvedValue(mockCreator);
+      prisma.organizationUser.findFirst.mockResolvedValue(mockOther);
       prisma.task.create.mockResolvedValue({ ...mockTask, id: 'task-new' });
 
       await service.create(orgId, personId, {
@@ -204,6 +206,7 @@ describe('TaskService', () => {
     it('deve atualizar campos de edição quando solicitante é o criador', async () => {
       prisma.task.findFirst.mockResolvedValue(mockTask);
       prisma.organizationUser.findUnique.mockResolvedValue(mockCreator);
+      prisma.organizationUser.findFirst.mockResolvedValue(mockOther);
       prisma.task.update.mockResolvedValue({ ...mockTask, title: 'Novo título' });
 
       await service.update(orgId, personId, 'task-1', { title: 'Novo título' });

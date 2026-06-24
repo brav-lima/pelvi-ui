@@ -161,7 +161,7 @@ export default function Tasks() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">Todos</SelectItem>
-            {professionals.map((p) => (
+            {professionals.filter((p) => p.active).map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.person.name}
               </SelectItem>
