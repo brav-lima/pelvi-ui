@@ -20,9 +20,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign, CheckCheck, X, Search } from 'lucide-react';
+import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign, CheckCheck, X, Search, CheckSquare } from 'lucide-react';
 import { formatCNPJ, formatCurrency } from '@/lib/formatters';
-import { appointmentsApi, financialApi } from '@/lib/api';
+import { appointmentsApi, financialApi, tasksApi } from '@/lib/api';
 import { format } from 'date-fns';
 
 interface TopBarProps {
@@ -56,6 +56,12 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     refetchInterval: 5 * 60 * 1000,
   });
   const monthFinancial = monthFinancialResult?.data ?? [];
+
+  const { data: pendingTasks = [] } = useQuery({
+    queryKey: ['tasks', 'my', 'bell'],
+    queryFn: () => tasksApi.my('PENDING,IN_PROGRESS'),
+    refetchInterval: 5 * 60 * 1000,
+  });
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -118,7 +124,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     (a) => (a.status === 'SCHEDULED' || a.status === 'CONFIRMED') && !dismissedIds.has(a.id),
   );
   const pendingPayments = monthFinancial.filter((f) => f.type === 'INCOME' && f.status === 'PENDING' && !dismissedIds.has(f.id));
-  const notificationCount = upcomingAppointments.length + pendingPayments.length;
+  const notificationCount = upcomingAppointments.length + pendingPayments.length + pendingTasks.length;
 
   const initials = user?.name
     ?.split(' ')
@@ -273,6 +279,38 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                         className="text-xs text-primary hover:underline mt-1 px-2"
                       >
                         Ver todos ({pendingPayments.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Pending tasks */}
+                {pendingTasks.length > 0 && (
+                  <div className={`p-3 ${(upcomingAppointments.length > 0 || pendingPayments.length > 0) ? 'border-t border-border' : ''}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckSquare className="w-4 h-4 text-primary" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase">Tarefas Pendentes</p>
+                    </div>
+                    <div className="space-y-1">
+                      {pendingTasks.slice(0, 5).map((task) => (
+                        <div
+                          key={task.id}
+                          className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 text-sm cursor-pointer"
+                          onClick={() => navigate('/tarefas')}
+                        >
+                          <span className="truncate font-medium">{task.title}</span>
+                          <span className="text-muted-foreground shrink-0 ml-2 text-xs">
+                            {task.priority === 'HIGH' ? 'Alta' : task.priority === 'MEDIUM' ? 'Média' : 'Baixa'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {pendingTasks.length > 5 && (
+                      <button
+                        onClick={() => navigate('/tarefas')}
+                        className="text-xs text-primary hover:underline mt-1 px-2"
+                      >
+                        Ver todas ({pendingTasks.length})
                       </button>
                     )}
                   </div>
