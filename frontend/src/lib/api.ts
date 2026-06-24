@@ -21,6 +21,9 @@ import type {
   PlanFeatureStatus,
   OrganizationProfile,
   UpdateOrganizationData,
+  Task,
+  TaskStatus,
+  TaskPriority,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -376,6 +379,32 @@ export const documentsApi = {
   update: (id: string, data: Partial<Pick<ClinicDocument, 'name' | 'description' | 'category' | 'active'>>) =>
     api.patch<ClinicDocument>(`/documents/${id}`, data),
   remove: (id: string) => api.delete<void>(`/documents/${id}`),
+};
+
+export const tasksApi = {
+  list: (params?: { status?: string; priority?: string; assignedToId?: string }) =>
+    api.get<Task[]>(`/tasks?${queryString(params)}`),
+  my: (status?: string) =>
+    api.get<Task[]>(`/tasks/my${status ? `?status=${status}` : ''}`),
+  create: (data: {
+    title: string;
+    description?: string;
+    priority?: string;
+    dueDate?: string | null;
+    assignedToId: string;
+  }) => api.post<Task>('/tasks', data),
+  update: (
+    id: string,
+    data: {
+      title?: string;
+      description?: string | null;
+      priority?: string;
+      dueDate?: string | null;
+      assignedToId?: string;
+      status?: string;
+    },
+  ) => api.patch<Task>(`/tasks/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/tasks/${id}`),
 };
 
 export const subscriptionApi = {
