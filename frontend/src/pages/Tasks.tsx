@@ -61,9 +61,9 @@ export default function Tasks() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [assignedFilter, setAssignedFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [assignedFilter, setAssignedFilter] = useState('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | undefined>();
 
@@ -71,9 +71,9 @@ export default function Tasks() {
     queryKey: ['tasks', { statusFilter, priorityFilter, assignedFilter }],
     queryFn: () =>
       tasksApi.list({
-        status: statusFilter || undefined,
-        priority: priorityFilter || undefined,
-        assignedToId: assignedFilter || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
+        assignedToId: assignedFilter !== 'all' ? assignedFilter : undefined,
       }),
   });
 
@@ -136,7 +136,7 @@ export default function Tasks() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos os status</SelectItem>
+            <SelectItem value="all">Todos os status</SelectItem>
             <SelectItem value="PENDING">Pendente</SelectItem>
             <SelectItem value="IN_PROGRESS">Em andamento</SelectItem>
             <SelectItem value="DONE">Concluída</SelectItem>
@@ -148,7 +148,7 @@ export default function Tasks() {
             <SelectValue placeholder="Prioridade" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todas</SelectItem>
+            <SelectItem value="all">Todas</SelectItem>
             <SelectItem value="HIGH">Alta</SelectItem>
             <SelectItem value="MEDIUM">Média</SelectItem>
             <SelectItem value="LOW">Baixa</SelectItem>
@@ -160,7 +160,7 @@ export default function Tasks() {
             <SelectValue placeholder="Responsável" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value="all">Todos</SelectItem>
             {professionals.filter((p) => p.active).map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.person.name}
