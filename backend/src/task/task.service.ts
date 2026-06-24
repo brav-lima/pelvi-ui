@@ -45,11 +45,15 @@ export class TaskService {
       ? { in: status.split(',') as TaskStatus[] }
       : undefined;
 
+    const validPriority = priority && (Object.values(TaskPriority) as string[]).includes(priority)
+      ? (priority as TaskPriority)
+      : undefined;
+
     return this.prisma.task.findMany({
       where: {
         organizationId: orgId,
         ...(statusFilter && { status: statusFilter }),
-        ...(priority && { priority: priority as TaskPriority }),
+        ...(validPriority && { priority: validPriority }),
         ...(assignedToId && { assignedToId }),
       },
       orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
