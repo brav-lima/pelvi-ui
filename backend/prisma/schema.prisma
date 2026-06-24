@@ -82,6 +82,7 @@ model Organization {
   financialRecords FinancialRecord[]
   treatmentPackages TreatmentPackage[]
   clinicDocuments   ClinicDocument[]
+  tasks            Task[]
 
   @@map("organizations")
 }
@@ -156,6 +157,8 @@ model OrganizationUser {
   anamneses    Anamnesis[]
   perinealAssessments PerinealAssessment[]
   evolutions   Evolution[]
+  tasksCreated  Task[] @relation("TaskCreatedBy")
+  tasksAssigned Task[] @relation("TaskAssignedTo")
 
   @@unique([organizationId, personId])
   @@map("organization_users")
@@ -488,4 +491,40 @@ model ClinicDocument {
 
   @@index([organizationId, active])
   @@map("clinic_documents")
+}
+
+// ──────────────────────────────────────────────
+// Task
+// ──────────────────────────────────────────────
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Task {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  title          String
+  description    String?
+  status         TaskStatus   @default(PENDING)
+  priority       TaskPriority @default(MEDIUM)
+  dueDate        DateTime?    @map("due_date")
+  createdById    String       @map("created_by_id")
+  assignedToId   String       @map("assigned_to_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  createdBy    OrganizationUser @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  assignedTo   OrganizationUser @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+
+  @@map("tasks")
 }
