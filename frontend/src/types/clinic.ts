@@ -333,3 +333,28 @@ export interface FinancialSummary {
   totalExpenses: number;
   balance: number;
 }
+
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface Task {
+  id: string;
+  organizationId: string;
+  title: string;
+  description?: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate?: string | null;
+  createdById: string;
+  assignedToId: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: {
+    id: string;
+    person: { id: string; name: string };
+  };
+  assignedTo?: {
+    id: string;
+    person: { id: string; name: string };
+  };
+}
