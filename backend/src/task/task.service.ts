@@ -65,9 +65,13 @@ export class TaskService {
   async findMy(orgId: string, personId: string, status?: string) {
     const orgUser = await this.resolveOrgUser(orgId, personId);
 
-    const statusFilter = status
-      ? { in: status.split(',') as TaskStatus[] }
-      : { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] };
+    const validMyStatuses = status
+      ? (status.split(',').filter((s) => (Object.values(TaskStatus) as string[]).includes(s)) as TaskStatus[])
+      : undefined;
+    const statusFilter =
+      validMyStatuses && validMyStatuses.length > 0
+        ? { in: validMyStatuses }
+        : { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] };
 
     return this.prisma.task.findMany({
       where: {

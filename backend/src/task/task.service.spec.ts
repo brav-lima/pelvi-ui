@@ -168,6 +168,21 @@ describe('TaskService', () => {
         }),
       );
     });
+
+    it('deve ignorar status inválido em findMy e usar padrão PENDING e IN_PROGRESS', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockCreator);
+      prisma.task.findMany.mockResolvedValue([mockTask]);
+
+      await service.findMy(orgId, personId, 'INVALID');
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] },
+          }),
+        }),
+      );
+    });
   });
 
   describe('update', () => {
