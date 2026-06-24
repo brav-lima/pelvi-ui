@@ -125,6 +125,30 @@ describe('TaskService', () => {
         }),
       );
     });
+
+    it('deve ignorar priority inválida e retornar sem filtro de priority', async () => {
+      prisma.task.findMany.mockResolvedValue([mockTask]);
+
+      await service.findAll(orgId, undefined, 'INVALID');
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ priority: expect.anything() }),
+        }),
+      );
+    });
+
+    it('deve ignorar status inválido e retornar sem filtro de status', async () => {
+      prisma.task.findMany.mockResolvedValue([mockTask]);
+
+      await service.findAll(orgId, 'INVALID,ALSO_INVALID');
+
+      expect(prisma.task.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ status: expect.anything() }),
+        }),
+      );
+    });
   });
 
   describe('findMy', () => {

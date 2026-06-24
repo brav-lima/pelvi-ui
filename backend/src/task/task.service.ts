@@ -41,9 +41,10 @@ export class TaskService {
     priority?: string,
     assignedToId?: string,
   ) {
-    const statusFilter = status
-      ? { in: status.split(',') as TaskStatus[] }
+    const validStatuses = status
+      ? (status.split(',').filter((s) => (Object.values(TaskStatus) as string[]).includes(s)) as TaskStatus[])
       : undefined;
+    const statusFilter = validStatuses && validStatuses.length > 0 ? { in: validStatuses } : undefined;
 
     const validPriority = priority && (Object.values(TaskPriority) as string[]).includes(priority)
       ? (priority as TaskPriority)
