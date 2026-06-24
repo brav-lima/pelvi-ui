@@ -9,6 +9,7 @@ import {
   DollarSign,
   FileText,
   Settings,
+  CheckSquare,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -27,6 +28,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard',     href: '/dashboard',    icon: LayoutDashboard },
+  { name: 'Tarefas',       href: '/tarefas',       icon: CheckSquare },
   { name: 'Agenda',        href: '/agenda',        icon: Calendar,      feature: 'AGENDA' },
   { name: 'Pacientes',     href: '/patients',      icon: Users,         feature: 'PATIENTS' },
   { name: 'Profissionais', href: '/professionals', icon: UserCog,       roles: ['ADMIN'], feature: 'MULTI_PROFESSIONAL' },

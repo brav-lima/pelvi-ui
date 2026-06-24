@@ -29,6 +29,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const PerinealAssessmentPage = lazy(() => import("./pages/PerinealAssessmentPage"));
 const AnamnesisEditorPage = lazy(() => import("./pages/AnamnesisEditorPage"));
 const Documents = lazy(() => import("./pages/Documents"));
+const Tasks = lazy(() => import("./pages/Tasks"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -67,6 +68,7 @@ const App = () => (
 
                   <Route element={<MainLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/tarefas" element={<Tasks />} />
                     <Route path="/agenda" element={<FeatureRoute feature="AGENDA"><Agenda /></FeatureRoute>} />
                     <Route path="/patients" element={<FeatureRoute feature="PATIENTS"><Patients /></FeatureRoute>} />
                     <Route path="/patients/:id" element={<FeatureRoute feature="PATIENTS"><PatientProfile /></FeatureRoute>} />
