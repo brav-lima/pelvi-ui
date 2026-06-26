@@ -470,14 +470,22 @@ export default function Settings() {
                 >
                   <span className={`text-[13px] font-medium ${h.on ? '' : 'text-muted-foreground'}`}>{h.day}</span>
                   <input
+                    type="time"
                     className="h-8 px-2.5 rounded-lg bg-background border border-border text-[13px] font-mono outline-none focus:border-primary transition-all disabled:opacity-50 text-center"
-                    defaultValue={h.from}
+                    value={h.on ? h.from : ''}
                     disabled={!h.on}
+                    onChange={(e) => setHours(prev =>
+                      prev.map((d, j) => j === i ? { ...d, from: e.target.value } : d)
+                    )}
                   />
                   <input
+                    type="time"
                     className="h-8 px-2.5 rounded-lg bg-background border border-border text-[13px] font-mono outline-none focus:border-primary transition-all disabled:opacity-50 text-center"
-                    defaultValue={h.to}
+                    value={h.on ? h.to : ''}
                     disabled={!h.on}
+                    onChange={(e) => setHours(prev =>
+                      prev.map((d, j) => j === i ? { ...d, to: e.target.value } : d)
+                    )}
                   />
                   <div className="flex justify-end">
                     <Switch
