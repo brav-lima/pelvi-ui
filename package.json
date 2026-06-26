@@ -9,7 +9,10 @@
     "frontend:test": "bun run --cwd frontend test",
     "backend:dev": "bun run --cwd backend start:dev",
     "backend:build": "bun run --cwd backend build",
-    "backend:test": "bun run --cwd backend test"
+    "backend:test": "bun run --cwd backend test",
+    "version:patch": "node scripts/bump-version.js patch",
+    "version:minor": "node scripts/bump-version.js minor",
+    "version:major": "node scripts/bump-version.js major"
   },
   "devDependencies": {
     "husky": "^9.1.7"
