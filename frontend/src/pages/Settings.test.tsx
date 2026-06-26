@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings from './Settings';
@@ -94,5 +94,24 @@ describe('functional nav items still present', () => {
   it('renders Plano e cobrança nav button', () => {
     renderSettings();
     expect(screen.getByRole('button', { name: /Plano e cobrança/i })).toBeInTheDocument();
+  });
+});
+
+describe('inputs de horário de funcionamento', () => {
+  it('atualiza valor do input "de" ao digitar', async () => {
+    renderSettings();
+    // Aguardar inputs renderizarem (há 7 linhas, primeira = Segunda-feira)
+    const inputs = await screen.findAllByDisplayValue('08:00');
+    const firstFromInput = inputs[0];
+    fireEvent.change(firstFromInput, { target: { value: '09:00' } });
+    expect(firstFromInput).toHaveValue('09:00');
+  });
+
+  it('atualiza valor do input "até" ao digitar', async () => {
+    renderSettings();
+    const inputs = await screen.findAllByDisplayValue('19:00');
+    const firstToInput = inputs[0];
+    fireEvent.change(firstToInput, { target: { value: '20:00' } });
+    expect(firstToInput).toHaveValue('20:00');
   });
 });
