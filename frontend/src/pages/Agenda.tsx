@@ -7,7 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical, Pencil, RotateCcw } from 'lucide-react';
-import { appointmentsApi, professionalsApi } from '@/lib/api';
+import { appointmentsApi, professionalsApi, organizationApi } from '@/lib/api';
+import type { OrganizationProfile } from '@/types/clinic';
+import { isSlotBlocked, type BusinessHour } from '@/lib/business-hours';
 import { toast } from 'sonner';
 import {
   format,
@@ -156,25 +158,32 @@ function DroppableSlot({
   isFullHour,
   isToday,
   onClick,
+  isBlocked,
 }: {
   id: string;
   style: React.CSSProperties;
   isFullHour: boolean;
   isToday: boolean;
   onClick: () => void;
+  isBlocked: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({ id, disabled: isBlocked });
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      onClick={onClick}
+      onClick={isBlocked ? undefined : onClick}
       className={cn(
-        'absolute left-0 right-0 border-t transition-colors cursor-pointer',
+        'absolute left-0 right-0 border-t transition-colors',
         isFullHour ? 'border-border' : 'border-border/30 border-dashed',
-        isToday && 'bg-primary/5',
-        isOver ? 'bg-primary/10' : 'hover:bg-muted/30',
+        isBlocked
+          ? 'bg-muted/50 cursor-not-allowed'
+          : cn(
+              'cursor-pointer',
+              isToday && 'bg-primary/5',
+              isOver ? 'bg-primary/10' : 'hover:bg-muted/30',
+            ),
       )}
     />
   );
@@ -259,6 +268,14 @@ export default function Agenda() {
     queryFn: () => professionalsApi.list(),
   });
 
+  const { data: orgProfile } = useQuery<OrganizationProfile>({
+    queryKey: ['organization-profile'],
+    queryFn: organizationApi.getProfile,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const businessHours = orgProfile?.settings?.businessHours as BusinessHour[] | undefined;
+
   const activeProfessionals = professionals.filter((p) => p.active);
 
   const statusMutation = useMutation({
@@ -339,6 +356,9 @@ export default function Agenda() {
     const parts = slotId.replace('slot-', '').split('_');
     const dateStr = parts[0];
     const timeStr = parts[1]; // HH:MM
+
+    // Rejeitar drop em slot fora do horário de funcionamento
+    if (isSlotBlocked(timeStr, parseISO(dateStr + 'T00:00:00'), businessHours)) return;
 
     const [hourStr, minStr] = timeStr.split(':');
     const hour = parseInt(hourStr, 10);
@@ -603,11 +623,13 @@ export default function Agenda() {
                           {/* Grid lines + droppable zones */}
                           {halfHourSlots.map((slot) => {
                             const slotId = `slot-${dateStr}_${slot.time}`;
+                            const blocked = isSlotBlocked(slot.time, d, businessHours);
                             return (
                               <DroppableSlot
                                 key={slotId}
                                 id={slotId}
                                 isFullHour={slot.isFullHour}
+                                isBlocked={blocked}
                                 isToday={isToday}
                                 style={{ top: slot.index * SLOT_HEIGHT, height: SLOT_HEIGHT }}
                                 onClick={() => {
