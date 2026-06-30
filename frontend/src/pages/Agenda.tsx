@@ -36,8 +36,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
+import { RecurrenceScopeDialog } from '@/components/appointments/RecurrenceScopeDialog';
 import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import type { Appointment, AppointmentStatus } from '@/types/clinic';
 
@@ -221,6 +231,10 @@ export default function Agenda() {
   const [slotPreset, setSlotPreset] = useState<{ date: string; time: string } | null>(null);
   const [editAppointment, setEditAppointment] = useState<Appointment | null>(null);
   const [pendingDoneConfirm, setPendingDoneConfirm] = useState(false);
+  const [pendingEditAppointment, setPendingEditAppointment] = useState<Appointment | null>(null);
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const [recurrenceEditScope, setRecurrenceEditScope] = useState<'single' | 'forward'>('single');
+  const [cancelWithPackageAppointment, setCancelWithPackageAppointment] = useState<Appointment | null>(null);
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -276,11 +290,34 @@ export default function Agenda() {
 
   const businessHours = orgProfile?.settings?.businessHours as BusinessHour[] | undefined;
 
+  const handleEditClick = (apt: Appointment) => {
+    if (apt.recurrenceGroupId) {
+      setPendingEditAppointment(apt);
+      setScopeDialogOpen(true);
+    } else {
+      setEditAppointment(apt);
+    }
+  };
+
+  const handleScopeConfirm = (scope: 'single' | 'forward') => {
+    setRecurrenceEditScope(scope);
+    setScopeDialogOpen(false);
+    setEditAppointment(pendingEditAppointment);
+    setPendingEditAppointment(null);
+  };
+
   const activeProfessionals = professionals.filter((p) => p.active);
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) =>
-      appointmentsApi.updateStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      deductFromPackage,
+    }: {
+      id: string;
+      status: AppointmentStatus;
+      deductFromPackage?: boolean;
+    }) => appointmentsApi.updateStatus(id, status, { deductFromPackage }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       setSelectedAppointment(updated);
@@ -289,11 +326,11 @@ export default function Agenda() {
         CONFIRMED: 'Agendamento confirmado',
         CANCELED: 'Agendamento cancelado',
         DONE: 'Atendimento concluído',
-        SCHEDULED: 'Atendimento reaberto',
+        SCHEDULED: 'Agendamento reaberto',
       };
       toast.success(labels[updated.status] ?? 'Status atualizado');
     },
-    onError: () => toast.error('Erro ao alterar status'),
+    onError: () => toast.error('Erro ao atualizar status'),
   });
 
   const dragMutation = useMutation({
@@ -716,7 +753,7 @@ export default function Agenda() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setEditAppointment(selectedAppointment);
+                    handleEditClick(selectedAppointment);
                     setSelectedAppointment(null);
                   }}
                 >
@@ -840,7 +877,13 @@ export default function Agenda() {
                           variant="outline"
                           className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
                           disabled={statusMutation.isPending}
-                          onClick={() => statusMutation.mutate({ id: selectedAppointment.id, status: 'CANCELED' })}
+                          onClick={() => {
+                            if (selectedAppointment.treatmentPackageId) {
+                              setCancelWithPackageAppointment(selectedAppointment);
+                            } else {
+                              statusMutation.mutate({ id: selectedAppointment.id, status: 'CANCELED' });
+                            }
+                          }}
                         >
                           <XCircle className="w-4 h-4 mr-2" />
                           Cancelar
@@ -894,6 +937,7 @@ export default function Agenda() {
         }}
         defaultDate={slotPreset?.date}
         defaultTime={slotPreset?.time}
+        businessHours={businessHours}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
       />
 
@@ -904,11 +948,72 @@ export default function Agenda() {
           if (!open) setEditAppointment(null);
         }}
         appointment={editAppointment ?? undefined}
+        businessHours={businessHours}
+        recurrenceEditScope={recurrenceEditScope}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['appointments'] });
           setEditAppointment(null);
         }}
       />
+
+      <RecurrenceScopeDialog
+        open={scopeDialogOpen}
+        onOpenChange={(open) => {
+          setScopeDialogOpen(open);
+          if (!open) setPendingEditAppointment(null);
+        }}
+        onConfirm={handleScopeConfirm}
+      />
+
+      {cancelWithPackageAppointment && (
+        <AlertDialog
+          open={!!cancelWithPackageAppointment}
+          onOpenChange={(open) => {
+            if (!open) setCancelWithPackageAppointment(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar agendamento</AlertDialogTitle>
+              <AlertDialogDescription>
+                Deseja descontar esta sessão do pacote &ldquo;
+                {cancelWithPackageAppointment.treatmentPackage?.name ?? 'Pacote'}&rdquo;?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setCancelWithPackageAppointment(null)}>
+                Voltar
+              </AlertDialogCancel>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  statusMutation.mutate({
+                    id: cancelWithPackageAppointment.id,
+                    status: 'CANCELED',
+                    deductFromPackage: false,
+                  });
+                  setCancelWithPackageAppointment(null);
+                }}
+              >
+                Não descontar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  statusMutation.mutate({
+                    id: cancelWithPackageAppointment.id,
+                    status: 'CANCELED',
+                    deductFromPackage: true,
+                  });
+                  setCancelWithPackageAppointment(null);
+                }}
+              >
+                Sim, descontar sessão
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
