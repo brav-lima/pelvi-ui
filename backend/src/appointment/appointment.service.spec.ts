@@ -415,4 +415,77 @@ describe('AppointmentService', () => {
       );
     });
   });
+
+  describe('createBulk', () => {
+    it('creates multiple appointments atomically', async () => {
+      const procedure = { id: 'proc-1', durationMinutes: 30 };
+      prisma.procedure.findMany = jest.fn().mockResolvedValue([procedure]);
+      prisma.treatmentPackage.findFirst = jest.fn().mockResolvedValue(null);
+
+      const createdApts = [
+        { id: 'apt-0', recurrenceGroupId: 'grp-1', recurrenceIndex: 0 },
+        { id: 'apt-1', recurrenceGroupId: 'grp-1', recurrenceIndex: 1 },
+      ];
+      const txMock = {
+        appointment: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn()
+            .mockResolvedValueOnce(createdApts[0])
+            .mockResolvedValueOnce(createdApts[1]),
+        },
+      };
+      prisma.$transaction = jest.fn().mockImplementation(async (fn) => fn(txMock));
+
+      const result = await service.createBulk('org-1', {
+        recurrenceGroupId: 'grp-1',
+        appointments: [
+          { patientId: 'pat-1', professionalId: 'prof-1', procedureId: 'proc-1', startAt: '2026-07-01T10:00:00Z', recurrenceIndex: 0 },
+          { patientId: 'pat-1', professionalId: 'prof-1', procedureId: 'proc-1', startAt: '2026-07-02T10:00:00Z', recurrenceIndex: 1 },
+        ],
+      });
+
+      expect(result).toHaveLength(2);
+      expect(txMock.appointment.create).toHaveBeenCalledTimes(2);
+      expect(txMock.appointment.create).toHaveBeenNthCalledWith(1,
+        expect.objectContaining({ data: expect.objectContaining({ recurrenceGroupId: 'grp-1', recurrenceIndex: 0 }) })
+      );
+    });
+
+    it('throws ConflictException when any slot has a conflict', async () => {
+      const procedure = { id: 'proc-1', durationMinutes: 30 };
+      prisma.procedure.findMany = jest.fn().mockResolvedValue([procedure]);
+      prisma.treatmentPackage.findFirst = jest.fn().mockResolvedValue(null);
+
+      const txMock = {
+        appointment: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'conflict-id' }),
+          create: jest.fn(),
+        },
+      };
+      prisma.$transaction = jest.fn().mockImplementation(async (fn) => fn(txMock));
+
+      await expect(
+        service.createBulk('org-1', {
+          recurrenceGroupId: 'grp-1',
+          appointments: [
+            { patientId: 'pat-1', professionalId: 'prof-1', procedureId: 'proc-1', startAt: '2026-07-01T10:00:00Z', recurrenceIndex: 0 },
+          ],
+        })
+      ).rejects.toThrow(ConflictException);
+      expect(txMock.appointment.create).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when procedure not found', async () => {
+      prisma.procedure.findMany = jest.fn().mockResolvedValue([]);
+
+      await expect(
+        service.createBulk('org-1', {
+          recurrenceGroupId: 'grp-1',
+          appointments: [
+            { patientId: 'pat-1', professionalId: 'prof-1', procedureId: 'proc-1', startAt: '2026-07-01T10:00:00Z', recurrenceIndex: 0 },
+          ],
+        })
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });

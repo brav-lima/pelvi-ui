@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { CreateBulkAppointmentDto } from './dto/create-bulk-appointment.dto';
 import { QueryAppointmentDto } from './dto/query-appointment.dto';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
 import { REMINDER_QUEUE, ReminderJobData } from '../queue/jobs/reminder.job';
@@ -274,6 +275,83 @@ export class AppointmentService {
       await this.cancelReminder(id);
     }
     return updated;
+  }
+
+  async createBulk(organizationId: string, dto: CreateBulkAppointmentDto) {
+    const procedureIds = [...new Set(dto.appointments.map((a) => a.procedureId))];
+    const procedures = await this.prisma.procedure.findMany({
+      where: { id: { in: procedureIds }, organizationId },
+    });
+    const procedureMap = new Map(procedures.map((p) => [p.id, p]));
+
+    if (procedureMap.size !== procedureIds.length) {
+      throw new NotFoundException('Um ou mais procedimentos não encontrados');
+    }
+
+    const packageId = dto.appointments.find((a) => a.treatmentPackageId)?.treatmentPackageId;
+    if (packageId) {
+      const pkg = await this.prisma.treatmentPackage.findFirst({
+        where: { id: packageId, organizationId },
+        include: { procedures: { select: { procedureId: true } } },
+      });
+      if (!pkg) throw new NotFoundException('Pacote não encontrado');
+      if (pkg.status !== TreatmentPackageStatus.ACTIVE) {
+        throw new BadRequestException('Pacote não está ativo');
+      }
+      const withPackage = dto.appointments.filter((a) => a.treatmentPackageId).length;
+      if (withPackage > pkg.totalSessions - pkg.usedSessions) {
+        throw new BadRequestException(
+          `Pacote possui apenas ${pkg.totalSessions - pkg.usedSessions} sessões disponíveis`,
+        );
+      }
+      const pkgProcedureIds = pkg.procedures.map((p) => p.procedureId);
+      for (const item of dto.appointments) {
+        if (item.treatmentPackageId && !pkgProcedureIds.includes(item.procedureId)) {
+          throw new BadRequestException('Procedimento não faz parte do pacote');
+        }
+      }
+    }
+
+    const created = await this.prisma.$transaction(
+      async (tx) => {
+        const results: Array<{
+          apt: Awaited<ReturnType<typeof tx.appointment.create>>;
+          startAt: Date;
+        }> = [];
+        for (const item of dto.appointments) {
+          const procedure = procedureMap.get(item.procedureId)!;
+          const startAt = new Date(item.startAt);
+          const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
+
+          await this.checkConflict(organizationId, item.professionalId, startAt, endAt, undefined, tx);
+
+          const apt = await tx.appointment.create({
+            data: {
+              organizationId,
+              patientId: item.patientId,
+              professionalId: item.professionalId,
+              procedureId: item.procedureId,
+              treatmentPackageId: item.treatmentPackageId,
+              startAt,
+              endAt,
+              notes: item.notes,
+              recurrenceGroupId: dto.recurrenceGroupId,
+              recurrenceIndex: item.recurrenceIndex,
+            },
+            include: appointmentIncludes,
+          });
+          results.push({ apt, startAt });
+        }
+        return results;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    await this.invalidateAgendaCache(organizationId);
+    for (const { apt, startAt } of created) {
+      await this.scheduleReminder(apt.id, apt.patientId, organizationId, startAt);
+    }
+    return created.map(({ apt }) => apt);
   }
 
   async remove(organizationId: string, id: string) {
