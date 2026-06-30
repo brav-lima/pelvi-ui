@@ -66,6 +66,16 @@ export class AppointmentController {
     return this.appointmentService.findById(orgId, id);
   }
 
+  @Patch(':id/recurrence-forward')
+  @ApiOperation({ summary: 'Editar este agendamento e todos os seguintes da recorrência' })
+  updateRecurrenceForward(
+    @OrgId() orgId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateAppointmentDto,
+  ) {
+    return this.appointmentService.updateRecurrenceForward(orgId, id, dto);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Editar agendamento' })
   @ApiResponse({ status: 409, description: 'Conflito de horário' })

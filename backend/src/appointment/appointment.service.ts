@@ -356,6 +356,68 @@ export class AppointmentService {
     return created.map(({ apt }) => apt);
   }
 
+  async updateRecurrenceForward(
+    organizationId: string,
+    id: string,
+    dto: UpdateAppointmentDto,
+  ) {
+    const target = await this.findById(organizationId, id);
+    if (!target.recurrenceGroupId) {
+      throw new BadRequestException('Agendamento não faz parte de uma recorrência');
+    }
+
+    const procedureId = dto.procedureId ?? target.procedureId;
+    const procedure = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, organizationId },
+    });
+    if (!procedure) throw new NotFoundException('Procedimento não encontrado');
+
+    const siblings = await this.prisma.appointment.findMany({
+      where: {
+        organizationId,
+        recurrenceGroupId: target.recurrenceGroupId,
+        recurrenceIndex: { gte: target.recurrenceIndex ?? 0 },
+        deletedAt: null,
+      },
+      orderBy: { recurrenceIndex: 'asc' },
+    });
+
+    const newTime = dto.startAt ? new Date(dto.startAt) : null;
+
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        const results: Awaited<ReturnType<typeof tx.appointment.update>>[] = [];
+        for (const sibling of siblings) {
+          let startAt = sibling.startAt;
+          if (newTime) {
+            startAt = new Date(sibling.startAt);
+            startAt.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
+          }
+          const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
+
+          const result = await tx.appointment.update({
+            where: { id: sibling.id },
+            data: {
+              ...(dto.patientId !== undefined && { patientId: dto.patientId }),
+              ...(dto.professionalId !== undefined && { professionalId: dto.professionalId }),
+              procedureId,
+              startAt,
+              endAt,
+              ...(dto.notes !== undefined && { notes: dto.notes }),
+            },
+            include: appointmentIncludes,
+          });
+          results.push(result);
+        }
+        return results;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    await this.invalidateAgendaCache(organizationId);
+    return updated;
+  }
+
   async remove(organizationId: string, id: string) {
     await this.findById(organizationId, id);
 

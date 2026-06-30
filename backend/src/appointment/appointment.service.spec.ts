@@ -416,6 +416,75 @@ describe('AppointmentService', () => {
     });
   });
 
+  describe('updateRecurrenceForward', () => {
+    it('updates target and all following siblings', async () => {
+      const target = {
+        id: 'apt-2',
+        organizationId: 'org-1',
+        recurrenceGroupId: 'grp-1',
+        recurrenceIndex: 2,
+        procedureId: 'proc-1',
+        startAt: new Date('2026-07-03T10:00:00Z'),
+        patientId: 'pat-1',
+        deletedAt: null,
+      };
+      const sibling = {
+        id: 'apt-3',
+        organizationId: 'org-1',
+        recurrenceGroupId: 'grp-1',
+        recurrenceIndex: 3,
+        procedureId: 'proc-1',
+        startAt: new Date('2026-07-04T10:00:00Z'),
+        patientId: 'pat-1',
+        deletedAt: null,
+      };
+      const procedure = { id: 'proc-1', durationMinutes: 30 };
+
+      prisma.appointment.findFirst = jest.fn().mockResolvedValue(target);
+      prisma.procedure.findFirst = jest.fn().mockResolvedValue(procedure);
+      prisma.appointment.findMany = jest.fn().mockResolvedValue([target, sibling]);
+
+      const updated = [
+        { ...target, notes: 'novo' },
+        { ...sibling, notes: 'novo' },
+      ];
+      const txMock = {
+        appointment: {
+          update: jest.fn()
+            .mockResolvedValueOnce(updated[0])
+            .mockResolvedValueOnce(updated[1]),
+        },
+      };
+      prisma.$transaction = jest.fn().mockImplementation(async (fn) => fn(txMock));
+
+      const result = await service.updateRecurrenceForward('org-1', 'apt-2', { notes: 'novo' });
+
+      expect(result).toHaveLength(2);
+      expect(txMock.appointment.update).toHaveBeenCalledTimes(2);
+      expect(prisma.appointment.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          recurrenceGroupId: 'grp-1',
+          recurrenceIndex: { gte: 2 },
+        }),
+      }));
+    });
+
+    it('throws BadRequestException if appointment has no recurrenceGroupId', async () => {
+      prisma.appointment.findFirst = jest.fn().mockResolvedValue({
+        id: 'apt-1',
+        organizationId: 'org-1',
+        recurrenceGroupId: null,
+        procedureId: 'proc-1',
+        startAt: new Date(),
+        deletedAt: null,
+      });
+
+      await expect(
+        service.updateRecurrenceForward('org-1', 'apt-1', { notes: 'test' })
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('createBulk', () => {
     it('creates multiple appointments atomically', async () => {
       const procedure = { id: 'proc-1', durationMinutes: 30 };
