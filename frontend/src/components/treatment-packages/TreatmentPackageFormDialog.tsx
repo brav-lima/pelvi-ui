@@ -54,8 +54,8 @@ const packageSchema = z.object({
   customInstallments: z
     .array(
       z.object({
-        amount: z.string().min(1, 'Informe o valor'),
-        dueDate: z.string().min(1, 'Informe o vencimento'),
+        amount: z.string(),
+        dueDate: z.string(),
         paymentMethod: z.string().optional(),
       }),
     )
