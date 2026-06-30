@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsDateString,
   IsInt,
@@ -24,6 +25,7 @@ export class CreateBulkAppointmentDto {
   @IsUUID('4') recurrenceGroupId: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => BulkAppointmentItemDto)
   appointments: BulkAppointmentItemDto[];

@@ -288,6 +288,8 @@ export class AppointmentService {
       throw new NotFoundException('Um ou mais procedimentos não encontrados');
     }
 
+    // Single package per series assumed — first item's treatmentPackageId applies to all.
+    // Mixed packages in one bulk call are not supported.
     const packageId = dto.appointments.find((a) => a.treatmentPackageId)?.treatmentPackageId;
     if (packageId) {
       const pkg = await this.prisma.treatmentPackage.findFirst({
