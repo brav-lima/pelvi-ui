@@ -33,14 +33,12 @@ import { formatCurrency } from '@/lib/formatters';
 import { isSlotBlocked, getBusinessHourForDate, type BusinessHour } from '@/lib/business-hours';
 import { RecurrenceConflictDialog, type ConflictItem, type ConflictResolution } from './RecurrenceConflictDialog';
 
-function generateRecurrenceDates(
-  baseDate: string,
-  time: string,
+export function generateRecurrenceDates(
+  base: Date,
   pattern: 'daily' | 'weekly' | 'monthly',
   repeatCount: number,
 ): Date[] {
-  const base = new Date(`${baseDate}T${time}:00`);
-  const dates: Date[] = [base];
+  const dates: Date[] = [];
   for (let i = 1; i <= repeatCount; i++) {
     let next: Date;
     if (pattern === 'daily') next = addDays(base, i);
@@ -276,27 +274,35 @@ export function AppointmentFormDialog({
 
     try {
       if (!isEditMode && data.repeat && data.repeatCount && data.repeatPattern) {
-        const allDates = generateRecurrenceDates(data.date, data.time, data.repeatPattern, data.repeatCount);
-        const conflicts: ConflictItem[] = allDates.flatMap((date) => {
-          const blocked = businessHours
-            ? isSlotBlocked(data.time, date, businessHours)
-            : false;
-          if (!blocked) return [];
-          const nextAvailableDate = businessHours ? findNextAvailableDate(date, businessHours) : null;
-          if (!nextAvailableDate) return [];
-          return [{ date, nextAvailableDate }];
-        });
+        const baseDate = new Date(`${data.date}T${data.time}:00`);
+        const allDates = [baseDate, ...generateRecurrenceDates(baseDate, data.repeatPattern, data.repeatCount)];
 
-        if (conflicts.length > 0) {
-          setPendingConflicts(conflicts);
-          setPendingDates(allDates);
+        const conflictItems: ConflictItem[] = [];
+        const skippedNoNext: Date[] = [];
+
+        for (const d of allDates) {
+          const blocked = businessHours ? isSlotBlocked(data.time, d, businessHours) : false;
+          if (blocked) {
+            const next = businessHours ? findNextAvailableDate(d, businessHours) : null;
+            if (next) {
+              conflictItems.push({ date: d, nextAvailableDate: next });
+            } else {
+              skippedNoNext.push(d);
+            }
+          }
+        }
+
+        const validDates = allDates.filter((d) => !skippedNoNext.includes(d));
+
+        if (conflictItems.length > 0) {
+          setPendingConflicts(conflictItems);
+          setPendingDates(validDates);
           setPendingFormData(data);
           setConflictDialogOpen(true);
-          setLoading(false);
           return;
         }
 
-        await submitBulk(data, allDates);
+        await submitBulk(data, validDates);
         return;
       }
 
