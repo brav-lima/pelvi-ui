@@ -221,6 +221,7 @@ export class AppointmentService {
     id: string,
     status: AppointmentStatus,
     userId: string,
+    deductFromPackage?: boolean,
   ) {
     const existing = await this.findById(organizationId, id);
 
@@ -243,6 +244,14 @@ export class AppointmentService {
           );
         }
 
+        if (status === AppointmentStatus.CANCELED && deductFromPackage === true) {
+          await this.treatmentPackageService.incrementUsedSessions(
+            organizationId,
+            existing.treatmentPackageId!,
+            tx,
+          );
+        }
+
         if (
           existing.status === AppointmentStatus.DONE &&
           status !== AppointmentStatus.DONE
@@ -258,9 +267,7 @@ export class AppointmentService {
       });
 
       await this.invalidateAgendaCache(organizationId);
-      if (status === AppointmentStatus.CANCELED) {
-        await this.cancelReminder(id);
-      }
+      if (status === AppointmentStatus.CANCELED) await this.cancelReminder(id);
       return updated;
     }
 
@@ -271,9 +278,7 @@ export class AppointmentService {
     });
 
     await this.invalidateAgendaCache(organizationId);
-    if (status === AppointmentStatus.CANCELED) {
-      await this.cancelReminder(id);
-    }
+    if (status === AppointmentStatus.CANCELED) await this.cancelReminder(id);
     return updated;
   }
 

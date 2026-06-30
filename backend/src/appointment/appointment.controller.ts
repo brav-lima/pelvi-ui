@@ -90,7 +90,7 @@ export class AppointmentController {
   @Patch(':id/status')
   @ApiOperation({
     summary: 'Alterar status do agendamento',
-    description: 'Status possíveis: SCHEDULED, CONFIRMED, CANCELED, DONE.',
+    description: 'Status possíveis: SCHEDULED, CONFIRMED, CANCELED, DONE. Em CANCELED com pacote: deductFromPackage=true desconta sessão.',
   })
   updateStatus(
     @OrgId() orgId: string,
@@ -103,6 +103,7 @@ export class AppointmentController {
       id,
       dto.status,
       user.sub,
+      dto.deductFromPackage,
     );
   }
 

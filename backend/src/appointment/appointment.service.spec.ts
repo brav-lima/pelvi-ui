@@ -485,6 +485,45 @@ describe('AppointmentService', () => {
     });
   });
 
+  describe('updateStatus — CANCELED with package', () => {
+    const existing = {
+      id: 'apt-1',
+      organizationId: 'org-1',
+      treatmentPackageId: 'pkg-1',
+      status: 'SCHEDULED',
+      patientId: 'pat-1',
+      startAt: new Date(),
+    };
+
+    beforeEach(() => {
+      prisma.appointment.findFirst = jest.fn().mockResolvedValue(existing);
+    });
+
+    it('does NOT decrement sessions on CANCELED when deductFromPackage is false', async () => {
+      const txMock = {
+        appointment: { update: jest.fn().mockResolvedValue({ ...existing, status: 'CANCELED' }) },
+      };
+      prisma.$transaction = jest.fn().mockImplementation(async (fn) => fn(txMock));
+      const incrementSpy = jest.spyOn(treatmentPackageService, 'incrementUsedSessions').mockResolvedValue(undefined as any);
+
+      await service.updateStatus('org-1', 'apt-1', 'CANCELED' as any, 'user-1', false);
+
+      expect(incrementSpy).not.toHaveBeenCalled();
+    });
+
+    it('decrements sessions on CANCELED when deductFromPackage is true', async () => {
+      const txMock = {
+        appointment: { update: jest.fn().mockResolvedValue({ ...existing, status: 'CANCELED' }) },
+      };
+      prisma.$transaction = jest.fn().mockImplementation(async (fn) => fn(txMock));
+      const incrementSpy = jest.spyOn(treatmentPackageService, 'incrementUsedSessions').mockResolvedValue(undefined as any);
+
+      await service.updateStatus('org-1', 'apt-1', 'CANCELED' as any, 'user-1', true);
+
+      expect(incrementSpy).toHaveBeenCalledWith('org-1', 'pkg-1', txMock);
+    });
+  });
+
   describe('createBulk', () => {
     it('creates multiple appointments atomically', async () => {
       const procedure = { id: 'proc-1', durationMinutes: 30 };
