@@ -366,6 +366,10 @@ export function AppointmentFormDialog({
         }
       }
 
+      if (resolvedDates.length === 0) {
+        toast.error('Todos os dias foram pulados. Nenhum agendamento criado.');
+        return;
+      }
       await submitBulk(pendingFormData, resolvedDates);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
