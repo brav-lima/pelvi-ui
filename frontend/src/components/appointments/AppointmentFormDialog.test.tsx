@@ -74,6 +74,30 @@ vi.mock('@/components/ui/textarea', () => ({
   ),
 }));
 
+vi.mock('@/components/ui/checkbox', () => ({
+  Checkbox: React.forwardRef<
+    HTMLInputElement,
+    React.InputHTMLAttributes<HTMLInputElement> & {
+      checked?: boolean;
+      onCheckedChange?: (checked: boolean) => void;
+    }
+  >(({ checked, onCheckedChange, id, ...props }, ref) => (
+    <input
+      ref={ref}
+      id={id}
+      type="checkbox"
+      checked={checked ?? false}
+      onChange={(e) => onCheckedChange?.(e.target.checked)}
+      {...props}
+    />
+  )),
+}));
+
+vi.mock('./RecurrenceConflictDialog', () => ({
+  RecurrenceConflictDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="conflict-dialog" /> : null,
+}));
+
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
 import { toast } from 'sonner';
 import { AppointmentFormDialog } from './AppointmentFormDialog';
