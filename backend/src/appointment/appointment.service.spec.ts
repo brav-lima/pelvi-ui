@@ -450,6 +450,7 @@ describe('AppointmentService', () => {
       ];
       const txMock = {
         appointment: {
+          findFirst: jest.fn().mockResolvedValue(null), // no conflict
           update: jest.fn()
             .mockResolvedValueOnce(updated[0])
             .mockResolvedValueOnce(updated[1]),

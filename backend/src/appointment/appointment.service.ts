@@ -400,6 +400,9 @@ export class AppointmentService {
           }
           const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
 
+          const profId = dto.professionalId ?? sibling.professionalId;
+          await this.checkConflict(organizationId, profId, startAt, endAt, sibling.id, tx);
+
           const result = await tx.appointment.update({
             where: { id: sibling.id },
             data: {
@@ -420,6 +423,11 @@ export class AppointmentService {
     );
 
     await this.invalidateAgendaCache(organizationId);
+    if (newTime) {
+      for (const apt of updated) {
+        await this.rescheduleReminder(apt.id, apt.patientId, organizationId, apt.startAt);
+      }
+    }
     return updated;
   }
 

@@ -302,6 +302,12 @@ export function AppointmentFormDialog({
           return;
         }
 
+        if (validDates.length === 0) {
+          toast.error('Nenhuma data disponível no período selecionado');
+          setLoading(false);
+          return;
+        }
+
         await submitBulk(data, validDates);
         return;
       }
