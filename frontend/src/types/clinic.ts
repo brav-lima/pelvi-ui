@@ -130,6 +130,8 @@ export interface Appointment {
   endAt: string;
   status: AppointmentStatus;
   notes?: string;
+  recurrenceGroupId?: string;
+  recurrenceIndex?: number;
   createdAt: string;
   updatedAt: string;
   patient?: { id: string; name: string };
