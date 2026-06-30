@@ -3,8 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { RecurrenceConflictDialog } from './RecurrenceConflictDialog';
 
 const conflicts = [
-  { date: new Date('2026-07-06T10:00:00'), nextAvailable: new Date('2026-07-07T10:00:00') },
-  { date: new Date('2026-07-13T10:00:00'), nextAvailable: null },
+  { date: new Date('2026-07-06T10:00:00'), nextAvailableDate: new Date('2026-07-07T10:00:00') },
+  { date: new Date('2026-07-13T10:00:00'), nextAvailableDate: new Date('2026-07-14T10:00:00') },
 ];
 
 describe('RecurrenceConflictDialog', () => {
@@ -30,7 +30,7 @@ describe('RecurrenceConflictDialog', () => {
         onConfirm={vi.fn()}
       />
     );
-    expect(screen.getByText(/07\/07\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/próximo dia disponível \(07\/07\)/i)).toBeInTheDocument();
   });
 
   it('calls onConfirm with resolved dates using defaults', () => {
@@ -45,8 +45,8 @@ describe('RecurrenceConflictDialog', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /confirmar/i }));
     expect(onConfirm).toHaveBeenCalledWith([
-      { originalDate: conflicts[0].date, resolvedDate: conflicts[0].nextAvailable },
-      { originalDate: conflicts[1].date, resolvedDate: null },
+      { date: conflicts[0].date, action: 'reschedule', resolvedDate: conflicts[0].nextAvailableDate },
+      { date: conflicts[1].date, action: 'reschedule', resolvedDate: conflicts[1].nextAvailableDate },
     ]);
   });
 });

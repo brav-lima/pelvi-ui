@@ -16,12 +16,13 @@ import { Label } from '@/components/ui/label';
 
 export interface ConflictItem {
   date: Date;
-  nextAvailable: Date | null;
+  nextAvailableDate: Date;
 }
 
 export interface ConflictResolution {
-  originalDate: Date;
-  resolvedDate: Date | null;
+  date: Date;
+  action: 'reschedule' | 'skip';
+  resolvedDate?: Date;
 }
 
 interface Props {
@@ -31,21 +32,20 @@ interface Props {
   onConfirm: (resolutions: ConflictResolution[]) => void;
 }
 
-function defaultChoice(conflict: ConflictItem): 'next' | 'skip' {
-  return conflict.nextAvailable ? 'next' : 'skip';
-}
-
 export function RecurrenceConflictDialog({ open, onOpenChange, conflicts, onConfirm }: Props) {
   const [choices, setChoices] = useState<Record<number, 'next' | 'skip'>>(() =>
-    Object.fromEntries(conflicts.map((c, i) => [i, defaultChoice(c)])),
+    Object.fromEntries(conflicts.map((_c, i) => [i, 'next'])),
   );
 
   const handleConfirm = () => {
-    const resolutions: ConflictResolution[] = conflicts.map((c, i) => ({
-      originalDate: c.date,
-      resolvedDate: choices[i] === 'next' ? c.nextAvailable : null,
-    }));
+    const resolutions: ConflictResolution[] = conflicts.map((c, i) => {
+      if (choices[i] === 'next') {
+        return { date: c.date, action: 'reschedule', resolvedDate: c.nextAvailableDate };
+      }
+      return { date: c.date, action: 'skip' };
+    });
     onConfirm(resolutions);
+    onOpenChange(false);
   };
 
   return (
@@ -72,14 +72,12 @@ export function RecurrenceConflictDialog({ open, onOpenChange, conflicts, onConf
                 onValueChange={(v) => setChoices((prev) => ({ ...prev, [i]: v as 'next' | 'skip' }))}
                 className="space-y-1"
               >
-                {conflict.nextAvailable && (
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="next" id={`next-${i}`} />
-                    <Label htmlFor={`next-${i}`} className="cursor-pointer text-sm">
-                      Agendar em {format(conflict.nextAvailable, 'dd/MM/yyyy')} (próximo dia disponível)
-                    </Label>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="next" id={`next-${i}`} />
+                  <Label htmlFor={`next-${i}`} className="cursor-pointer text-sm">
+                    Agendar no próximo dia disponível ({format(conflict.nextAvailableDate, 'dd/MM', { locale: ptBR })})
+                  </Label>
+                </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="skip" id={`skip-${i}`} />
                   <Label htmlFor={`skip-${i}`} className="cursor-pointer text-sm text-muted-foreground">
