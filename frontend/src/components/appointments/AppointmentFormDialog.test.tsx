@@ -4,13 +4,19 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
+// ── Hoisted state (available inside vi.mock factories) ─────────────────────────
+
+const capturedCallbacks = vi.hoisted(() => ({
+  onConfirm: null as ((resolutions: any[]) => void) | null,
+}));
+
 // ── Module mocks ───────────────────────────────────────────────────────────────
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
   return {
     ...actual,
-    appointmentsApi: { create: vi.fn() },
+    appointmentsApi: { create: vi.fn(), createBulk: vi.fn() },
     patientsApi: { list: vi.fn() },
     professionalsApi: { list: vi.fn() },
     proceduresApi: { list: vi.fn() },
@@ -74,15 +80,61 @@ vi.mock('@/components/ui/textarea', () => ({
   ),
 }));
 
+vi.mock('@/components/ui/checkbox', () => ({
+  Checkbox: React.forwardRef<
+    HTMLInputElement,
+    React.InputHTMLAttributes<HTMLInputElement> & {
+      checked?: boolean;
+      onCheckedChange?: (checked: boolean) => void;
+    }
+  >(({ checked, onCheckedChange, id, ...props }, ref) => (
+    <input
+      ref={ref}
+      id={id}
+      type="checkbox"
+      checked={checked ?? false}
+      onChange={(e) => onCheckedChange?.(e.target.checked)}
+      {...props}
+    />
+  )),
+}));
+
+vi.mock('./RecurrenceConflictDialog', () => ({
+  RecurrenceConflictDialog: ({ open, onConfirm }: { open: boolean; onConfirm: (r: any[]) => void; conflicts?: any }) => {
+    capturedCallbacks.onConfirm = onConfirm;
+    return open ? <div data-testid="conflict-dialog" /> : null;
+  },
+}));
+
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
 import { toast } from 'sonner';
-import { AppointmentFormDialog } from './AppointmentFormDialog';
+import { AppointmentFormDialog, generateRecurrenceDates } from './AppointmentFormDialog';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
 const patient = { id: 'p1', name: 'Maria Costa', cpf: null, birthDate: null, email: null, phone: null };
 const professional = { id: 'pr1', active: true, person: { id: 'per1', name: 'Dr. João', email: null, phone: null, cpf: null } };
 const procedure = { id: 'proc1', name: 'Fisioterapia', durationMinutes: 60, price: 200, active: true };
+
+const mockAppointment = {
+  id: 'apt1',
+  patientId: 'p1',
+  professionalId: 'pr1',
+  procedureId: 'proc1',
+  startAt: '2026-06-01T09:00:00.000Z',
+  endAt: '2026-06-01T10:00:00.000Z',
+  status: 'SCHEDULED' as const,
+  notes: null,
+};
+
+// 2026-06-01 is a Monday; businessHours blocks 09:00 (before 10:00 opening), Tuesday onward is open
+const blockingBusinessHours = [
+  { day: 'MONDAY', from: '10:00', to: '18:00', enabled: true },
+  { day: 'TUESDAY', from: '08:00', to: '18:00', enabled: true },
+  { day: 'WEDNESDAY', from: '08:00', to: '18:00', enabled: true },
+  { day: 'THURSDAY', from: '08:00', to: '18:00', enabled: true },
+  { day: 'FRIDAY', from: '08:00', to: '18:00', enabled: true },
+];
 
 function pagedPatients(data: unknown[]) {
   return { data, meta: { total: data.length, page: 1, limit: 100, totalPages: 1 } } as any;
@@ -104,6 +156,7 @@ function makeWrapper() {
 function renderDialog(props: Partial<{
   open: boolean; defaultDate: string; defaultTime: string;
   onOpenChange: ReturnType<typeof vi.fn>; onSuccess: ReturnType<typeof vi.fn>;
+  businessHours: any[]; appointment: any;
 }> = {}) {
   const defaults = {
     open: true,
@@ -151,6 +204,7 @@ describe('AppointmentFormDialog', () => {
     vi.mocked(professionalsApi.list).mockResolvedValue([professional] as any);
     vi.mocked(proceduresApi.list).mockResolvedValue([procedure] as any);
     vi.mocked(treatmentPackagesApi.list).mockResolvedValue([] as any);
+    capturedCallbacks.onConfirm = null;
   });
 
   it('não renderiza quando fechado', () => {
@@ -287,6 +341,92 @@ describe('AppointmentFormDialog', () => {
       // that encodes the correct local date/time
       const reconstructed = new Date('2026-06-15T14:00:00').toISOString();
       expect(call.startAt).toBe(reconstructed);
+    });
+  });
+
+  // ── Repeat scheduling tests ────────────────────────────────────────────────
+
+  it('hides repeat section in edit mode', () => {
+    render(
+      <AppointmentFormDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+        appointment={mockAppointment}
+      />,
+      { wrapper: makeWrapper() },
+    );
+    expect(screen.queryByLabelText(/repetir agendamento/i)).not.toBeInTheDocument();
+  });
+
+  it('generateRecurrenceDates generates correct dates for daily pattern', () => {
+    const base = new Date('2026-07-01T10:00:00');
+    const dates = generateRecurrenceDates(base, 'daily', 3);
+    expect(dates).toHaveLength(3);
+    expect(dates[0].toISOString().slice(0, 10)).toBe('2026-07-02');
+    expect(dates[1].toISOString().slice(0, 10)).toBe('2026-07-03');
+    expect(dates[2].toISOString().slice(0, 10)).toBe('2026-07-04');
+  });
+
+  it('generateRecurrenceDates generates correct dates for weekly pattern', () => {
+    const base = new Date('2026-07-01T10:00:00');
+    const dates = generateRecurrenceDates(base, 'weekly', 2);
+    expect(dates[0].toISOString().slice(0, 10)).toBe('2026-07-08');
+    expect(dates[1].toISOString().slice(0, 10)).toBe('2026-07-15');
+  });
+
+  it('generateRecurrenceDates generates correct dates for monthly pattern', () => {
+    const base = new Date('2026-07-01T10:00:00');
+    const dates = generateRecurrenceDates(base, 'monthly', 2);
+    expect(dates[0].toISOString().slice(0, 10)).toBe('2026-08-01');
+    expect(dates[1].toISOString().slice(0, 10)).toBe('2026-09-01');
+  });
+
+  it('shows conflict dialog when a generated date is blocked by business hours', async () => {
+    // 2026-06-01 is Monday; 09:00 is before the 10:00 opening → slot is blocked
+    vi.mocked(appointmentsApi.createBulk).mockResolvedValue({} as any);
+
+    renderDialog({ businessHours: blockingBusinessHours });
+    await fillForm();
+
+    // Enable repeat (repeatCount defaults to 1, pattern defaults to daily)
+    const repeatCheckbox = screen.getByLabelText(/repetir agendamento/i);
+    await act(async () => {
+      fireEvent.click(repeatCheckbox);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /agendar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('conflict-dialog')).toBeInTheDocument();
+    });
+  });
+
+  it('calls createBulk when conflict is confirmed', async () => {
+    // Same setup as conflict-dialog test
+    vi.mocked(appointmentsApi.createBulk).mockResolvedValue({} as any);
+
+    renderDialog({ businessHours: blockingBusinessHours });
+    await fillForm();
+
+    const repeatCheckbox = screen.getByLabelText(/repetir agendamento/i);
+    await act(async () => {
+      fireEvent.click(repeatCheckbox);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /agendar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('conflict-dialog')).toBeInTheDocument();
+    });
+
+    // Resolve conflicts: empty resolutions = skip blocked dates
+    await act(async () => {
+      capturedCallbacks.onConfirm!([]);
+    });
+
+    await waitFor(() => {
+      expect(appointmentsApi.createBulk).toHaveBeenCalled();
     });
   });
 });

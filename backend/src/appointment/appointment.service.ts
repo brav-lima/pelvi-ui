@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { CreateBulkAppointmentDto } from './dto/create-bulk-appointment.dto';
 import { QueryAppointmentDto } from './dto/query-appointment.dto';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
 import { REMINDER_QUEUE, ReminderJobData } from '../queue/jobs/reminder.job';
@@ -220,6 +221,7 @@ export class AppointmentService {
     id: string,
     status: AppointmentStatus,
     userId: string,
+    deductFromPackage?: boolean,
   ) {
     const existing = await this.findById(organizationId, id);
 
@@ -242,6 +244,14 @@ export class AppointmentService {
           );
         }
 
+        if (status === AppointmentStatus.CANCELED && deductFromPackage === true) {
+          await this.treatmentPackageService.incrementUsedSessions(
+            organizationId,
+            existing.treatmentPackageId!,
+            tx,
+          );
+        }
+
         if (
           existing.status === AppointmentStatus.DONE &&
           status !== AppointmentStatus.DONE
@@ -257,9 +267,7 @@ export class AppointmentService {
       });
 
       await this.invalidateAgendaCache(organizationId);
-      if (status === AppointmentStatus.CANCELED) {
-        await this.cancelReminder(id);
-      }
+      if (status === AppointmentStatus.CANCELED) await this.cancelReminder(id);
       return updated;
     }
 
@@ -270,8 +278,155 @@ export class AppointmentService {
     });
 
     await this.invalidateAgendaCache(organizationId);
-    if (status === AppointmentStatus.CANCELED) {
-      await this.cancelReminder(id);
+    if (status === AppointmentStatus.CANCELED) await this.cancelReminder(id);
+    return updated;
+  }
+
+  async createBulk(organizationId: string, dto: CreateBulkAppointmentDto) {
+    const procedureIds = [...new Set(dto.appointments.map((a) => a.procedureId))];
+    const procedures = await this.prisma.procedure.findMany({
+      where: { id: { in: procedureIds }, organizationId },
+    });
+    const procedureMap = new Map(procedures.map((p) => [p.id, p]));
+
+    if (procedureMap.size !== procedureIds.length) {
+      throw new NotFoundException('Um ou mais procedimentos não encontrados');
+    }
+
+    // Single package per series assumed — first item's treatmentPackageId applies to all.
+    // Mixed packages in one bulk call are not supported.
+    const packageId = dto.appointments.find((a) => a.treatmentPackageId)?.treatmentPackageId;
+    if (packageId) {
+      const pkg = await this.prisma.treatmentPackage.findFirst({
+        where: { id: packageId, organizationId },
+        include: { procedures: { select: { procedureId: true } } },
+      });
+      if (!pkg) throw new NotFoundException('Pacote não encontrado');
+      if (pkg.status !== TreatmentPackageStatus.ACTIVE) {
+        throw new BadRequestException('Pacote não está ativo');
+      }
+      const withPackage = dto.appointments.filter((a) => a.treatmentPackageId).length;
+      if (withPackage > pkg.totalSessions - pkg.usedSessions) {
+        throw new BadRequestException(
+          `Pacote possui apenas ${pkg.totalSessions - pkg.usedSessions} sessões disponíveis`,
+        );
+      }
+      const pkgProcedureIds = pkg.procedures.map((p) => p.procedureId);
+      for (const item of dto.appointments) {
+        if (item.treatmentPackageId && !pkgProcedureIds.includes(item.procedureId)) {
+          throw new BadRequestException('Procedimento não faz parte do pacote');
+        }
+      }
+    }
+
+    const created = await this.prisma.$transaction(
+      async (tx) => {
+        const results: Array<{
+          apt: Awaited<ReturnType<typeof tx.appointment.create>>;
+          startAt: Date;
+        }> = [];
+        for (const item of dto.appointments) {
+          const procedure = procedureMap.get(item.procedureId)!;
+          const startAt = new Date(item.startAt);
+          const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
+
+          await this.checkConflict(organizationId, item.professionalId, startAt, endAt, undefined, tx);
+
+          const apt = await tx.appointment.create({
+            data: {
+              organizationId,
+              patientId: item.patientId,
+              professionalId: item.professionalId,
+              procedureId: item.procedureId,
+              treatmentPackageId: item.treatmentPackageId,
+              startAt,
+              endAt,
+              notes: item.notes,
+              recurrenceGroupId: dto.recurrenceGroupId,
+              recurrenceIndex: item.recurrenceIndex,
+            },
+            include: appointmentIncludes,
+          });
+          results.push({ apt, startAt });
+        }
+        return results;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    await this.invalidateAgendaCache(organizationId);
+    for (const { apt, startAt } of created) {
+      await this.scheduleReminder(apt.id, apt.patientId, organizationId, startAt);
+    }
+    return created.map(({ apt }) => apt);
+  }
+
+  async updateRecurrenceForward(
+    organizationId: string,
+    id: string,
+    dto: UpdateAppointmentDto,
+  ) {
+    const target = await this.findById(organizationId, id);
+    if (!target.recurrenceGroupId) {
+      throw new BadRequestException('Agendamento não faz parte de uma recorrência');
+    }
+
+    const procedureId = dto.procedureId ?? target.procedureId;
+    const procedure = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, organizationId },
+    });
+    if (!procedure) throw new NotFoundException('Procedimento não encontrado');
+
+    const siblings = await this.prisma.appointment.findMany({
+      where: {
+        organizationId,
+        recurrenceGroupId: target.recurrenceGroupId,
+        recurrenceIndex: { gte: target.recurrenceIndex ?? 0 },
+        deletedAt: null,
+      },
+      orderBy: { recurrenceIndex: 'asc' },
+    });
+
+    const newTime = dto.startAt ? new Date(dto.startAt) : null;
+
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        const results: Awaited<ReturnType<typeof tx.appointment.update>>[] = [];
+        for (const sibling of siblings) {
+          let startAt = sibling.startAt;
+          if (newTime) {
+            startAt = new Date(sibling.startAt);
+            startAt.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
+          }
+          const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
+
+          const profId = dto.professionalId ?? sibling.professionalId;
+          await this.checkConflict(organizationId, profId, startAt, endAt, sibling.id, tx);
+
+          const result = await tx.appointment.update({
+            where: { id: sibling.id },
+            data: {
+              ...(dto.patientId !== undefined && { patientId: dto.patientId }),
+              ...(dto.professionalId !== undefined && { professionalId: dto.professionalId }),
+              procedureId,
+              startAt,
+              endAt,
+              ...(dto.notes !== undefined && { notes: dto.notes }),
+            },
+            include: appointmentIncludes,
+          });
+          results.push(result);
+        }
+        return results;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    await this.invalidateAgendaCache(organizationId);
+    if (newTime) {
+      for (const apt of updated) {
+        await this.rescheduleReminder(apt.id, apt.patientId, organizationId, apt.startAt);
+      }
     }
     return updated;
   }

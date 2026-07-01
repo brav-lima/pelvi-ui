@@ -198,12 +198,35 @@ export const appointmentsApi = {
   list: (params: { startDate: string; endDate: string; professionalId?: string }) =>
     api.get<Appointment[]>(`/appointments?${queryString(params)}`),
   getById: (id: string) => api.get<Appointment>(`/appointments/${id}`),
-  create: (data: { patientId: string; professionalId: string; procedureId: string; startAt: string; notes?: string; treatmentPackageId?: string }) =>
-    api.post<Appointment>('/appointments', data),
+  create: (data: {
+    patientId: string;
+    professionalId: string;
+    procedureId: string;
+    startAt: string;
+    notes?: string;
+    treatmentPackageId?: string;
+  }) => api.post<Appointment>('/appointments', data),
+  createBulk: (data: {
+    recurrenceGroupId: string;
+    appointments: Array<{
+      patientId: string;
+      professionalId: string;
+      procedureId: string;
+      startAt: string;
+      notes?: string;
+      treatmentPackageId?: string;
+      recurrenceIndex: number;
+    }>;
+  }) => api.post<Appointment[]>('/appointments/bulk', data),
   update: (id: string, data: Record<string, unknown>) =>
     api.patch<Appointment>(`/appointments/${id}`, data),
-  updateStatus: (id: string, status: AppointmentStatus) =>
-    api.patch<Appointment>(`/appointments/${id}/status`, { status }),
+  updateRecurrenceForward: (id: string, data: Record<string, unknown>) =>
+    api.patch<Appointment[]>(`/appointments/${id}/recurrence-forward`, data),
+  updateStatus: (
+    id: string,
+    status: AppointmentStatus,
+    options?: { deductFromPackage?: boolean },
+  ) => api.patch<Appointment>(`/appointments/${id}/status`, { status, ...options }),
   remove: (id: string) => api.delete<void>(`/appointments/${id}`),
 };
 

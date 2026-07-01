@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AppointmentService } from './appointment.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { CreateBulkAppointmentDto } from './dto/create-bulk-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { QueryAppointmentDto } from './dto/query-appointment.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
@@ -25,6 +26,14 @@ import { RequireFeature } from '../subscription/decorators/require-feature.decor
 @Controller('appointments')
 export class AppointmentController {
   constructor(private readonly appointmentService: AppointmentService) {}
+
+  @Post('bulk')
+  @ApiOperation({ summary: 'Criar múltiplos agendamentos recorrentes (bulk)' })
+  @ApiResponse({ status: 201, description: 'Agendamentos criados' })
+  @ApiResponse({ status: 409, description: 'Conflito de horário em um dos slots' })
+  createBulk(@OrgId() orgId: string, @Body() dto: CreateBulkAppointmentDto) {
+    return this.appointmentService.createBulk(orgId, dto);
+  }
 
   @Post()
   @ApiOperation({
@@ -57,6 +66,16 @@ export class AppointmentController {
     return this.appointmentService.findById(orgId, id);
   }
 
+  @Patch(':id/recurrence-forward')
+  @ApiOperation({ summary: 'Editar este agendamento e todos os seguintes da recorrência' })
+  updateRecurrenceForward(
+    @OrgId() orgId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateAppointmentDto,
+  ) {
+    return this.appointmentService.updateRecurrenceForward(orgId, id, dto);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Editar agendamento' })
   @ApiResponse({ status: 409, description: 'Conflito de horário' })
@@ -71,7 +90,7 @@ export class AppointmentController {
   @Patch(':id/status')
   @ApiOperation({
     summary: 'Alterar status do agendamento',
-    description: 'Status possíveis: SCHEDULED, CONFIRMED, CANCELED, DONE.',
+    description: 'Status possíveis: SCHEDULED, CONFIRMED, CANCELED, DONE. Em CANCELED com pacote: deductFromPackage=true desconta sessão.',
   })
   updateStatus(
     @OrgId() orgId: string,
@@ -84,6 +103,7 @@ export class AppointmentController {
       id,
       dto.status,
       user.sub,
+      dto.deductFromPackage,
     );
   }
 

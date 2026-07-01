@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays, addWeeks, addMonths } from 'date-fns';
 import { Plus } from 'lucide-react';
 import type { Appointment, Patient } from '@/types/clinic';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,34 @@ import {
 import { toast } from 'sonner';
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
+import { isSlotBlocked, getBusinessHourForDate, type BusinessHour } from '@/lib/business-hours';
+import { RecurrenceConflictDialog, type ConflictItem, type ConflictResolution } from './RecurrenceConflictDialog';
+
+export function generateRecurrenceDates(
+  base: Date,
+  pattern: 'daily' | 'weekly' | 'monthly',
+  repeatCount: number,
+): Date[] {
+  const dates: Date[] = [];
+  for (let i = 1; i <= repeatCount; i++) {
+    let next: Date;
+    if (pattern === 'daily') next = addDays(base, i);
+    else if (pattern === 'weekly') next = addWeeks(base, i);
+    else next = addMonths(base, i);
+    next.setHours(base.getHours(), base.getMinutes(), 0, 0);
+    dates.push(next);
+  }
+  return dates;
+}
+
+function findNextAvailableDate(date: Date, bh: BusinessHour[]): Date | null {
+  for (let i = 1; i <= 14; i++) {
+    const candidate = addDays(date, i);
+    const rule = getBusinessHourForDate(candidate, bh);
+    if (rule?.enabled) return candidate;
+  }
+  return null;
+}
 
 const timeSlots = Array.from({ length: 26 }, (_, i) => {
   const hour = Math.floor(i / 2) + 8;
@@ -43,6 +72,9 @@ const appointmentSchema = z.object({
   date: z.string().min(1, 'Selecione a data'),
   time: z.string().min(1, 'Selecione o horário'),
   notes: z.string().optional(),
+  repeat: z.boolean().default(false),
+  repeatPattern: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  repeatCount: z.number().min(1).max(52).optional(),
 });
 
 type AppointmentFormData = z.infer<typeof appointmentSchema>;
@@ -54,13 +86,28 @@ interface AppointmentFormDialogProps {
   defaultDate?: string;
   defaultTime?: string;
   appointment?: Appointment;
+  businessHours?: BusinessHour[];
+  recurrenceEditScope?: 'single' | 'forward';
 }
 
-export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDate, defaultTime, appointment }: AppointmentFormDialogProps) {
+export function AppointmentFormDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  defaultDate,
+  defaultTime,
+  appointment,
+  businessHours,
+  recurrenceEditScope,
+}: AppointmentFormDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [quickPatientOpen, setQuickPatientOpen] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [pendingConflicts, setPendingConflicts] = useState<ConflictItem[]>([]);
+  const [pendingDates, setPendingDates] = useState<Date[]>([]);
+  const [pendingFormData, setPendingFormData] = useState<AppointmentFormData | null>(null);
   const queryClient = useQueryClient();
 
   const isEditMode = !!appointment;
@@ -96,6 +143,9 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       date: '',
       time: '',
       notes: '',
+      repeat: false,
+      repeatPattern: 'daily',
+      repeatCount: 1,
     },
   });
 
@@ -109,6 +159,9 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           date: format(parseISO(appointment.startAt), 'yyyy-MM-dd'),
           time: format(parseISO(appointment.startAt), 'HH:mm'),
           notes: appointment.notes ?? '',
+          repeat: false,
+          repeatPattern: 'daily',
+          repeatCount: 1,
         });
         setSelectedPackageId('');
       } else {
@@ -119,6 +172,9 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           date: defaultDate ?? '',
           time: defaultTime ?? '',
           notes: '',
+          repeat: false,
+          repeatPattern: 'daily',
+          repeatCount: 1,
         });
         setSelectedPackageId('');
       }
@@ -152,14 +208,19 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
     }
   };
 
-  const onSubmit = async (data: AppointmentFormData) => {
-    setLoading(true);
-    setError('');
-
+  const submitSingle = async (data: AppointmentFormData) => {
     const startAt = new Date(`${data.date}T${data.time}:00`).toISOString();
-
-    try {
-      if (isEditMode && appointment) {
+    if (isEditMode && appointment) {
+      if (recurrenceEditScope === 'forward') {
+        await appointmentsApi.updateRecurrenceForward(appointment.id, {
+          patientId: data.patientId,
+          professionalId: data.professionalId,
+          procedureId: data.procedureId,
+          startAt,
+          notes: data.notes || undefined,
+        });
+        toast.success('Série de agendamentos atualizada');
+      } else {
         await appointmentsApi.update(appointment.id, {
           patientId: data.patientId,
           professionalId: data.professionalId,
@@ -168,21 +229,90 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
           notes: data.notes || undefined,
         });
         toast.success('Agendamento atualizado com sucesso');
-      } else {
-        await appointmentsApi.create({
-          patientId: data.patientId,
-          professionalId: data.professionalId,
-          procedureId: data.procedureId,
-          startAt,
-          notes: data.notes || undefined,
-          treatmentPackageId: selectedPackageId || undefined,
-        });
-        toast.success('Agendamento criado com sucesso');
       }
-      onSuccess();
-      onOpenChange(false);
-      form.reset();
-      setSelectedPackageId('');
+    } else {
+      await appointmentsApi.create({
+        patientId: data.patientId,
+        professionalId: data.professionalId,
+        procedureId: data.procedureId,
+        startAt,
+        notes: data.notes || undefined,
+        treatmentPackageId: selectedPackageId || undefined,
+      });
+      toast.success('Agendamento criado com sucesso');
+    }
+    onSuccess();
+    onOpenChange(false);
+    form.reset();
+    setSelectedPackageId('');
+  };
+
+  const submitBulk = async (data: AppointmentFormData, resolvedDates: Date[]) => {
+    const recurrenceGroupId = crypto.randomUUID();
+    await appointmentsApi.createBulk({
+      recurrenceGroupId,
+      appointments: resolvedDates.map((date, i) => ({
+        patientId: data.patientId,
+        professionalId: data.professionalId,
+        procedureId: data.procedureId,
+        startAt: date.toISOString(),
+        notes: data.notes || undefined,
+        treatmentPackageId: selectedPackageId || undefined,
+        recurrenceIndex: i,
+      })),
+    });
+    toast.success(`${resolvedDates.length} agendamentos criados com sucesso`);
+    onSuccess();
+    onOpenChange(false);
+    form.reset();
+    setSelectedPackageId('');
+  };
+
+  const onSubmit = async (data: AppointmentFormData) => {
+    setLoading(true);
+    setError('');
+
+    try {
+      if (!isEditMode && data.repeat && data.repeatCount && data.repeatPattern) {
+        const baseDate = new Date(`${data.date}T${data.time}:00`);
+        const allDates = [baseDate, ...generateRecurrenceDates(baseDate, data.repeatPattern, data.repeatCount)];
+
+        const conflictItems: ConflictItem[] = [];
+        const skippedNoNext: Date[] = [];
+
+        for (const d of allDates) {
+          const blocked = businessHours ? isSlotBlocked(data.time, d, businessHours) : false;
+          if (blocked) {
+            const next = businessHours ? findNextAvailableDate(d, businessHours) : null;
+            if (next) {
+              conflictItems.push({ date: d, nextAvailableDate: next });
+            } else {
+              skippedNoNext.push(d);
+            }
+          }
+        }
+
+        const validDates = allDates.filter((d) => !skippedNoNext.includes(d));
+
+        if (conflictItems.length > 0) {
+          setPendingConflicts(conflictItems);
+          setPendingDates(validDates);
+          setPendingFormData(data);
+          setConflictDialogOpen(true);
+          return;
+        }
+
+        if (validDates.length === 0) {
+          toast.error('Nenhuma data disponível no período selecionado');
+          setLoading(false);
+          return;
+        }
+
+        await submitBulk(data, validDates);
+        return;
+      }
+
+      await submitSingle(data);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         toast.error('Conflito de horário');
@@ -203,6 +333,57 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConflictConfirm = async (resolutions: ConflictResolution[]) => {
+    if (!pendingFormData || !pendingDates.length) return;
+    setConflictDialogOpen(false);
+    setLoading(true);
+    setError('');
+
+    try {
+      const conflictOriginalDates = new Set(
+        pendingConflicts.map((c) => c.date.toISOString()),
+      );
+      const resolutionMap = new Map(
+        resolutions.map((r) => [r.date.toISOString(), r.resolvedDate]),
+      );
+
+      const resolvedDates: Date[] = [];
+      for (const date of pendingDates) {
+        const iso = date.toISOString();
+        if (conflictOriginalDates.has(iso)) {
+          const resolved = resolutionMap.get(iso);
+          if (resolved) {
+            const d = new Date(resolved);
+            d.setHours(date.getHours(), date.getMinutes(), 0, 0);
+            resolvedDates.push(d);
+          }
+          // undefined = skip this date
+        } else {
+          resolvedDates.push(date);
+        }
+      }
+
+      if (resolvedDates.length === 0) {
+        toast.error('Todos os dias foram pulados. Nenhum agendamento criado.');
+        return;
+      }
+      await submitBulk(pendingFormData, resolvedDates);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error('Conflito de horário em um dos dias resolvidos');
+        setError('Conflito de horário detectado. Tente outros dias.');
+      } else {
+        toast.error('Erro ao criar agendamentos');
+        setError('Erro ao criar agendamentos. Tente novamente.');
+      }
+    } finally {
+      setLoading(false);
+      setPendingFormData(null);
+      setPendingDates([]);
+      setPendingConflicts([]);
     }
   };
 
@@ -379,6 +560,55 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
             <Textarea id="notes" rows={3} placeholder="Observações sobre a consulta..." {...form.register('notes')} />
           </div>
 
+          {!isEditMode && (
+            <div className="space-y-3 border-t border-border pt-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="repeat"
+                  checked={form.watch('repeat') ?? false}
+                  onCheckedChange={(checked) => {
+                    form.setValue('repeat', !!checked);
+                  }}
+                />
+                <Label htmlFor="repeat" className="cursor-pointer">Repetir agendamento</Label>
+              </div>
+
+              {form.watch('repeat') && (
+                <div className="grid grid-cols-2 gap-4 pl-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="repeatPattern">Padrão</Label>
+                    <Select
+                      value={form.watch('repeatPattern') ?? 'daily'}
+                      onValueChange={(v) => form.setValue('repeatPattern', v as 'daily' | 'weekly' | 'monthly')}
+                    >
+                      <SelectTrigger id="repeatPattern">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Diário</SelectItem>
+                        <SelectItem value="weekly">Semanal</SelectItem>
+                        <SelectItem value="monthly">Mensal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="repeatCount">Repetir (vezes)</Label>
+                    <Input
+                      id="repeatCount"
+                      type="number"
+                      min={1}
+                      max={52}
+                      inputMode="numeric"
+                      className="tabular-nums"
+                      {...form.register('repeatCount', { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
           <DialogFooter>
@@ -392,6 +622,13 @@ export function AppointmentFormDialog({ open, onOpenChange, onSuccess, defaultDa
         </form>
       </DialogContent>
     </Dialog>
+
+    <RecurrenceConflictDialog
+      open={conflictDialogOpen}
+      onOpenChange={setConflictDialogOpen}
+      conflicts={pendingConflicts}
+      onConfirm={handleConflictConfirm}
+    />
 
     <PatientFormDialog
       open={quickPatientOpen}
