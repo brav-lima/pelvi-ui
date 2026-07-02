@@ -53,6 +53,9 @@ export class AppointmentService {
       throw new NotFoundException('Procedimento não encontrado');
     }
 
+    await this.validatePatient(organizationId, dto.patientId);
+    await this.validateProfessional(organizationId, dto.professionalId);
+
     if (dto.treatmentPackageId) {
       const pkg = await this.prisma.treatmentPackage.findFirst({
         where: { id: dto.treatmentPackageId, organizationId },
@@ -118,7 +121,8 @@ export class AppointmentService {
 
   async findAll(organizationId: string, query: QueryAppointmentDto) {
     const cacheKey = agendaKey(organizationId, query.startDate, query.endDate, query.professionalId);
-    const cached = await this.redis.getJson(cacheKey);
+    // Redis indisponível não pode derrubar a agenda — cache falhou, vai ao banco
+    const cached = await this.redis.getJson(cacheKey).catch(() => null);
     if (cached) return cached;
 
     const endDate = new Date(query.endDate);
@@ -143,7 +147,7 @@ export class AppointmentService {
       include: appointmentIncludes,
     });
 
-    await this.redis.setJson(cacheKey, result, AGENDA_CACHE_TTL);
+    await this.redis.setJson(cacheKey, result, AGENDA_CACHE_TTL).catch(() => undefined);
     return result;
   }
 
@@ -166,6 +170,9 @@ export class AppointmentService {
     dto: UpdateAppointmentDto,
   ) {
     const existing = await this.findById(organizationId, id);
+
+    if (dto.patientId) await this.validatePatient(organizationId, dto.patientId);
+    if (dto.professionalId) await this.validateProfessional(organizationId, dto.professionalId);
 
     if (!dto.startAt && !dto.procedureId) {
       const updated = await this.prisma.appointment.update({
@@ -293,6 +300,15 @@ export class AppointmentService {
       throw new NotFoundException('Um ou mais procedimentos não encontrados');
     }
 
+    const patientIds = [...new Set(dto.appointments.map((a) => a.patientId))];
+    const professionalIds = [...new Set(dto.appointments.map((a) => a.professionalId))];
+    for (const patientId of patientIds) {
+      await this.validatePatient(organizationId, patientId);
+    }
+    for (const professionalId of professionalIds) {
+      await this.validateProfessional(organizationId, professionalId);
+    }
+
     // Single package per series assumed — first item's treatmentPackageId applies to all.
     // Mixed packages in one bulk call are not supported.
     const packageId = dto.appointments.find((a) => a.treatmentPackageId)?.treatmentPackageId;
@@ -377,6 +393,9 @@ export class AppointmentService {
     });
     if (!procedure) throw new NotFoundException('Procedimento não encontrado');
 
+    if (dto.patientId) await this.validatePatient(organizationId, dto.patientId);
+    if (dto.professionalId) await this.validateProfessional(organizationId, dto.professionalId);
+
     const siblings = await this.prisma.appointment.findMany({
       where: {
         organizationId,
@@ -445,7 +464,11 @@ export class AppointmentService {
   }
 
   private async invalidateAgendaCache(organizationId: string): Promise<void> {
-    await this.redis.deleteByPattern(`cache:agenda:${organizationId}:*`);
+    // Se o Redis está fora, o cache também está — falha aqui não pode anular
+    // um agendamento já persistido no banco
+    await this.redis
+      .deleteByPattern(`cache:agenda:${organizationId}:*`)
+      .catch(() => undefined);
   }
 
   private async scheduleReminder(
@@ -477,6 +500,24 @@ export class AppointmentService {
   private async cancelReminder(appointmentId: string): Promise<void> {
     const job = await this.reminderQueue.getJob(`reminder-${appointmentId}`);
     await job?.remove();
+  }
+
+  // IDs de paciente/profissional chegam do cliente — sem estas checagens um
+  // usuário autenticado poderia referenciar registros de outra organização
+  private async validatePatient(organizationId: string, patientId: string) {
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!patient) throw new NotFoundException('Paciente não encontrado');
+  }
+
+  private async validateProfessional(organizationId: string, professionalId: string) {
+    const professional = await this.prisma.organizationUser.findFirst({
+      where: { id: professionalId, organizationId, active: true },
+      select: { id: true },
+    });
+    if (!professional) throw new NotFoundException('Profissional não encontrado');
   }
 
   private async checkConflict(

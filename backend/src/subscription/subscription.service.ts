@@ -36,7 +36,14 @@ export class SubscriptionService {
   }
 
   async getSubscription(organizationId: string): Promise<SubscriptionSnapshot> {
-    const cached = await this.redis.get(this.cacheKey(organizationId))
+    // Redis fora do ar não pode derrubar o PlanGuard (e com ele todos os
+    // endpoints com @RequireFeature) — cache indisponível cai para o banco
+    const cached = await this.redis
+      .get(this.cacheKey(organizationId))
+      .catch((err) => {
+        this.logger.warn(`Redis get failed: ${err}`)
+        return null
+      })
     if (cached) {
       return JSON.parse(cached) as SubscriptionSnapshot
     }

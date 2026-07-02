@@ -21,14 +21,21 @@ const ENTITY_MAP: Record<string, string> = {
   organizations: 'Organization',
 };
 
+function pathSegments(path: string): string[] {
+  return path
+    .split('?')[0]
+    .replace(/^\/api\/(v\d+\/)?/, '')
+    .split('/');
+}
+
 function extractEntity(path: string): string {
-  const segments = path.replace(/^\/api\//, '').split('/');
+  const segments = pathSegments(path);
   return ENTITY_MAP[segments[0]] ?? segments[0];
 }
 
 function extractEntityId(path: string): string | undefined {
-  const segments = path.replace(/^\/api\//, '').split('/');
-  // Pattern: /api/entity/:id or /api/entity/:id/action
+  const segments = pathSegments(path);
+  // Pattern: entity/:id or entity/:id/action
   if (segments.length >= 2 && segments[1] && !ENTITY_MAP[segments[1]]) {
     return segments[1];
   }
