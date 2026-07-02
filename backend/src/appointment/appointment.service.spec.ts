@@ -9,7 +9,14 @@ import { REMINDER_QUEUE } from '../queue/jobs/reminder.job';
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
-  let prisma: { appointment: any; procedure: any; treatmentPackage: any; $transaction: jest.Mock };
+  let prisma: {
+    appointment: any;
+    procedure: any;
+    treatmentPackage: any;
+    patient: any;
+    organizationUser: any;
+    $transaction: jest.Mock;
+  };
 
   const orgId = 'org-1';
 
@@ -48,9 +55,16 @@ describe('AppointmentService', () => {
       appointment: appointmentMock,
       procedure: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
       treatmentPackage: {
         findFirst: jest.fn(),
+      },
+      patient: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'patient-1' }),
+      },
+      organizationUser: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'prof-1' }),
       },
       $transaction: jest.fn((fn, _opts?) => fn({ appointment: appointmentMock })),
     };
@@ -594,6 +608,122 @@ describe('AppointmentService', () => {
             { patientId: 'pat-1', professionalId: 'prof-1', procedureId: 'proc-1', startAt: '2026-07-01T10:00:00Z', recurrenceIndex: 0 },
           ],
         })
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll com Redis indisponível', () => {
+    const query = { startDate: '2025-06-15', endDate: '2025-06-15' };
+    const dbResult = [{ id: 'apt-1' }];
+
+    afterEach(() => {
+      redisService.getJson.mockResolvedValue(null);
+      redisService.setJson.mockResolvedValue(undefined);
+    });
+
+    it('cai para o banco quando getJson falha (fail-open do cache)', async () => {
+      redisService.getJson.mockRejectedValue(new Error('redis down'));
+      redisService.setJson.mockRejectedValue(new Error('redis down'));
+      prisma.appointment.findMany.mockResolvedValue(dbResult);
+
+      await expect(service.findAll(orgId, query)).resolves.toEqual(dbResult);
+    });
+
+    it('não propaga falha do setJson após consultar o banco', async () => {
+      redisService.getJson.mockResolvedValue(null);
+      redisService.setJson.mockRejectedValue(new Error('redis down'));
+      prisma.appointment.findMany.mockResolvedValue(dbResult);
+
+      await expect(service.findAll(orgId, query)).resolves.toEqual(dbResult);
+    });
+  });
+
+  describe('isolamento multi-tenant (patientId / professionalId)', () => {
+    const mockProcedure = { id: 'proc-1', organizationId: orgId, durationMinutes: 60 };
+    const baseDto = {
+      patientId: 'patient-1',
+      professionalId: 'prof-1',
+      procedureId: 'proc-1',
+      startAt: '2025-06-15T09:00:00Z',
+    };
+
+    it('create rejeita patientId que não pertence à org', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.patient.findFirst.mockResolvedValue(null);
+
+      await expect(service.create(orgId, baseDto)).rejects.toThrow(NotFoundException);
+      expect(prisma.patient.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'patient-1', organizationId: orgId }),
+        }),
+      );
+      expect(prisma.appointment.create).not.toHaveBeenCalled();
+    });
+
+    it('create rejeita professionalId que não pertence à org', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.organizationUser.findFirst.mockResolvedValue(null);
+
+      await expect(service.create(orgId, baseDto)).rejects.toThrow(NotFoundException);
+      expect(prisma.organizationUser.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'prof-1', organizationId: orgId }),
+        }),
+      );
+      expect(prisma.appointment.create).not.toHaveBeenCalled();
+    });
+
+    it('update rejeita professionalId que não pertence à org', async () => {
+      prisma.appointment.findFirst.mockResolvedValue({
+        id: 'apt-1',
+        organizationId: orgId,
+        patientId: 'patient-1',
+        professionalId: 'prof-1',
+        procedureId: 'proc-1',
+        startAt: new Date('2025-06-15T09:00:00Z'),
+      });
+      prisma.organizationUser.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(orgId, 'apt-1', { professionalId: 'prof-outra-org' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.appointment.update).not.toHaveBeenCalled();
+    });
+
+    it('update rejeita patientId que não pertence à org', async () => {
+      prisma.appointment.findFirst.mockResolvedValue({
+        id: 'apt-1',
+        organizationId: orgId,
+        patientId: 'patient-1',
+        professionalId: 'prof-1',
+        procedureId: 'proc-1',
+        startAt: new Date('2025-06-15T09:00:00Z'),
+      });
+      prisma.patient.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(orgId, 'apt-1', { patientId: 'patient-outra-org' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.appointment.update).not.toHaveBeenCalled();
+    });
+
+    it('createBulk rejeita patientId que não pertence à org', async () => {
+      prisma.procedure.findMany.mockResolvedValue([mockProcedure]);
+      prisma.patient.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createBulk(orgId, {
+          recurrenceGroupId: 'grp-1',
+          appointments: [
+            {
+              patientId: 'patient-outra-org',
+              professionalId: 'prof-1',
+              procedureId: 'proc-1',
+              startAt: '2026-07-01T10:00:00Z',
+              recurrenceIndex: 0,
+            },
+          ],
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
