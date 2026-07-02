@@ -2,6 +2,8 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import * as bcrypt from 'bcryptjs'
 import { Role } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { RedisService } from '../redis/redis.service'
+import { orgAccessCacheKey } from '../redis/redis.constants'
 import { CreateClinicDto } from './dto/create-clinic.dto'
 import { CreateInternalPersonDto } from './dto/create-internal-person.dto'
 import { LinkClinicUserDto } from './dto/link-clinic-user.dto'
@@ -10,7 +12,10 @@ import { ResetClinicUserPasswordDto } from './dto/reset-clinic-user-password.dto
 
 @Injectable()
 export class InternalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
 
   async createClinic(dto: CreateClinicDto) {
     const existing = await this.prisma.organization.findUnique({
@@ -68,6 +73,9 @@ export class InternalService {
         ...(plan !== undefined && { plan }),
       },
     })
+
+    // Bloqueio/desbloqueio precisa valer imediatamente, sem esperar o TTL
+    await this.redis.del(orgAccessCacheKey(clinicId)).catch(() => undefined)
 
     return {
       clinicId: updated.id,

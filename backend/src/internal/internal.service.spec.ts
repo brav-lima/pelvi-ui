@@ -3,10 +3,12 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { InternalService } from './internal.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 describe('InternalService', () => {
   let service: InternalService;
   let prisma: { organization: any; person: any; organizationUser: any };
+  let redis: { del: jest.Mock };
 
   const mockClinic = {
     id: 'org-1',
@@ -51,10 +53,13 @@ describe('InternalService', () => {
       },
     };
 
+    redis = { del: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InternalService,
         { provide: PrismaService, useValue: prisma },
+        { provide: RedisService, useValue: redis },
       ],
     }).compile();
 
@@ -151,6 +156,15 @@ describe('InternalService', () => {
       const callData = prisma.organization.update.mock.calls[0][0].data;
       expect(callData.planMaxUsers).toBe(10);
       expect(callData.planMaxPatients).toBe(50);
+    });
+
+    it('deve invalidar o cache de accessStatus após atualizar', async () => {
+      prisma.organization.findUnique.mockResolvedValue(mockClinic);
+      prisma.organization.update.mockResolvedValue({ ...mockClinic, accessStatus: 'BLOCKED' });
+
+      await service.updateClinicAccess('org-1', 'BLOCKED');
+
+      expect(redis.del).toHaveBeenCalledWith('cache:org-access:org-1');
     });
   });
 
