@@ -20,7 +20,7 @@ export function initAnalytics(): void {
   if (!key) return;
 
   posthog.init(key, {
-    api_host: import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com',
+    api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
     person_profiles: 'identified_only',
     capture_pageview: true,
     autocapture: false,
