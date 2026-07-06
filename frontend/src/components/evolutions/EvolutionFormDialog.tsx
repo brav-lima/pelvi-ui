@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +51,7 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId }
         description: data.description,
       });
       toast.success('Evolução registrada com sucesso');
+      track(AnalyticsEvent.EvolutionCreated);
       onSuccess();
       onOpenChange(false);
       form.reset();

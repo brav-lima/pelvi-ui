@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, BookOpen, CheckCircle, Plus, Trash2, Loader2, ChevronRight, ChevronLeft, AlertCircle } from 'lucide-react';
 import { financialApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import { toast } from 'sonner';
 import { format, addMonths, subMonths } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
@@ -146,6 +147,7 @@ export default function Financial() {
       queryClient.invalidateQueries({ queryKey: ['financial', 'month'] });
       queryClient.invalidateQueries({ queryKey: ['financial-summary'] });
       toast.success('Pagamento confirmado');
+      track(AnalyticsEvent.FinancialRecordPaid);
     },
     onError: () => toast.error('Erro ao confirmar pagamento'),
   });

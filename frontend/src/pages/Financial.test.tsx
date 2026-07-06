@@ -17,6 +17,11 @@ vi.mock('@/lib/api', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+vi.mock('@/lib/analytics', () => ({
+  track: vi.fn(),
+  AnalyticsEvent: { FinancialRecordPaid: 'financial_record_paid' },
+}));
+
 vi.mock('@/components/auth/RoleGuard', () => ({
   useHasRole: vi.fn(),
 }));
@@ -86,6 +91,7 @@ vi.mock('lucide-react', () => ({
 
 import { financialApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { track } from '@/lib/analytics';
 import { useHasRole } from '@/components/auth/RoleGuard';
 import Financial from './Financial';
 
@@ -193,6 +199,25 @@ describe('Financial — dar baixa', () => {
 
     await waitFor(() => {
       expect(financialApi.update).toHaveBeenCalledWith('r1', { status: 'PAID' });
+    });
+  });
+
+  it('dispara analytics track(financial_record_paid) ao confirmar "dar baixa"', async () => {
+    vi.mocked(useHasRole).mockReturnValue(true);
+    vi.mocked(financialApi.list).mockResolvedValue(pagedResponse([pendingRecord]));
+    vi.mocked(financialApi.update).mockResolvedValue({ ...pendingRecord, status: 'PAID' } as any);
+
+    renderFinancial();
+
+    await waitFor(() => screen.getByTitle('Dar baixa'));
+
+    fireEvent.click(screen.getByTitle('Dar baixa'));
+
+    const confirmarBtn = screen.getByRole('button', { name: 'Confirmar' });
+    fireEvent.click(confirmarBtn);
+
+    await waitFor(() => {
+      expect(track).toHaveBeenCalledWith('financial_record_paid');
     });
   });
 

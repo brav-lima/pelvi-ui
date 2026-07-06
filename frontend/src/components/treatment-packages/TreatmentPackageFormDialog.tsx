@@ -3,6 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import {
   Dialog,
   DialogContent,
@@ -243,6 +244,7 @@ export function TreatmentPackageFormDialog({
       }
 
       toast.success('Pacote de tratamento criado com sucesso');
+      track(AnalyticsEvent.TreatmentPackageCreated);
       onSuccess();
       onOpenChange(false);
       form.reset();

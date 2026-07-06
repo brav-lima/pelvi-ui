@@ -21,7 +21,18 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+// Spy on the analytics module so we can assert `track` is (or isn't) called.
+// Real analytics functions are no-ops in tests anyway (VITE_POSTHOG_KEY is never
+// set), but a plain no-op can't tell us whether a call happened at all — hence the mock.
+vi.mock('@/lib/analytics', () => ({
+  track: vi.fn(),
+  identifyUser: vi.fn(),
+  resetUser: vi.fn(),
+  AnalyticsEvent: { Login: 'login' },
+}));
+
 import { authApi, ApiError } from '@/lib/api';
+import { track } from '@/lib/analytics';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -104,6 +115,11 @@ describe('AuthProvider', () => {
       expect(screen.getByTestId('user').textContent).toBe('Maria');
       expect(screen.getByTestId('authenticated').textContent).toBe('true');
     });
+
+    // Session restoration must never fire the `login` analytics event —
+    // only interactive login()/selectClinic() should.
+    expect(track).not.toHaveBeenCalledWith('login', expect.anything());
+    expect(track).not.toHaveBeenCalled();
   });
 
   it('stays unauthenticated when /me fails', async () => {
@@ -139,6 +155,9 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(screen.getByTestId('user').textContent).toBe('João Silva');
       });
+
+      // Confirms the mock isn't a silent no-op: interactive login DOES track.
+      expect(track).toHaveBeenCalledWith('login', { role: 'ADMIN' });
     });
 
     it('succeeds for multi-clinic user: populates clinics list, returns multiClinic=true', async () => {

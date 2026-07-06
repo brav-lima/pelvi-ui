@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { format, parseISO, addDays, addWeeks, addMonths } from 'date-fns';
 import { Plus } from 'lucide-react';
 import type { Appointment, Patient } from '@/types/clinic';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import {
   Dialog,
@@ -240,6 +241,7 @@ export function AppointmentFormDialog({
         treatmentPackageId: selectedPackageId || undefined,
       });
       toast.success('Agendamento criado com sucesso');
+      track(AnalyticsEvent.AppointmentCreated);
     }
     onSuccess();
     onOpenChange(false);

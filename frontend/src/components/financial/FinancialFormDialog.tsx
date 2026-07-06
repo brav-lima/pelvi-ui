@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import {
   Dialog,
   DialogContent,
@@ -162,6 +163,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
       }
 
       await financialApi.create(payload);
+      track(AnalyticsEvent.FinancialRecordCreated, { type: payload.type });
 
       const msg = data.isRecurring
         ? `${parseInt(data.recurrenceMonths, 10)} registros recorrentes criados`

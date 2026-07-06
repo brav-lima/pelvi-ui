@@ -551,6 +551,8 @@ Backend (`backend/.env.dev`, Coolify):
 Frontend (build-time only):
 - `VITE_API_URL` — Backend API base URL. Defaults to `http://localhost:3000`.
 - `VITE_SENTRY_DSN` — Sentry DSN for frontend error tracking (optional, no-op if absent).
+- `VITE_POSTHOG_KEY` — PostHog project API key. If absent, analytics is a no-op (dev default).
+- `VITE_POSTHOG_HOST` — PostHog ingestion host. Defaults to `https://us.i.posthog.com`.
 - `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — Build-time only, for source map upload via `sentryVitePlugin`.
 
 ---
