@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -123,10 +123,22 @@ async function openAppointmentDialog() {
 
 describe('Agenda — status mutation analytics', () => {
   beforeEach(() => {
+    // Freeze "today" (Agenda.tsx's `useState(new Date())` for currentDate) to the
+    // same date as baseAppointment.startAt/endAt below. Without this, the visible
+    // week is derived from the real wall-clock date — once that drifts to a week
+    // that no longer contains 2026-07-06, getAppointmentsForDay([]) would hide the
+    // appointment card and both tests would fail deterministically from then on.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-07-06T12:00:00.000Z'));
+
     vi.clearAllMocks();
     vi.mocked(appointmentsApi.list).mockResolvedValue([baseAppointment] as any);
     vi.mocked(professionalsApi.list).mockResolvedValue([] as any);
     vi.mocked(organizationApi.getProfile).mockResolvedValue({ settings: {} } as any);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('dispara track(appointment_canceled) quando o status muda para CANCELED', async () => {
