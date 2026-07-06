@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import {
   Dialog,
   DialogContent,
@@ -146,6 +147,7 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, mode
       } else {
         const created = await patientsApi.create({ ...payload, name: data.name });
         toast.success('Paciente cadastrado com sucesso');
+        track(AnalyticsEvent.PatientCreated);
         onSuccess(created);
       }
       onOpenChange(false);
