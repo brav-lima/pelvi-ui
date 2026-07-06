@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import * as Sentry from '@sentry/react';
+import { identifyUser, resetUser, track, AnalyticsEvent } from '@/lib/analytics';
 import { useQueryClient } from '@tanstack/react-query';
 import { User, Clinic, LoginResponseMulti, LoginResponseSingle } from '@/types/clinic';
 import { authApi, ApiError } from '@/lib/api';
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setClinics([]);
     setPendingPreAuthToken(null);
     Sentry.setUser(null);
+    resetUser();
   }, [queryClient]);
 
   const logout = useCallback(() => {
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           setSelectedClinic(profile.organization);
           Sentry.setUser({ id: profile.person.id, username: profile.person.name, organizationId: profile.organization.id });
+          identifyUser(profile.person.id, { role: profile.role, organizationId: profile.organization.id });
         }
       })
       .catch(() => undefined)
@@ -113,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setSelectedClinic(response.organization);
       Sentry.setUser({ id: response.person.id, username: response.person.name, organizationId: response.organization.id });
+      identifyUser(response.person.id, { role: response.role, organizationId: response.organization.id });
+      track(AnalyticsEvent.Login, { role: response.role });
       return { success: true, multiClinic: false };
     } catch (err) {
       const message =
@@ -135,6 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setSelectedClinic(response.organization);
       Sentry.setUser({ id: response.person.id, username: response.person.name, organizationId: response.organization.id });
+      identifyUser(response.person.id, { role: response.role, organizationId: response.organization.id });
+      track(AnalyticsEvent.Login, { role: response.role });
       setPendingPreAuthToken(null);
       return true;
     } catch {
