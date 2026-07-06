@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import {
   Dialog,
   DialogContent,
@@ -96,6 +97,7 @@ export function PerinealAssessmentWizard({
       } else {
         await perinealAssessmentsApi.create({ patientId, data: formData });
         toast.success('Avaliação perineal registrada com sucesso');
+        track(AnalyticsEvent.PerinealAssessmentCreated);
       }
       onSuccess();
       onOpenChange(false);
