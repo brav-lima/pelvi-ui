@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import {
   Dialog,
   DialogContent,
@@ -69,6 +70,7 @@ export function ProcedureFormDialog({ open, onOpenChange, onSuccess, procedure }
         await proceduresApi.update(procedure.id, payload);
       } else {
         await proceduresApi.create(payload);
+        track(AnalyticsEvent.ProcedureCreated);
       }
       toast.success(isEditing ? 'Procedimento atualizado com sucesso' : 'Procedimento cadastrado com sucesso');
       onSuccess();
