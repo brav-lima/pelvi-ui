@@ -40,6 +40,17 @@ describe('analytics', () => {
     );
   });
 
+  it('falls back to the default api_host when VITE_POSTHOG_HOST is an empty string', async () => {
+    vi.stubEnv('VITE_POSTHOG_KEY', 'phc_test_key');
+    vi.stubEnv('VITE_POSTHOG_HOST', '');
+    const { initAnalytics } = await import('./analytics');
+    initAnalytics();
+    expect(posthogMock.init).toHaveBeenCalledWith(
+      'phc_test_key',
+      expect.objectContaining({ api_host: 'https://us.i.posthog.com' }),
+    );
+  });
+
   it('track() is a no-op before initAnalytics() runs', async () => {
     vi.stubEnv('VITE_POSTHOG_KEY', '');
     const { track, AnalyticsEvent } = await import('./analytics');
