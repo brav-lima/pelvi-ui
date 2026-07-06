@@ -26,6 +26,11 @@ vi.mock('@/lib/api', async (importOriginal) => {
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
+vi.mock('@/lib/analytics', () => ({
+  track: vi.fn(),
+  AnalyticsEvent: { AppointmentCreated: 'appointment_created' },
+}));
+
 vi.mock('@/components/ui/dialog', () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div role="dialog">{children}</div> : null,
@@ -108,6 +113,7 @@ vi.mock('./RecurrenceConflictDialog', () => ({
 
 import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
 import { toast } from 'sonner';
+import { track } from '@/lib/analytics';
 import { AppointmentFormDialog, generateRecurrenceDates } from './AppointmentFormDialog';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
@@ -262,6 +268,17 @@ describe('AppointmentFormDialog', () => {
       expect(onSuccess).toHaveBeenCalled();
       expect(onOpenChange).toHaveBeenCalledWith(false);
       expect(toast.success).toHaveBeenCalledWith('Agendamento criado com sucesso');
+    });
+  });
+
+  it('dispara analytics track(appointment_created) ao criar com sucesso', async () => {
+    vi.mocked(appointmentsApi.create).mockResolvedValue({} as any);
+    renderDialog();
+    await fillForm();
+    fireEvent.click(screen.getByRole('button', { name: /agendar/i }));
+
+    await waitFor(() => {
+      expect(track).toHaveBeenCalledWith('appointment_created');
     });
   });
 
