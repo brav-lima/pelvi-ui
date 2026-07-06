@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, 
 import { appointmentsApi, professionalsApi, organizationApi } from '@/lib/api';
 import type { OrganizationProfile } from '@/types/clinic';
 import { isSlotBlocked, type BusinessHour } from '@/lib/business-hours';
+import { track, AnalyticsEvent } from '@/lib/analytics';
 import { toast } from 'sonner';
 import {
   format,
@@ -329,6 +330,9 @@ export default function Agenda() {
         SCHEDULED: 'Agendamento reaberto',
       };
       toast.success(labels[updated.status] ?? 'Status atualizado');
+      if (updated.status === 'CANCELED') {
+        track(AnalyticsEvent.AppointmentCanceled);
+      }
     },
     onError: () => toast.error('Erro ao atualizar status'),
   });
