@@ -1,11 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import * as Sentry from '@sentry/nestjs';
 import { AppointmentService } from './appointment.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TreatmentPackageService } from '../treatment-package/treatment-package.service';
 import { RedisService } from '../redis/redis.service';
 import { REMINDER_QUEUE } from '../queue/jobs/reminder.job';
+
+jest.mock('@sentry/nestjs', () => ({
+  addBreadcrumb: jest.fn(),
+  captureException: jest.fn(),
+}));
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
@@ -159,6 +165,32 @@ describe('AppointmentService', () => {
           startAt: '2025-06-15T09:00:00Z',
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('deve capturar no Sentry e propagar erro quando enfileirar o lembrete falha', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.appointment.findFirst.mockResolvedValue(null);
+      prisma.appointment.create.mockResolvedValue({ id: 'apt-1' });
+      reminderQueue.add.mockRejectedValueOnce(new Error('redis down'));
+
+      const futureStart = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: futureStart,
+        }),
+      ).rejects.toThrow('redis down');
+
+      expect(Sentry.captureException).toHaveBeenCalledWith(expect.any(Error));
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+        category: 'queue',
+        message: 'reminder scheduling failed',
+        level: 'error',
+        data: { appointmentId: 'apt-1' },
+      });
     });
   });
 
