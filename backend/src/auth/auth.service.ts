@@ -18,6 +18,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import type { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
+import * as Sentry from '@sentry/nestjs';
 
 const REFRESH_TTL_DAYS = 7;
 const REFRESH_TTL_SECONDS = REFRESH_TTL_DAYS * 24 * 60 * 60;
@@ -51,11 +52,13 @@ export class AuthService {
     });
 
     if (!person || !person.active) {
+      this.logLoginFailure();
       throw new UnauthorizedException('CPF ou senha inválidos');
     }
 
     const passwordValid = await bcrypt.compare(dto.password, person.passwordHash);
     if (!passwordValid) {
+      this.logLoginFailure();
       throw new UnauthorizedException('CPF ou senha inválidos');
     }
 
@@ -252,6 +255,7 @@ export class AuthService {
     const storedPersonId = await this.redis.get(redisKey.refresh(tokenHash));
 
     if (!storedPersonId || storedPersonId !== personId) {
+      this.logRefreshFailure(personId, 'invalid_token');
       throw new UnauthorizedException('Refresh token inválido');
     }
 
@@ -261,6 +265,7 @@ export class AuthService {
     });
     if (!link || !link.active || !link.person.active) {
       await this.redis.del(redisKey.refresh(tokenHash));
+      this.logRefreshFailure(personId, 'inactive_link');
       throw new UnauthorizedException('Vínculo inválido ou inativo');
     }
 
@@ -334,5 +339,20 @@ export class AuthService {
 
   private hashJti(jti: string): string {
     return crypto.createHash('sha256').update(jti).digest('hex');
+  }
+
+  private logLoginFailure(): void {
+    Sentry.addBreadcrumb({ category: 'auth', message: 'login failed', level: 'warning' });
+    Sentry.logger.warn('login failed');
+  }
+
+  private logRefreshFailure(personId: string, reason: string): void {
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message: `refresh rejected: ${reason}`,
+      level: 'warning',
+      data: { personId },
+    });
+    Sentry.logger.warn(`refresh rejected: ${reason}`, { personId });
   }
 }
