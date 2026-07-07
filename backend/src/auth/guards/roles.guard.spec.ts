@@ -5,6 +5,7 @@ import { RolesGuard } from './roles.guard';
 
 jest.mock('@sentry/nestjs', () => ({
   addBreadcrumb: jest.fn(),
+  logger: { warn: jest.fn() },
 }));
 
 describe('RolesGuard', () => {
@@ -49,6 +50,10 @@ describe('RolesGuard', () => {
       message: 'role denied',
       level: 'warning',
       data: { requiredRoles: ['ADMIN'], role: 'RECEPTIONIST' },
+    });
+    expect(Sentry.logger.warn).toHaveBeenCalledWith('role denied', {
+      requiredRoles: ['ADMIN'],
+      role: 'RECEPTIONIST',
     });
   });
 });

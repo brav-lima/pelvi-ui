@@ -6,6 +6,7 @@ import { SubscriptionService } from './subscription.service'
 
 jest.mock('@sentry/nestjs', () => ({
   addBreadcrumb: jest.fn(),
+  logger: { warn: jest.fn() },
 }))
 
 describe('PlanGuard', () => {
@@ -55,6 +56,10 @@ describe('PlanGuard', () => {
       message: 'feature denied',
       level: 'warning',
       data: { requiredFeature: 'FINANCIAL_BASIC', organizationId: 'org-1' },
+    })
+    expect(Sentry.logger.warn).toHaveBeenCalledWith('feature denied', {
+      requiredFeature: 'FINANCIAL_BASIC',
+      organizationId: 'org-1',
     })
   })
 })

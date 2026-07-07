@@ -39,6 +39,7 @@ export class PlanGuard implements CanActivate {
         level: 'warning',
         data: { requiredFeature, organizationId: orgId },
       })
+      Sentry.logger.warn('feature denied', { requiredFeature, organizationId: orgId })
       throw new ForbiddenException(
         `Seu plano não inclui acesso a esta funcionalidade. Faça upgrade para continuar.`,
       )

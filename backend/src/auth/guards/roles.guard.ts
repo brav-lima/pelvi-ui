@@ -34,6 +34,7 @@ export class RolesGuard implements CanActivate {
         level: 'warning',
         data: { requiredRoles, role: payload.role },
       });
+      Sentry.logger.warn('role denied', { requiredRoles, role: payload.role });
       throw new ForbiddenException('Acesso negado para este perfil');
     }
 
