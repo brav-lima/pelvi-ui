@@ -20,6 +20,7 @@ interface AuthContextType {
   login: (cpf: string, password: string) => Promise<LoginResult>;
   logout: () => void;
   selectClinic: (organizationId: string) => Promise<boolean>;
+  switchClinic: (organizationId: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,7 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 function isMultiClinicResponse(
   response: LoginResponseSingle | LoginResponseMulti,
 ): response is LoginResponseMulti {
-  return 'organizations' in response;
+  return !('organization' in response);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: profile.role,
           });
           setSelectedClinic(profile.organization);
+          setClinics((profile.organizations ?? []).map((ou) => ou.organization));
           Sentry.setUser({ id: profile.person.id, username: profile.person.name, organizationId: profile.organization.id });
           identifyUser(profile.person.id, { role: profile.role, organizationId: profile.organization.id });
         }
@@ -115,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: response.role,
       });
       setSelectedClinic(response.organization);
+      setClinics((response.organizations ?? []).map((ou) => ou.organization));
       Sentry.setUser({ id: response.person.id, username: response.person.name, organizationId: response.organization.id });
       identifyUser(response.person.id, { role: response.role, organizationId: response.organization.id });
       track(AnalyticsEvent.Login, { role: response.role });
@@ -139,10 +142,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: response.role,
       });
       setSelectedClinic(response.organization);
+      setClinics((response.organizations ?? []).map((ou) => ou.organization));
       Sentry.setUser({ id: response.person.id, username: response.person.name, organizationId: response.organization.id });
       identifyUser(response.person.id, { role: response.role, organizationId: response.organization.id });
       track(AnalyticsEvent.Login, { role: response.role });
       setPendingPreAuthToken(null);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const switchClinic = async (organizationId: string): Promise<boolean> => {
+    try {
+      const response = await authApi.switchOrganization(organizationId);
+      setUser({
+        id: response.person.id,
+        name: response.person.name,
+        email: response.person.email,
+        cpf: response.person.cpf,
+        role: response.role,
+      });
+      setSelectedClinic(response.organization);
+      setClinics((response.organizations ?? []).map((ou) => ou.organization));
+      Sentry.setUser({ id: response.person.id, username: response.person.name, organizationId: response.organization.id });
+      identifyUser(response.person.id, { role: response.role, organizationId: response.organization.id });
       return true;
     } catch {
       return false;
@@ -160,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         selectClinic,
+        switchClinic,
       }}
     >
       {children}

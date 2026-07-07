@@ -14,23 +14,23 @@ export interface Clinic {
 }
 
 // Auth API response types — tokens travel as httpOnly cookies, not in the body
+export interface OrganizationLink {
+  id: string;
+  role: User['role'];
+  organization: Clinic;
+}
+
 export interface LoginResponseSingle {
   person: { id: string; cpf: string; name: string; email: string | null };
   organization: Clinic;
   role: User['role'];
+  organizations: OrganizationLink[];
 }
 
 export interface LoginResponseMulti {
   preAuthToken: string;
   person: { id: string; cpf: string; name: string; email: string | null };
-  organizations: Array<{
-    id: string;
-    organizationId: string;
-    personId: string;
-    role: User['role'];
-    active: boolean;
-    organization: Clinic;
-  }>;
+  organizations: OrganizationLink[];
 }
 
 export type LoginResponse = LoginResponseSingle | LoginResponseMulti;
@@ -39,12 +39,16 @@ export interface SelectOrgResponse {
   person: { id: string; cpf: string; name: string; email: string | null };
   organization: Clinic;
   role: User['role'];
+  organizations: OrganizationLink[];
 }
+
+export type SwitchOrgResponse = SelectOrgResponse;
 
 export interface ProfileResponse {
   person: { id: string; cpf: string; name: string; email: string | null; phone: string | null };
   organization: Clinic | null;
   role: User['role'] | null;
+  organizations: OrganizationLink[];
 }
 
 // Backend returns OrganizationUser + Person join

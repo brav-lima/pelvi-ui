@@ -9,6 +9,7 @@ vi.mock('@/lib/api', () => ({
     login: vi.fn(),
     me: vi.fn(),
     selectOrganization: vi.fn(),
+    switchOrganization: vi.fn(),
     logout: vi.fn(),
   },
   ApiError: class ApiError extends Error {
@@ -65,6 +66,10 @@ const singleClinicResponse = {
   person: { id: 'p1', name: 'João Silva', email: 'joao@test.com', cpf: '11111111111' },
   organization: { id: 'org1', name: 'Clínica Teste' },
   role: 'ADMIN',
+  organizations: [
+    { id: 'ou1', role: 'ADMIN', organization: { id: 'org1', name: 'Clínica Teste' } },
+    { id: 'ou2', role: 'ADMIN', organization: { id: 'org2', name: 'Clínica Extra' } },
+  ],
 };
 
 const multiClinicResponse = {
@@ -107,6 +112,9 @@ describe('AuthProvider', () => {
       person: { id: 'p1', name: 'Maria', email: 'maria@test.com', cpf: '22222222222' },
       organization: { id: 'org1', name: 'Clínica X' },
       role: 'PROFESSIONAL',
+      organizations: [
+        { id: 'ou1', role: 'PROFESSIONAL', organization: { id: 'org1', name: 'Clínica X' } },
+      ],
     } as any);
 
     render(<StatusConsumer />, { wrapper: makeWrapper() });
@@ -114,6 +122,7 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(screen.getByTestId('user').textContent).toBe('Maria');
       expect(screen.getByTestId('authenticated').textContent).toBe('true');
+      expect(screen.getByTestId('clinics').textContent).toBe('1');
     });
 
     // Session restoration must never fire the `login` analytics event —
@@ -247,6 +256,68 @@ describe('AuthProvider', () => {
         expect(screen.getByTestId('user').textContent).toBe('none');
       });
       expect(authApi.logout).toHaveBeenCalled();
+    });
+  });
+
+  describe('switchClinic()', () => {
+    it('switches selectedClinic and refreshes clinics on success', async () => {
+      vi.mocked(authApi.login).mockResolvedValue(singleClinicResponse as any);
+      vi.mocked(authApi.switchOrganization).mockResolvedValue({
+        person: { id: 'p1', name: 'João Silva', email: 'joao@test.com', cpf: '11111111111' },
+        organization: { id: 'org2', name: 'Clínica Extra' },
+        role: 'PROFESSIONAL',
+        organizations: singleClinicResponse.organizations,
+      } as any);
+
+      let auth!: ReturnType<typeof useAuth>;
+      function Consumer() {
+        auth = useAuth();
+        return (
+          <div>
+            <span data-testid="clinic">{auth.selectedClinic?.name ?? 'none'}</span>
+            <span data-testid="role">{auth.user?.role ?? 'none'}</span>
+          </div>
+        );
+      }
+
+      render(<Consumer />, { wrapper: makeWrapper() });
+      await act(async () => { await auth.login('11111111111', '123456'); });
+      await waitFor(() => {
+        expect(screen.getByTestId('clinic').textContent).toBe('Clínica Teste');
+      });
+
+      let result: boolean | undefined;
+      await act(async () => { result = await auth.switchClinic('org2'); });
+
+      expect(result).toBe(true);
+      expect(authApi.switchOrganization).toHaveBeenCalledWith('org2');
+      await waitFor(() => {
+        expect(screen.getByTestId('clinic').textContent).toBe('Clínica Extra');
+        expect(screen.getByTestId('role').textContent).toBe('PROFESSIONAL');
+      });
+    });
+
+    it('returns false and keeps session intact on failure', async () => {
+      vi.mocked(authApi.login).mockResolvedValue(singleClinicResponse as any);
+      vi.mocked(authApi.switchOrganization).mockRejectedValue(new ApiError('Vínculo inválido ou inativo', 401));
+
+      let auth!: ReturnType<typeof useAuth>;
+      function Consumer() {
+        auth = useAuth();
+        return <span data-testid="clinic">{auth.selectedClinic?.name ?? 'none'}</span>;
+      }
+
+      render(<Consumer />, { wrapper: makeWrapper() });
+      await act(async () => { await auth.login('11111111111', '123456'); });
+      await waitFor(() => {
+        expect(screen.getByTestId('clinic').textContent).toBe('Clínica Teste');
+      });
+
+      let result: boolean | undefined;
+      await act(async () => { result = await auth.switchClinic('org-missing'); });
+
+      expect(result).toBe(false);
+      expect(screen.getByTestId('clinic').textContent).toBe('Clínica Teste');
     });
   });
 });
