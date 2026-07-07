@@ -93,6 +93,7 @@ describe('AuthService', () => {
       expect(result.refreshToken).toBe('mock-token');
       expect(result.person.id).toBe('person-1');
       expect(result.organization).toBeDefined();
+      expect(result.organizations).toHaveLength(1);
       expect(jwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ sub: 'person-1', organizationId: 'org-1', role: 'ADMIN', jti: expect.any(String) }),
         { expiresIn: '15m' },
@@ -195,6 +196,9 @@ describe('AuthService', () => {
         person: { id: 'person-1', cpf: '12345678901', name: 'João', email: 'j@e.com' },
         organization: { id: 'org-1', name: 'Clínica A' },
       });
+      personService.findOrganizations.mockResolvedValue([
+        { id: 'org-user-1', role: 'ADMIN', organization: { id: 'org-1', name: 'Clínica A' } },
+      ]);
 
       const result = await service.selectOrganization({
         preAuthToken: validPreAuthToken,
@@ -202,6 +206,7 @@ describe('AuthService', () => {
       });
 
       expect(result.accessToken).toBe('mock-token');
+      expect(result.organizations).toHaveLength(1);
       expect(redis.set).toHaveBeenCalledWith(
         expect.stringMatching(/^refresh:/),
         'person-1',
@@ -322,12 +327,16 @@ describe('AuthService', () => {
       const org = { id: 'org-1', name: 'Clínica A' };
       prisma.person.findUnique.mockResolvedValue(person);
       prisma.organizationUser.findUnique.mockResolvedValue({ organization: org });
+      personService.findOrganizations.mockResolvedValue([
+        { id: 'org-user-1', role: 'ADMIN', organization: org },
+      ]);
 
       const result = await service.getProfile(payload);
 
       expect(result.person).toEqual(person);
       expect(result.organization).toEqual(org);
       expect(result.role).toBe('ADMIN');
+      expect(result.organizations).toHaveLength(1);
     });
 
     it('deve retornar organization null quando vínculo não encontrado', async () => {

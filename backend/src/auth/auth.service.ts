@@ -90,6 +90,7 @@ export class AuthService {
         person: personData,
         organization: org.organization,
         role: org.role,
+        organizations,
       };
     }
 
@@ -136,12 +137,14 @@ export class AuthService {
       dto.organizationId,
       link.role,
     );
+    const organizations = await this.personService.findOrganizations(personId);
 
     return {
       ...tokens,
       person: link.person,
       organization: link.organization,
       role: link.role,
+      organizations,
     };
   }
 
@@ -207,10 +210,13 @@ export class AuthService {
       include: { organization: true },
     });
 
+    const organizations = await this.personService.findOrganizations(payload.sub);
+
     return {
       person,
       organization: orgUser?.organization ?? null,
       role: payload.role,
+      organizations,
     };
   }
 
