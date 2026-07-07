@@ -7,6 +7,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Prisma, AppointmentStatus, TreatmentPackageStatus } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -480,11 +481,22 @@ export class AppointmentService {
     const delay = startAt.getTime() - Date.now() - 60 * 60 * 1000; // 1h antes
     if (delay <= 0) return;
 
-    await this.reminderQueue.add(
-      'reminder',
-      { appointmentId, patientId, organizationId, startAt: startAt.toISOString() },
-      { jobId: `reminder-${appointmentId}`, delay },
-    );
+    try {
+      await this.reminderQueue.add(
+        'reminder',
+        { appointmentId, patientId, organizationId, startAt: startAt.toISOString() },
+        { jobId: `reminder-${appointmentId}`, delay },
+      );
+    } catch (err) {
+      Sentry.addBreadcrumb({
+        category: 'queue',
+        message: 'reminder scheduling failed',
+        level: 'error',
+        data: { appointmentId },
+      });
+      Sentry.captureException(err);
+      throw err;
+    }
   }
 
   private async rescheduleReminder(

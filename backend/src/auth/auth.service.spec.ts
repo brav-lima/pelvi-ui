@@ -3,11 +3,17 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import * as Sentry from '@sentry/nestjs';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PersonService } from '../person/person.service';
 import { RedisService } from '../redis/redis.service';
 import { EmailService } from '../email/email.service';
+
+jest.mock('@sentry/nestjs', () => ({
+  addBreadcrumb: jest.fn(),
+  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+}));
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -19,6 +25,7 @@ describe('AuthService', () => {
   let emailService: { sendPasswordReset: jest.Mock };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     prisma = {
       person: {
         findUnique: jest.fn(),
@@ -134,20 +141,26 @@ describe('AuthService', () => {
       expect(redis.set).not.toHaveBeenCalled();
     });
 
-    it('deve rejeitar CPF inexistente', async () => {
+    it('deve rejeitar CPF inexistente e emitir warn sem CPF', async () => {
       prisma.person.findUnique.mockResolvedValue(null);
 
       await expect(
         service.login({ cpf: '00000000000', password: 'senha123' }),
       ).rejects.toThrow(UnauthorizedException);
+
+      expect(Sentry.logger.warn).toHaveBeenCalledWith('login failed');
+      const warnCalls = (Sentry.logger.warn as jest.Mock).mock.calls;
+      expect(JSON.stringify(warnCalls)).not.toContain('00000000000');
     });
 
-    it('deve rejeitar senha incorreta', async () => {
+    it('deve rejeitar senha incorreta e emitir warn sem senha', async () => {
       prisma.person.findUnique.mockResolvedValue(mockPerson);
 
       await expect(
         service.login({ cpf: '12345678901', password: 'errada' }),
       ).rejects.toThrow(UnauthorizedException);
+
+      expect(Sentry.logger.warn).toHaveBeenCalledWith('login failed');
     });
 
     it('deve rejeitar usuário inativo', async () => {
@@ -349,13 +362,18 @@ describe('AuthService', () => {
       expect(result.refreshToken).toBe('mock-token');
     });
 
-    it('deve rejeitar quando o hash não existe no Redis', async () => {
+    it('deve rejeitar quando o hash não existe no Redis e emitir warn com personId', async () => {
       redis.get.mockResolvedValue(null);
 
       await expect(
         service.rotateRefreshToken(personId, organizationId, validJti),
       ).rejects.toThrow(UnauthorizedException);
       expect(redis.del).not.toHaveBeenCalled();
+
+      expect(Sentry.logger.warn).toHaveBeenCalledWith(
+        'refresh rejected: invalid_token',
+        { personId },
+      );
     });
 
     it('deve rejeitar quando o token pertence a outro personId', async () => {
@@ -367,7 +385,7 @@ describe('AuthService', () => {
       expect(redis.del).not.toHaveBeenCalled();
     });
 
-    it('deve revogar o token e rejeitar quando o vínculo foi inativado', async () => {
+    it('deve revogar o token, rejeitar quando o vínculo foi inativado e emitir warn', async () => {
       redis.get.mockResolvedValue(personId);
       prisma.organizationUser.findUnique.mockResolvedValue({
         active: false,
@@ -380,6 +398,10 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(redis.del).toHaveBeenCalledWith(expect.stringMatching(/^refresh:/));
+      expect(Sentry.logger.warn).toHaveBeenCalledWith(
+        'refresh rejected: inactive_link',
+        { personId },
+      );
     });
   });
 

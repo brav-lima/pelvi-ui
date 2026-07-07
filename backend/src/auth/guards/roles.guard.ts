@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import * as Sentry from '@sentry/nestjs';
 import { Role } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { JwtPayload } from '../strategies/jwt.strategy';
@@ -27,6 +28,13 @@ export class RolesGuard implements CanActivate {
     const payload = user as JwtPayload;
 
     if (!requiredRoles.includes(payload.role as Role)) {
+      Sentry.addBreadcrumb({
+        category: 'authz',
+        message: 'role denied',
+        level: 'warning',
+        data: { requiredRoles, role: payload.role },
+      });
+      Sentry.logger.warn('role denied', { requiredRoles, role: payload.role });
       throw new ForbiddenException('Acesso negado para este perfil');
     }
 

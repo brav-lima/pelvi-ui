@@ -1,6 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import * as Sentry from '@sentry/nestjs';
 import { AuditService } from './audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+jest.mock('@sentry/nestjs', () => ({
+  addBreadcrumb: jest.fn(),
+  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+}));
 
 describe('AuditService', () => {
   let service: AuditService;
@@ -66,6 +72,50 @@ describe('AuditService', () => {
           details: undefined,
           ipAddress: undefined,
         }),
+      });
+    });
+
+    it('deve emitir breadcrumb e log estruturado no Sentry sem incluir details', async () => {
+      await service.log({
+        organizationId: 'org-1',
+        userId: 'user-1',
+        action: 'CREATE',
+        entity: 'Patient',
+        entityId: 'patient-1',
+        details: { name: 'Maria', cpf: '12345678901' },
+      });
+
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+        category: 'audit',
+        message: 'CREATE Patient',
+        level: 'info',
+        data: { entityId: 'patient-1', organizationId: 'org-1' },
+      });
+      expect(Sentry.logger.info).toHaveBeenCalledWith('CREATE Patient', {
+        userId: 'user-1',
+        organizationId: 'org-1',
+        entityId: 'patient-1',
+      });
+
+      const breadcrumbData = (Sentry.addBreadcrumb as jest.Mock).mock.calls[0][0].data;
+      const logMeta = (Sentry.logger.info as jest.Mock).mock.calls[0][1];
+      expect(JSON.stringify(breadcrumbData)).not.toContain('Maria');
+      expect(JSON.stringify(logMeta)).not.toContain('Maria');
+    });
+
+    it('deve emitir breadcrumb mesmo sem entityId', async () => {
+      await service.log({
+        organizationId: 'org-1',
+        userId: 'user-1',
+        action: 'DELETE',
+        entity: 'Appointment',
+      });
+
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+        category: 'audit',
+        message: 'DELETE Appointment',
+        level: 'info',
+        data: { entityId: undefined, organizationId: 'org-1' },
       });
     });
   });
