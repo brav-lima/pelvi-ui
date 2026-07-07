@@ -8,9 +8,11 @@ Sentry.init({
   environment: process.env.NODE_ENV,
   integrations: [
     nodeProfilingIntegration(),
+    Sentry.prismaIntegration(),
     Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
   ],
   tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE ?? '0.1'),
   profilesSampleRate: 1.0,
   enableLogs: true,
+  ignoreTransactions: [/\/health$/],
 });
