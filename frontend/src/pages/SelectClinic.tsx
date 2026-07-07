@@ -7,7 +7,7 @@ import { Building2, ChevronRight, Stethoscope } from 'lucide-react';
 import { formatCNPJ } from '@/lib/formatters';
 
 export default function SelectClinic() {
-  const { user, clinics, selectClinic } = useAuth();
+  const { user, selectedClinic, clinics, selectClinic, switchClinic } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState<string | null>(null);
 
@@ -15,9 +15,15 @@ export default function SelectClinic() {
     return <Navigate to="/login" replace />;
   }
 
+  // Mid-session switch when a clinic is already selected; otherwise this is
+  // the post-login pick (selectedClinic is null until the user chooses).
+  const availableClinics = clinics.filter((c) => c.id !== selectedClinic?.id);
+
   const handleSelectClinic = async (organizationId: string) => {
     setLoading(organizationId);
-    const success = await selectClinic(organizationId);
+    const success = selectedClinic
+      ? await switchClinic(organizationId)
+      : await selectClinic(organizationId);
     if (success) {
       navigate('/dashboard');
     }
@@ -46,7 +52,7 @@ export default function SelectClinic() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {clinics.map((clinic) => (
+            {availableClinics.map((clinic) => (
               <Button
                 key={clinic.id}
                 variant="outline"

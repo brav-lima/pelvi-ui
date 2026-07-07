@@ -136,6 +136,81 @@ describe('Auth (e2e)', () => {
     });
   });
 
+  // ── POST /api/auth/switch-organization ────────────────────────────────────────
+
+  describe('POST /api/auth/switch-organization', () => {
+    it('returns 401 without auth cookie', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/switch-organization')
+        .send({ organizationId: '00000000-0000-4000-8000-000000000000' })
+        .expect(401);
+    });
+
+    it('switches to another linked organization and re-issues cookies', async () => {
+      // Establish a session for the multi-org user, scoped to org1
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ cpf: fixtures.multiPersonCpf, password: E2E_PASSWORD });
+      const preAuthToken = loginRes.body.preAuthToken as string;
+
+      const selectRes = await request(app.getHttpServer())
+        .post('/api/auth/select-organization')
+        .send({ preAuthToken, organizationId: fixtures.org1Id });
+      const accessCookie = extractCookie(selectRes.headers['set-cookie'], 'pelvi_access_token');
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/switch-organization')
+        .set('Cookie', accessCookie)
+        .send({ organizationId: fixtures.org2Id })
+        .expect(200);
+
+      expect(res.body.organization.id).toBe(fixtures.org2Id);
+      expect(res.body.organizations).toHaveLength(2);
+      const newCookies = normalizeCookies(res.headers['set-cookie']);
+      expect(newCookies.some((c) => c.startsWith('pelvi_access_token='))).toBe(true);
+      expect(newCookies.some((c) => c.startsWith('pelvi_refresh_token='))).toBe(true);
+    });
+
+    it('returns 401 when switching to an organization the user is not linked to', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ cpf: fixtures.singlePersonCpf, password: E2E_PASSWORD });
+      const accessCookie = extractCookie(loginRes.headers['set-cookie'], 'pelvi_access_token');
+
+      await request(app.getHttpServer())
+        .post('/api/auth/switch-organization')
+        .set('Cookie', accessCookie)
+        .send({ organizationId: fixtures.org2Id })
+        .expect(401);
+    });
+
+    it('revokes the pre-switch refresh token', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ cpf: fixtures.multiPersonCpf, password: E2E_PASSWORD });
+      const preAuthToken = loginRes.body.preAuthToken as string;
+
+      const selectRes = await request(app.getHttpServer())
+        .post('/api/auth/select-organization')
+        .send({ preAuthToken, organizationId: fixtures.org1Id });
+      const oldRefreshCookie = extractCookie(selectRes.headers['set-cookie'], 'pelvi_refresh_token');
+      const accessCookie = extractCookie(selectRes.headers['set-cookie'], 'pelvi_access_token');
+
+      // A real browser sends both cookies here — the refresh cookie's path
+      // (/api/v1/auth) covers this route, so it travels alongside the access cookie.
+      await request(app.getHttpServer())
+        .post('/api/auth/switch-organization')
+        .set('Cookie', `${accessCookie}; ${oldRefreshCookie}`)
+        .send({ organizationId: fixtures.org2Id })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .set('Cookie', oldRefreshCookie)
+        .expect(401);
+    });
+  });
+
   // ── POST /api/auth/refresh ────────────────────────────────────────────────────
 
   describe('POST /api/auth/refresh', () => {

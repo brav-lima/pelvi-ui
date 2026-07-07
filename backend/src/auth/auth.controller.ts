@@ -16,6 +16,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SelectOrganizationDto } from './dto/select-organization.dto';
+import { SwitchOrganizationDto } from './dto/switch-organization.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -120,6 +121,36 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.selectOrganization(dto);
+    setAuthCookies(res, result.accessToken, result.refreshToken);
+    const { accessToken: _a, refreshToken: _r, ...body } = result;
+    return body;
+  }
+
+  @ApiBearerAuth()
+  @Post('switch-organization')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Trocar de clínica em uma sessão já autenticada',
+    description:
+      'Reemite cookies httpOnly com o contexto de outra organização vinculada ao usuário, sem exigir nova senha.',
+  })
+  @ApiResponse({ status: 200, description: 'Sessão trocada com sucesso' })
+  @ApiResponse({ status: 401, description: 'Vínculo inválido ou inativo' })
+  async switchOrganization(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SwitchOrganizationDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
+    const refreshJti = refreshToken ? decodeJtiFromToken(refreshToken) : null;
+
+    const result = await this.authService.switchOrganization(
+      user,
+      dto.organizationId,
+      refreshJti ?? undefined,
+      user.jti,
+    );
     setAuthCookies(res, result.accessToken, result.refreshToken);
     const { accessToken: _a, refreshToken: _r, ...body } = result;
     return body;

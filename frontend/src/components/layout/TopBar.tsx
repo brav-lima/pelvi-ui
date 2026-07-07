@@ -31,14 +31,12 @@ interface TopBarProps {
 }
 
 export function TopBar({ onMenuClick }: TopBarProps) {
-  const { user, selectedClinic, logout } = useAuth();
+  const { user, selectedClinic, clinics, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  const handleSwitchClinic = () => {
-    logout();
-    navigate('/login');
-  };
+  const canSwitchClinic = clinics.some((c) => c.id !== selectedClinic?.id);
+  const handleSwitchClinic = () => navigate('/select-clinic');
 
   // Notifications: today's appointments (shares 'appointments' prefix so invalidations from Agenda propagate)
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -352,10 +350,12 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               <User className="w-4 h-4 mr-2" />
               Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSwitchClinic}>
-              <Building2 className="w-4 h-4 mr-2" />
-              Trocar Clínica
-            </DropdownMenuItem>
+            {canSwitchClinic && (
+              <DropdownMenuItem onClick={handleSwitchClinic}>
+                <Building2 className="w-4 h-4 mr-2" />
+                Trocar Clínica
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
               <LogOut className="w-4 h-4 mr-2" />

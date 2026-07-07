@@ -1,6 +1,7 @@
 import type {
   LoginResponse,
   SelectOrgResponse,
+  SwitchOrgResponse,
   ProfileResponse,
   Patient,
   PaginatedResponse,
@@ -128,6 +129,9 @@ export const authApi = {
 
   selectOrganization: (preAuthToken: string, organizationId: string) =>
     api.post<SelectOrgResponse>('/auth/select-organization', { preAuthToken, organizationId }),
+
+  switchOrganization: (organizationId: string) =>
+    api.post<SwitchOrgResponse>('/auth/switch-organization', { organizationId }),
 
   logout: () => api.post<{ ok: true }>('/auth/logout', {}),
 
