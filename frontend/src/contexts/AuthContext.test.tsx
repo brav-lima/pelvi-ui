@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -260,6 +260,10 @@ describe('AuthProvider', () => {
   });
 
   describe('switchClinic()', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('switches selectedClinic and refreshes clinics on success', async () => {
       vi.mocked(authApi.login).mockResolvedValue(singleClinicResponse as any);
       vi.mocked(authApi.switchOrganization).mockResolvedValue({
@@ -286,6 +290,8 @@ describe('AuthProvider', () => {
         expect(screen.getByTestId('clinic').textContent).toBe('Clínica Teste');
       });
 
+      const clearSpy = vi.spyOn(QueryClient.prototype, 'clear');
+
       let result: boolean | undefined;
       await act(async () => { result = await auth.switchClinic('org2'); });
 
@@ -295,9 +301,14 @@ describe('AuthProvider', () => {
         expect(screen.getByTestId('clinic').textContent).toBe('Clínica Extra');
         expect(screen.getByTestId('role').textContent).toBe('PROFESSIONAL');
       });
+
+      // A clinic switch changes the active session identity — the query cache
+      // must be cleared so stale data/feature-gating from the previous clinic
+      // doesn't leak into the new one (see clearSession(), used by logout()).
+      expect(clearSpy).toHaveBeenCalled();
     });
 
-    it('returns false and keeps session intact on failure', async () => {
+    it('returns false, keeps session intact, and does not clear the cache on failure', async () => {
       vi.mocked(authApi.login).mockResolvedValue(singleClinicResponse as any);
       vi.mocked(authApi.switchOrganization).mockRejectedValue(new ApiError('Vínculo inválido ou inativo', 401));
 
@@ -313,11 +324,14 @@ describe('AuthProvider', () => {
         expect(screen.getByTestId('clinic').textContent).toBe('Clínica Teste');
       });
 
+      const clearSpy = vi.spyOn(QueryClient.prototype, 'clear');
+
       let result: boolean | undefined;
       await act(async () => { result = await auth.switchClinic('org-missing'); });
 
       expect(result).toBe(false);
       expect(screen.getByTestId('clinic').textContent).toBe('Clínica Teste');
+      expect(clearSpy).not.toHaveBeenCalled();
     });
   });
 });

@@ -126,6 +126,7 @@ export class AuthController {
     return body;
   }
 
+  @ApiBearerAuth()
   @Post('switch-organization')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

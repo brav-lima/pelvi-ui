@@ -167,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setClinics((response.organizations ?? []).map((ou) => ou.organization));
       Sentry.setUser({ id: response.person.id, username: response.person.name, organizationId: response.organization.id });
       identifyUser(response.person.id, { role: response.role, organizationId: response.organization.id });
+      queryClient.clear();
       return true;
     } catch {
       return false;
