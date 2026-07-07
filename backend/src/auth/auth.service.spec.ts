@@ -249,6 +249,71 @@ describe('AuthService', () => {
     });
   });
 
+  describe('switchOrganization', () => {
+    const currentUser = { sub: 'person-1', organizationId: 'org-1', role: 'ADMIN', jti: 'access-jti-1' };
+
+    it('deve trocar de organização, revogar refresh anterior e retornar a lista de clínicas', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue({
+        active: true,
+        role: 'PROFESSIONAL',
+        person: { id: 'person-1', cpf: '12345678901', name: 'João', email: 'j@e.com' },
+        organization: { id: 'org-2', name: 'Clínica B' },
+      });
+      personService.findOrganizations.mockResolvedValue([
+        { id: 'org-user-1', role: 'ADMIN', organization: { id: 'org-1', name: 'Clínica A' } },
+        { id: 'org-user-2', role: 'PROFESSIONAL', organization: { id: 'org-2', name: 'Clínica B' } },
+      ]);
+
+      const result = await service.switchOrganization(currentUser, 'org-2', 'refresh-jti-1', 'access-jti-1');
+
+      expect(redis.del).toHaveBeenCalledWith(expect.stringMatching(/^refresh:/));
+      expect(result.accessToken).toBe('mock-token');
+      expect(result.organization.id).toBe('org-2');
+      expect(result.role).toBe('PROFESSIONAL');
+      expect(result.organizations).toHaveLength(2);
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'person-1', organizationId: 'org-2', role: 'PROFESSIONAL', jti: expect.any(String) }),
+        { expiresIn: '15m' },
+      );
+    });
+
+    it('deve rejeitar quando não há vínculo com a organização alvo', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.switchOrganization(currentUser, 'org-2', 'refresh-jti-1', 'access-jti-1'),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(redis.set).not.toHaveBeenCalled();
+    });
+
+    it('deve rejeitar quando o vínculo com a organização alvo está inativo', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue({
+        active: false,
+        role: 'PROFESSIONAL',
+        person: { id: 'person-1', cpf: '12345678901', name: 'João', email: 'j@e.com' },
+        organization: { id: 'org-2', name: 'Clínica B' },
+      });
+
+      await expect(
+        service.switchOrganization(currentUser, 'org-2', 'refresh-jti-1', 'access-jti-1'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('não tenta revogar refresh quando refreshJti não é fornecido', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue({
+        active: true,
+        role: 'PROFESSIONAL',
+        person: { id: 'person-1', cpf: '12345678901', name: 'João', email: 'j@e.com' },
+        organization: { id: 'org-2', name: 'Clínica B' },
+      });
+      personService.findOrganizations.mockResolvedValue([]);
+
+      await service.switchOrganization(currentUser, 'org-2', undefined, 'access-jti-1');
+
+      expect(redis.del).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getProfile', () => {
     const payload = { sub: 'person-1', organizationId: 'org-1', role: 'ADMIN' as any };
 

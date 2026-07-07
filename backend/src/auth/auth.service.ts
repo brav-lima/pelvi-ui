@@ -145,6 +145,52 @@ export class AuthService {
     };
   }
 
+  async switchOrganization(
+    currentUser: JwtPayload,
+    organizationId: string,
+    refreshJti?: string,
+    accessJti?: string,
+  ) {
+    const link = await this.prisma.organizationUser.findUnique({
+      where: {
+        organizationId_personId: {
+          organizationId,
+          personId: currentUser.sub,
+        },
+      },
+      include: {
+        organization: true,
+        person: {
+          select: {
+            id: true,
+            cpf: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!link || !link.active) {
+      throw new UnauthorizedException('Vínculo inválido ou inativo');
+    }
+
+    if (refreshJti) {
+      await this.revokeRefreshToken(refreshJti, accessJti);
+    }
+
+    const tokens = await this.issueTokens(currentUser.sub, organizationId, link.role);
+    const organizations = await this.personService.findOrganizations(currentUser.sub);
+
+    return {
+      ...tokens,
+      person: link.person,
+      organization: link.organization,
+      role: link.role,
+      organizations,
+    };
+  }
+
   async getProfile(payload: JwtPayload) {
     const person = await this.prisma.person.findUnique({
       where: { id: payload.sub },
