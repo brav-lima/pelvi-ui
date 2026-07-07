@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AuditLogEntry {
@@ -26,6 +27,18 @@ export class AuditService {
         details: entry.details ? (entry.details as object) : undefined,
         ipAddress: entry.ipAddress,
       },
+    });
+
+    Sentry.addBreadcrumb({
+      category: 'audit',
+      message: `${entry.action} ${entry.entity}`,
+      level: 'info',
+      data: { entityId: entry.entityId, organizationId: entry.organizationId },
+    });
+    Sentry.logger.info(`${entry.action} ${entry.entity}`, {
+      userId: entry.userId,
+      organizationId: entry.organizationId,
+      entityId: entry.entityId,
     });
   }
 }
