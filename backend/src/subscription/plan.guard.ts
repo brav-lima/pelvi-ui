@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
+import * as Sentry from '@sentry/nestjs'
 import { PLAN_FEATURE_KEY } from './decorators/require-feature.decorator'
 import { PlanFeature } from './plan-features'
 import { SubscriptionService } from './subscription.service'
@@ -32,6 +33,12 @@ export class PlanGuard implements CanActivate {
     const allowed = await this.subscriptionService.hasFeature(orgId, requiredFeature)
 
     if (!allowed) {
+      Sentry.addBreadcrumb({
+        category: 'authz',
+        message: 'feature denied',
+        level: 'warning',
+        data: { requiredFeature, organizationId: orgId },
+      })
       throw new ForbiddenException(
         `Seu plano não inclui acesso a esta funcionalidade. Faça upgrade para continuar.`,
       )
