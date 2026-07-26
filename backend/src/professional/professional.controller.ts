@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { ProfessionalService } from './professional.service';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
+import { QueryProfessionalDto } from './dto/query-professional.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
@@ -14,8 +15,8 @@ export class ProfessionalController {
   constructor(private readonly professionalService: ProfessionalService) {}
 
   @Get()
-  findAll(@OrgId() orgId: string, @Query('search') search?: string) {
-    return this.professionalService.findAll(orgId, search);
+  findAll(@OrgId() orgId: string, @Query() query: QueryProfessionalDto) {
+    return this.professionalService.findAll(orgId, query.search);
   }
 
   @Get(':id')

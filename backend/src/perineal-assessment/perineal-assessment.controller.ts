@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { PerinealAssessmentService } from './perineal-assessment.service';
 import { CreatePerinealAssessmentDto } from './dto/create-perineal-assessment.dto';
 import { UpdatePerinealAssessmentDto } from './dto/update-perineal-assessment.dto';
+import { QueryPerinealAssessmentDto } from './dto/query-perineal-assessment.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -31,9 +32,9 @@ export class PerinealAssessmentController {
   @Get()
   findByPatient(
     @OrgId() orgId: string,
-    @Query('patientId') patientId: string,
+    @Query() query: QueryPerinealAssessmentDto,
   ) {
-    return this.perinealAssessmentService.findByPatient(orgId, patientId);
+    return this.perinealAssessmentService.findByPatient(orgId, query.patientId);
   }
 
   @Get(':id')

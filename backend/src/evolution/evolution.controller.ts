@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { EvolutionService } from './evolution.service';
 import { CreateEvolutionDto } from './dto/create-evolution.dto';
+import { QueryEvolutionDto } from './dto/query-evolution.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -26,11 +27,8 @@ export class EvolutionController {
   }
 
   @Get()
-  findByPatient(
-    @OrgId() orgId: string,
-    @Query('patientId') patientId: string,
-  ) {
-    return this.evolutionService.findByPatient(orgId, patientId);
+  findByPatient(@OrgId() orgId: string, @Query() query: QueryEvolutionDto) {
+    return this.evolutionService.findByPatient(orgId, query.patientId);
   }
 
   @Get(':id')

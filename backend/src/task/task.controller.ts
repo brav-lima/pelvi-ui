@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import { TaskService } from './task.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { QueryTaskDto } from './dto/query-task.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -39,19 +40,19 @@ export class TaskController {
   findMy(
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
-    @Query('status') status?: string,
+    @Query() query: QueryTaskDto,
   ) {
-    return this.taskService.findMy(orgId, user.sub, status);
+    return this.taskService.findMy(orgId, user.sub, query.status);
   }
 
   @Get()
-  findAll(
-    @OrgId() orgId: string,
-    @Query('status') status?: string,
-    @Query('priority') priority?: string,
-    @Query('assignedToId') assignedToId?: string,
-  ) {
-    return this.taskService.findAll(orgId, status, priority, assignedToId);
+  findAll(@OrgId() orgId: string, @Query() query: QueryTaskDto) {
+    return this.taskService.findAll(
+      orgId,
+      query.status,
+      query.priority,
+      query.assignedToId,
+    );
   }
 
   @Patch(':id')
