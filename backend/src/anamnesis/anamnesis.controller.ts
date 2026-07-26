@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AnamnesisService } from './anamnesis.service';
 import { CreateAnamnesisDto } from './dto/create-anamnesis.dto';
 import { UpdateAnamnesisDto } from './dto/update-anamnesis.dto';
+import { QueryAnamnesisDto } from './dto/query-anamnesis.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -27,11 +28,8 @@ export class AnamnesisController {
   }
 
   @Get()
-  findByPatient(
-    @OrgId() orgId: string,
-    @Query('patientId') patientId: string,
-  ) {
-    return this.anamnesisService.findByPatient(orgId, patientId);
+  findByPatient(@OrgId() orgId: string, @Query() query: QueryAnamnesisDto) {
+    return this.anamnesisService.findByPatient(orgId, query.patientId);
   }
 
   @Get(':id')

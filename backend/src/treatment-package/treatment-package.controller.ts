@@ -13,6 +13,7 @@ import { Role } from '@prisma/client';
 import { TreatmentPackageService } from './treatment-package.service';
 import { CreateTreatmentPackageDto } from './dto/create-treatment-package.dto';
 import { UpdateTreatmentPackageDto } from './dto/update-treatment-package.dto';
+import { QueryTreatmentPackageDto } from './dto/query-treatment-package.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
@@ -33,11 +34,8 @@ export class TreatmentPackageController {
 
   @Get()
   @ApiOperation({ summary: 'Listar pacotes de tratamento' })
-  findAll(
-    @OrgId() orgId: string,
-    @Query('patientId') patientId?: string,
-  ) {
-    return this.service.findAll(orgId, patientId);
+  findAll(@OrgId() orgId: string, @Query() query: QueryTreatmentPackageDto) {
+    return this.service.findAll(orgId, query.patientId);
   }
 
   @Get(':id')
