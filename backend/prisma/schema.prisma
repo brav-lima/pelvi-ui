@@ -321,12 +321,13 @@ model PerinealAssessment {
 // ──────────────────────────────────────────────
 
 model Evolution {
-  id             String             @id @default(uuid())
-  organizationId String             @map("organization_id")
-  patientId      String             @map("patient_id")
-  professionalId String             @map("professional_id")
-  appointmentId  String?            @map("appointment_id")
+  id             String              @id @default(uuid())
+  organizationId String              @map("organization_id")
+  patientId      String              @map("patient_id")
+  professionalId String              @map("professional_id")
+  appointmentId  String?             @map("appointment_id")
   description    String
+  evolutionDate  DateTime            @default(now()) @map("evolution_date")
   legalBasis     SensitiveLegalBasis @default(HEALTH_PROTECTION) @map("legal_basis")
   consentId      String?            @map("consent_id")
   createdAt      DateTime           @default(now()) @map("created_at")
@@ -338,7 +339,7 @@ model Evolution {
   appointment  Appointment?     @relation(fields: [appointmentId], references: [id])
 
   @@index([organizationId, patientId])
-  @@index([organizationId, createdAt])
+  @@index([organizationId, evolutionDate])
   @@map("evolutions")
 }
 
