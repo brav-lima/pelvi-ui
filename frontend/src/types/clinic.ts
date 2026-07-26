@@ -175,6 +175,7 @@ export interface Evolution {
   professionalId: string;
   appointmentId?: string;
   description: string;
+  evolutionDate: string;
   createdAt: string;
   updatedAt: string;
   patient?: { id: string; name: string };

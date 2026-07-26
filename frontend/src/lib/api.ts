@@ -258,8 +258,10 @@ export const perinealAssessmentsApi = {
 export const evolutionsApi = {
   list: (patientId: string) => api.get<Evolution[]>(`/evolutions?patientId=${patientId}`),
   getById: (id: string) => api.get<Evolution>(`/evolutions/${id}`),
-  create: (data: { patientId: string; description: string; appointmentId?: string }) =>
+  create: (data: { patientId: string; description: string; evolutionDate?: string; appointmentId?: string }) =>
     api.post<Evolution>('/evolutions', data),
+  update: (id: string, data: { description?: string; evolutionDate?: string }) =>
+    api.patch<Evolution>(`/evolutions/${id}`, data),
 };
 
 export const treatmentPackagesApi = {

@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { EvolutionService } from './evolution.service';
 import { CreateEvolutionDto } from './dto/create-evolution.dto';
+import { UpdateEvolutionDto } from './dto/update-evolution.dto';
 import { QueryEvolutionDto } from './dto/query-evolution.dto';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -34,5 +35,14 @@ export class EvolutionController {
   @Get(':id')
   findById(@OrgId() orgId: string, @Param('id') id: string) {
     return this.evolutionService.findById(orgId, id);
+  }
+
+  @Patch(':id')
+  update(
+    @OrgId() orgId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateEvolutionDto,
+  ) {
+    return this.evolutionService.update(orgId, id, dto);
   }
 }
