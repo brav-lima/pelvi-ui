@@ -71,9 +71,12 @@ const existingEvolution: Evolution = {
   patientId: 'patient-1',
   professionalId: 'prof-1',
   description: 'Texto original',
-  evolutionDate: '2026-01-10T00:00:00.000Z',
-  createdAt: '2026-01-10T00:00:00.000Z',
-  updatedAt: '2026-01-10T00:00:00.000Z',
+  // Noon UTC (not midnight) so the local-time-formatted calendar day is stable
+  // across every real-world timezone offset (-12..+14), including test runners
+  // in UTC (CI) and in Brazil (dev machines, UTC-3).
+  evolutionDate: '2026-01-10T12:00:00.000Z',
+  createdAt: '2026-01-10T12:00:00.000Z',
+  updatedAt: '2026-01-10T12:00:00.000Z',
 };
 
 describe('EvolutionFormDialog', () => {
@@ -108,7 +111,7 @@ describe('EvolutionFormDialog', () => {
       expect(evolutionsApi.create).toHaveBeenCalledWith({
         patientId: 'patient-1',
         description: 'Paciente evoluiu bem durante a sessão de hoje.',
-        evolutionDate: '2026-02-05',
+        evolutionDate: new Date('2026-02-05T00:00:00').toISOString(),
       });
     });
   });
@@ -148,8 +151,69 @@ describe('EvolutionFormDialog', () => {
     await waitFor(() => {
       expect(evolutionsApi.update).toHaveBeenCalledWith('evo-1', {
         description: 'Texto original',
-        evolutionDate: '2026-01-12',
+        evolutionDate: new Date('2026-01-12T00:00:00').toISOString(),
       });
     });
+  });
+
+  it('mantém a data em fuso local ao pré-popular em modo edição, consistente com a exibição na timeline', () => {
+    render(
+      <EvolutionFormDialog
+        open
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+        patientId="patient-1"
+        evolution={existingEvolution}
+      />,
+      { wrapper: makeWrapper() },
+    );
+    expect(screen.getByLabelText(/data da evolução/i)).toHaveValue('2026-01-10');
+  });
+
+  it('não exibe erro de validação e salva com sucesso em modo edição quando a descrição tem menos de 10 caracteres', async () => {
+    const shortDescriptionEvolution: Evolution = {
+      ...existingEvolution,
+      description: 'Ok',
+    };
+    vi.mocked(evolutionsApi.update).mockResolvedValue({} as Evolution);
+    render(
+      <EvolutionFormDialog
+        open
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+        patientId="patient-1"
+        evolution={shortDescriptionEvolution}
+      />,
+      { wrapper: makeWrapper() },
+    );
+
+    expect(screen.getByLabelText(/descrição/i)).toHaveValue('Ok');
+
+    fireEvent.change(screen.getByLabelText(/data da evolução/i), { target: { value: '2026-01-15' } });
+    fireEvent.click(screen.getByRole('button', { name: /salvar/i }));
+
+    await waitFor(() => {
+      expect(evolutionsApi.update).toHaveBeenCalledWith('evo-1', {
+        description: 'Ok',
+        evolutionDate: new Date('2026-01-15T00:00:00').toISOString(),
+      });
+    });
+    expect(screen.queryByText(/descrição deve ter pelo menos/i)).not.toBeInTheDocument();
+  });
+
+  it('rejeita descrição com menos de 10 caracteres em modo criação', async () => {
+    render(
+      <EvolutionFormDialog open onOpenChange={vi.fn()} onSuccess={vi.fn()} patientId="patient-1" />,
+      { wrapper: makeWrapper() },
+    );
+
+    fireEvent.change(screen.getByLabelText(/data da evolução/i), { target: { value: '2026-02-05' } });
+    fireEvent.change(screen.getByLabelText(/descrição/i), { target: { value: 'Curta' } });
+    fireEvent.click(screen.getByRole('button', { name: /registrar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/descrição deve ter pelo menos 10 caracteres/i)).toBeInTheDocument();
+    });
+    expect(evolutionsApi.create).not.toHaveBeenCalled();
   });
 });

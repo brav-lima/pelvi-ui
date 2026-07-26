@@ -159,7 +159,7 @@ describe('EvolutionService', () => {
       expect(prisma.evolution.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { organizationId: orgId, patientId: 'patient-1' },
-          orderBy: { evolutionDate: 'desc' },
+          orderBy: [{ evolutionDate: 'desc' }, { createdAt: 'desc' }],
         }),
       );
     });

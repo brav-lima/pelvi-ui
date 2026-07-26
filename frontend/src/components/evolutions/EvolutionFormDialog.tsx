@@ -20,12 +20,16 @@ import { toast } from 'sonner';
 import { evolutionsApi } from '@/lib/api';
 import type { Evolution } from '@/types/clinic';
 
-const evolutionSchema = z.object({
-  description: z.string().min(10, 'Descrição deve ter pelo menos 10 caracteres'),
-  evolutionDate: z.string().min(1, 'Data é obrigatória'),
-});
+function makeEvolutionSchema(isEditMode: boolean) {
+  return z.object({
+    description: isEditMode
+      ? z.string().min(1, 'Descrição é obrigatória')
+      : z.string().min(10, 'Descrição deve ter pelo menos 10 caracteres'),
+    evolutionDate: z.string().min(1, 'Data é obrigatória'),
+  });
+}
 
-type EvolutionFormData = z.infer<typeof evolutionSchema>;
+type EvolutionFormData = z.infer<ReturnType<typeof makeEvolutionSchema>>;
 
 interface EvolutionFormDialogProps {
   open: boolean;
@@ -42,7 +46,7 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
   const isEditMode = !!evolution;
 
   const form = useForm<EvolutionFormData>({
-    resolver: zodResolver(evolutionSchema),
+    resolver: zodResolver(makeEvolutionSchema(isEditMode)),
     defaultValues: {
       description: '',
       evolutionDate: format(new Date(), 'yyyy-MM-dd'),
@@ -54,7 +58,7 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
       if (isEditMode && evolution) {
         form.reset({
           description: evolution.description,
-          evolutionDate: evolution.evolutionDate.slice(0, 10),
+          evolutionDate: format(new Date(evolution.evolutionDate), 'yyyy-MM-dd'),
         });
       } else {
         form.reset({
@@ -72,17 +76,19 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
     setError('');
 
     try {
+      const evolutionDateIso = new Date(`${data.evolutionDate}T00:00:00`).toISOString();
+
       if (isEditMode && evolution) {
         await evolutionsApi.update(evolution.id, {
           description: data.description,
-          evolutionDate: data.evolutionDate,
+          evolutionDate: evolutionDateIso,
         });
         toast.success('Evolução atualizada com sucesso');
       } else {
         await evolutionsApi.create({
           patientId,
           description: data.description,
-          evolutionDate: data.evolutionDate,
+          evolutionDate: evolutionDateIso,
         });
         toast.success('Evolução registrada com sucesso');
         track(AnalyticsEvent.EvolutionCreated);

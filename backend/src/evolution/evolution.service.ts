@@ -48,7 +48,7 @@ export class EvolutionService {
   async findByPatient(organizationId: string, patientId: string) {
     return this.prisma.evolution.findMany({
       where: { organizationId, patientId },
-      orderBy: { evolutionDate: 'desc' },
+      orderBy: [{ evolutionDate: 'desc' }, { createdAt: 'desc' }],
       include: {
         professional: {
           include: { person: { select: { id: true, name: true } } },
