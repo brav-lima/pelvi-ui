@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -17,6 +18,10 @@ export class EvolutionService {
   ) {
     const orgUser = await this.resolveOrgUser(organizationId, personId);
 
+    if (dto.evolutionDate) {
+      this.assertNotFutureDate(dto.evolutionDate);
+    }
+
     return this.prisma.evolution.create({
       data: {
         organizationId,
@@ -24,6 +29,7 @@ export class EvolutionService {
         professionalId: orgUser.id,
         appointmentId: dto.appointmentId,
         description: dto.description,
+        evolutionDate: dto.evolutionDate ? new Date(dto.evolutionDate) : new Date(),
         ...(dto.legalBasis && { legalBasis: dto.legalBasis }),
         ...(dto.consentId && { consentId: dto.consentId }),
       },
@@ -72,6 +78,14 @@ export class EvolutionService {
     }
 
     return evolution;
+  }
+
+  private assertNotFutureDate(date: string) {
+    if (new Date(date).getTime() > Date.now()) {
+      throw new BadRequestException(
+        'Data da evolução não pode ser no futuro',
+      );
+    }
   }
 
   private async resolveOrgUser(organizationId: string, personId: string) {

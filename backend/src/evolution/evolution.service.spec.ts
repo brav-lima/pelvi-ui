@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EvolutionService } from './evolution.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -92,6 +92,58 @@ describe('EvolutionService', () => {
       await expect(
         service.create(orgId, personId, { patientId: 'patient-1', description: 'Texto' }),
       ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.evolution.create).not.toHaveBeenCalled();
+    });
+
+    it('deve usar evolutionDate informado ao invés da data atual', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+      prisma.evolution.create.mockResolvedValue({ id: 'evo-1' });
+
+      await service.create(orgId, personId, {
+        patientId: 'patient-1',
+        description: 'Texto',
+        evolutionDate: '2026-01-10T00:00:00.000Z',
+      });
+
+      expect(prisma.evolution.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            evolutionDate: new Date('2026-01-10T00:00:00.000Z'),
+          }),
+        }),
+      );
+    });
+
+    it('deve usar a data atual quando evolutionDate não é informado', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+      prisma.evolution.create.mockResolvedValue({ id: 'evo-1' });
+
+      const before = Date.now();
+      await service.create(orgId, personId, {
+        patientId: 'patient-1',
+        description: 'Texto',
+      });
+      const after = Date.now();
+
+      const callData = prisma.evolution.create.mock.calls[0][0].data;
+      expect(callData.evolutionDate).toBeInstanceOf(Date);
+      expect(callData.evolutionDate.getTime()).toBeGreaterThanOrEqual(before);
+      expect(callData.evolutionDate.getTime()).toBeLessThanOrEqual(after);
+    });
+
+    it('deve lançar BadRequestException quando evolutionDate é no futuro', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+
+      const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      await expect(
+        service.create(orgId, personId, {
+          patientId: 'patient-1',
+          description: 'Texto',
+          evolutionDate: futureDate,
+        }),
+      ).rejects.toThrow(BadRequestException);
 
       expect(prisma.evolution.create).not.toHaveBeenCalled();
     });
