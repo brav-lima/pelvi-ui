@@ -9,7 +9,7 @@ import {
   ArrowLeft, Edit, Eye, Phone, Mail, MapPin, Calendar,
   TrendingUp, Plus, Loader2, CheckCircle, XCircle,
   CalendarCheck, Package, DollarSign, Wallet,
-  ClipboardList, Stethoscope, FileText, User, Trash2,
+  ClipboardList, Stethoscope, FileText, User, Trash2, Pencil,
 } from 'lucide-react';
 import {
   patientsApi, appointmentsApi, anamnesisApi, evolutionsApi,
@@ -23,7 +23,7 @@ import { AppointmentFormDialog } from '@/components/appointments/AppointmentForm
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
-import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment } from '@/types/clinic';
+import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment, Evolution } from '@/types/clinic';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -100,6 +100,7 @@ export default function PatientProfile() {
   const [editOpen, setEditOpen] = useState(false);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [evolutionOpen, setEvolutionOpen] = useState(false);
+  const [editingEvolution, setEditingEvolution] = useState<Evolution | null>(null);
   const [quickEvolution, setQuickEvolution] = useState('');
 
   const [packageOpen, setPackageOpen] = useState(false);
@@ -611,7 +612,7 @@ export default function PatientProfile() {
                         {evolutions.length} registros · ordem mais recente primeiro
                       </div>
                     </div>
-                    <Button size="sm" onClick={() => setEvolutionOpen(true)}>
+                    <Button size="sm" onClick={() => { setEditingEvolution(null); setEvolutionOpen(true); }}>
                       <Plus className="w-3.5 h-3.5 mr-1.5" />
                       Nova evolução
                     </Button>
@@ -668,7 +669,20 @@ export default function PatientProfile() {
                                 <div className="w-2.5 h-2.5 rounded-full bg-primary mt-[5px] z-10 shrink-0" />
                               </div>
                               <div className="min-w-0 pb-2">
-                                <div className="text-[13.5px] font-medium text-foreground leading-5">Evolução clínica</div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-[13.5px] font-medium text-foreground leading-5">Evolução clínica</div>
+                                  <button
+                                    type="button"
+                                    aria-label="Editar evolução"
+                                    onClick={() => {
+                                      setEditingEvolution(evo);
+                                      setEvolutionOpen(true);
+                                    }}
+                                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                                 <div className="text-[12.5px] text-muted-foreground mt-0.5 leading-[18px]">{evo.description}</div>
                                 {evo.professional?.person?.name && (
                                   <div className="text-[11.5px] text-muted-foreground/60 mt-1">
@@ -1041,9 +1055,13 @@ export default function PatientProfile() {
       {id && (
         <EvolutionFormDialog
           open={evolutionOpen}
-          onOpenChange={setEvolutionOpen}
+          onOpenChange={(next) => {
+            setEvolutionOpen(next);
+            if (!next) setEditingEvolution(null);
+          }}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-evolutions', id] })}
           patientId={id}
+          evolution={editingEvolution ?? undefined}
         />
       )}
       {id && (
