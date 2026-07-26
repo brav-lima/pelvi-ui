@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 import { SensitiveLegalBasis } from '@prisma/client';
 
 export class CreateEvolutionDto {
@@ -8,6 +8,10 @@ export class CreateEvolutionDto {
   @IsString({ message: 'Descrição é obrigatória' })
   @MinLength(1, { message: 'Descrição não pode ser vazia' })
   description: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Data da evolução inválida' })
+  evolutionDate?: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'ID do agendamento inválido' })
