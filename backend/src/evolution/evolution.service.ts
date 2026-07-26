@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEvolutionDto } from './dto/create-evolution.dto';
+import { UpdateEvolutionDto } from './dto/update-evolution.dto';
 
 @Injectable()
 export class EvolutionService {
@@ -47,7 +48,7 @@ export class EvolutionService {
   async findByPatient(organizationId: string, patientId: string) {
     return this.prisma.evolution.findMany({
       where: { organizationId, patientId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { evolutionDate: 'desc' },
       include: {
         professional: {
           include: { person: { select: { id: true, name: true } } },
@@ -78,6 +79,36 @@ export class EvolutionService {
     }
 
     return evolution;
+  }
+
+  async update(organizationId: string, id: string, dto: UpdateEvolutionDto) {
+    const existing = await this.prisma.evolution.findFirst({
+      where: { id, organizationId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Evolução não encontrada');
+    }
+
+    if (dto.evolutionDate) {
+      this.assertNotFutureDate(dto.evolutionDate);
+    }
+
+    return this.prisma.evolution.update({
+      where: { id },
+      data: {
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.evolutionDate && { evolutionDate: new Date(dto.evolutionDate) }),
+      },
+      include: {
+        professional: {
+          include: { person: { select: { id: true, name: true } } },
+        },
+        appointment: {
+          select: { id: true, startAt: true, status: true },
+        },
+      },
+    });
   }
 
   private assertNotFutureDate(date: string) {

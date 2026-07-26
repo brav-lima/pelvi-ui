@@ -18,6 +18,7 @@ describe('EvolutionService', () => {
         create: jest.fn(),
         findMany: jest.fn(),
         findFirst: jest.fn(),
+        update: jest.fn(),
       },
       organizationUser: {
         findUnique: jest.fn(),
@@ -150,7 +151,7 @@ describe('EvolutionService', () => {
   });
 
   describe('findByPatient', () => {
-    it('deve filtrar por organizationId e patientId, ordenado por data decrescente', async () => {
+    it('deve filtrar por organizationId e patientId, ordenado por evolutionDate decrescente', async () => {
       prisma.evolution.findMany.mockResolvedValue([]);
 
       await service.findByPatient(orgId, 'patient-1');
@@ -158,7 +159,7 @@ describe('EvolutionService', () => {
       expect(prisma.evolution.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { organizationId: orgId, patientId: 'patient-1' },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { evolutionDate: 'desc' },
         }),
       );
     });
@@ -183,6 +184,61 @@ describe('EvolutionService', () => {
       await expect(service.findById(orgId, 'evo-outra')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('update', () => {
+    it('deve atualizar apenas os campos informados', async () => {
+      const existing = { id: 'evo-1', organizationId: orgId };
+      prisma.evolution.findFirst.mockResolvedValue(existing);
+      prisma.evolution.update.mockResolvedValue({ ...existing, description: 'Novo texto' });
+
+      await service.update(orgId, 'evo-1', { description: 'Novo texto' });
+
+      expect(prisma.evolution.findFirst).toHaveBeenCalledWith({
+        where: { id: 'evo-1', organizationId: orgId },
+      });
+      expect(prisma.evolution.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'evo-1' },
+          data: { description: 'Novo texto' },
+        }),
+      );
+    });
+
+    it('deve atualizar evolutionDate quando informado', async () => {
+      prisma.evolution.findFirst.mockResolvedValue({ id: 'evo-1', organizationId: orgId });
+      prisma.evolution.update.mockResolvedValue({ id: 'evo-1' });
+
+      await service.update(orgId, 'evo-1', { evolutionDate: '2026-02-01T00:00:00.000Z' });
+
+      expect(prisma.evolution.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { evolutionDate: new Date('2026-02-01T00:00:00.000Z') },
+        }),
+      );
+    });
+
+    it('deve lançar NotFoundException quando a evolução não existe na organização', async () => {
+      prisma.evolution.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(orgId, 'evo-outra', { description: 'x' }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(prisma.evolution.update).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar BadRequestException quando evolutionDate é no futuro', async () => {
+      prisma.evolution.findFirst.mockResolvedValue({ id: 'evo-1', organizationId: orgId });
+
+      const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      await expect(
+        service.update(orgId, 'evo-1', { evolutionDate: futureDate }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.evolution.update).not.toHaveBeenCalled();
     });
   });
 });
