@@ -655,7 +655,7 @@ export default function PatientProfile() {
                     ) : (
                       <div>
                         {evolutions.map((evo, i) => {
-                          const d = new Date(evo.createdAt);
+                          const d = new Date(evo.evolutionDate);
                           return (
                             <div key={evo.id} className="grid gap-3 py-2.5" style={{ gridTemplateColumns: '72px 20px 1fr' }}>
                               <div className="text-right pt-1 font-mono text-[11px] text-muted-foreground leading-tight">
