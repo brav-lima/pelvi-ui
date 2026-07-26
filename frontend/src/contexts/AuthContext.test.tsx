@@ -23,8 +23,8 @@ vi.mock('@/lib/api', () => ({
 }));
 
 // Spy on the analytics module so we can assert `track` is (or isn't) called.
-// Real analytics functions are no-ops in tests anyway (VITE_POSTHOG_KEY is never
-// set), but a plain no-op can't tell us whether a call happened at all — hence the mock.
+// Real analytics functions are no-ops (PostHog removed), but a plain no-op
+// can't tell us whether a call happened at all — hence the mock.
 vi.mock('@/lib/analytics', () => ({
   track: vi.fn(),
   identifyUser: vi.fn(),

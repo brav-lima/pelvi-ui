@@ -1,5 +1,3 @@
-import posthog from 'posthog-js';
-
 export enum AnalyticsEvent {
   PatientCreated = 'patient_created',
   AppointmentCreated = 'appointment_created',
@@ -13,37 +11,21 @@ export enum AnalyticsEvent {
   Login = 'login',
 }
 
-let initialized = false;
-
 export function initAnalytics(): void {
-  const key = import.meta.env.VITE_POSTHOG_KEY;
-  if (!key) return;
-
-  posthog.init(key, {
-    api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
-    person_profiles: 'identified_only',
-    capture_pageview: true,
-    autocapture: false,
-    disable_session_recording: true,
-  });
-  initialized = true;
+  // no-op: PostHog removed
 }
 
-export function track(event: AnalyticsEvent, properties?: Record<string, unknown>): void {
-  if (!initialized) return;
-  posthog.capture(event, properties);
+export function track(_event: AnalyticsEvent, _properties?: Record<string, unknown>): void {
+  // no-op: PostHog removed
 }
 
 export function identifyUser(
-  personId: string,
-  props: { role: string; organizationId: string },
+  _personId: string,
+  _props: { role: string; organizationId: string },
 ): void {
-  if (!initialized) return;
-  posthog.identify(personId, { role: props.role });
-  posthog.group('organization', props.organizationId);
+  // no-op: PostHog removed
 }
 
 export function resetUser(): void {
-  if (!initialized) return;
-  posthog.reset();
+  // no-op: PostHog removed
 }

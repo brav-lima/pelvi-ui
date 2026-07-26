@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pelvi (pelvi-ui) is a **multi-tenant clinic management system** — a monorepo with a React frontend and NestJS backend. The UI is in Brazilian Portuguese. Full product spec lives in `docs/project-overview.md`.
+Pelvi (pelvi-ui) is a **multi-tenant clinic management system** — a monorepo with a React frontend and NestJS backend. The UI is in Brazilian Portuguese. Full product spec lives in `docs/project-overview.md`. Known security/stability findings pending fix live in `docs/hardening-backlog.md`.
 
 - **Frontend** (`frontend/`) — React + TypeScript + Vite SPA (port 8080)
 - **Backend** (`backend/`) — NestJS + Prisma + PostgreSQL API (port 3000)
@@ -138,7 +138,7 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 
 ### State Management
 
-- **Auth state**: React Context (`frontend/src/contexts/AuthContext.tsx`) — `useAuth()` hook. Auth via httpOnly cookies (JWT access token + refresh token). Session restoration on mount via `GET /api/auth/me`. `logout()` calls `POST /api/auth/logout` (clears cookies server-side) + clears React state.
+- **Auth state**: React Context (`frontend/src/contexts/AuthContext.tsx`) — `useAuth()` hook. Auth via httpOnly cookies (JWT access token + refresh token). Session restoration on mount via `GET /api/v1/auth/me`. `logout()` calls `POST /api/v1/auth/logout` (clears cookies server-side) + clears React state.
 - **Subscription state**: React Context (`frontend/src/contexts/SubscriptionContext.tsx`) — `useSubscription()` / `useFeature(feature)` hooks. Fetches from `GET /api/subscription/status`. Fail-open during loading (returns `true` for all features while query is in flight). Cache key: `['subscription', 'status']`.
 - **Theme state**: React Context (`frontend/src/contexts/ThemeContext.tsx`) — light/dark toggle
 - **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query.
@@ -146,9 +146,9 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 
 ### API Client (`frontend/src/lib/api.ts`)
 
-- `request<T>()` — sends `credentials: 'include'` on every request (cookies travel automatically), no manual token injection
+- `request<T>()` — prefixes every path with `/api/v1`, sends `credentials: 'include'` (cookies travel automatically), no manual token injection; 30s timeout via AbortController
 - 401 interceptor: calls `tryRefreshToken()` (deduped via `refreshInFlight` promise) then retries once; if refresh fails, dispatches `auth:logout` event and throws
-- `tryRefreshToken()` — `POST /api/auth/refresh`; skipped for login/refresh/logout/select-organization routes
+- `tryRefreshToken()` — `POST /api/v1/auth/refresh`; skipped for login/refresh/logout/select-organization routes
 - Module-specific API objects: `authApi`, `patientsApi`, `proceduresApi`, `personsApi`, `professionalsApi`, `appointmentsApi`, `anamnesisApi`, `perinealAssessmentsApi`, `evolutionsApi`, `treatmentPackagesApi`, `financialApi`, `organizationApi`
 
 ### Key Directories
@@ -275,9 +275,16 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 | `internal` | `/api/internal` | Internal ops (clinic/user management via `x-internal-api-key` header guard) |
 | `subscription` | `/api/subscription` | Feature gating: `GET /status` (snapshot with features), `PATCH /plan` (change plan + invalidate cache), `POST /cancel` (cancel + invalidate cache) |
 | `admin-api` | `/api/subscription` | Clinic→admin proxy: `GET /` (raw subscription data), `GET /plans` (available plans) — write ops moved to `subscription` module |
+| `document` | `/api/documents` | Clinic documents: PDF upload (10 MB limit) + generated templates, storage behind `IDocumentStorage` |
+| `task` | `/api/tasks` | Internal clinic tasks (status/priority, assigned to OrganizationUser) |
+| `email` | — | Transactional e-mail via Resend (password reset); service only, no controller |
+| `queue` | — | BullMQ reminder queue (appointment reminder 1h before startAt), jobs keyed `reminder-{appointmentId}` |
+| `redis` | — | Global RedisModule (ioredis client + RedisService helpers) |
 | `audit` | — | AuditLog persistence (called internally by other services) |
 | `health` | `/api/health` | Health check endpoint |
 | `version` | `/api/version` | Version endpoint |
+
+**Note**: prefixes above omit the version segment — actual paths are `/api/v1/...` (URI versioning, see Key Config).
 
 ### Key Directories (Backend)
 
@@ -299,10 +306,12 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 
 ### Authentication & Authorization
 
-- **Login flow**: POST `/api/auth/login` { cpf, password } → if 1 clinic: sets cookies + returns user; if N clinics: returns list, then POST `/api/auth/select-organization`
-- **JWT payload**: `{ sub: personId, organizationId, role }`
-- **Cookies**: `pelvi_access_token` (access JWT, httpOnly) + `pelvi_refresh_token` (httpOnly, rotated on use)
-- **Refresh token rotation**: `RefreshToken` model stores hashed tokens; old token invalidated on each refresh
+- **Login flow**: POST `/api/v1/auth/login` { cpf, password } → if 1 clinic: sets cookies + returns user; if N clinics: returns list + short-lived `preAuthToken`, then POST `/api/v1/auth/select-organization`
+- **JWT payload**: `{ sub: personId, organizationId, role, jti }`
+- **Cookies**: `pelvi_access_token` (access JWT 15 min, httpOnly, sameSite strict) + `pelvi_refresh_token` (httpOnly, 7d, path-scoped to `/api/v1/auth`, rotated on use)
+- **Refresh token rotation**: refresh jti hashes live in **Redis** (TTL 7d), revoked+reissued on each refresh; logout blacklists the access jti in Redis. The `RefreshToken` Prisma model is legacy (no longer used).
+- **Password reset**: `POST /auth/forgot-password` (sends e-mail via Resend, token in Redis TTL 30 min) + `POST /auth/reset-password`
+- **AccessStatusMiddleware**: blocks requests from orgs with `accessStatus = BLOCKED` (403). Skipped on login; accessStatus cached in Redis (TTL 60s), invalidated by internal `updateClinicAccess`.
 - **Global guards** (registered via `APP_GUARD`, execution order matters):
   1. `ThrottlerGuard` (AuthModule) — rate limiting
   2. `JwtAuthGuard` (AuthModule) — validates JWT; skip with `@Public()`
@@ -335,6 +344,8 @@ Features are defined in `backend/src/subscription/plan-features.ts` as `PlanFeat
 - `Settings.tsx` — `FEATURE_LABELS` map renders friendly Portuguese names for plan features
 
 ### API Routes Reference
+
+All paths below are shown as `/api/...` for brevity — **actual paths carry the version segment: `/api/v1/...`**.
 
 **Auth** (public unless noted):
 - `POST /api/auth/login` — login via CPF + password
@@ -415,8 +426,8 @@ Features are defined in `backend/src/subscription/plan-features.ts` as `PlanFeat
 ### Prisma
 
 - Schema: `backend/prisma/schema.prisma`
-- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, Anamnesis, PerinealAssessment, Evolution, TreatmentPackage, TreatmentPackageProcedure, FinancialRecord, RefreshToken, AuditLog
-- Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus, FinancialType, FinancialStatus, TreatmentPackageStatus (ACTIVE, COMPLETED, CANCELED), ClinicAccessStatus
+- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, Anamnesis, PerinealAssessment, Evolution, TreatmentPackage, TreatmentPackageProcedure, FinancialRecord, AuditLog, ClinicDocument, Task, RefreshToken (legacy — refresh tokens now live in Redis)
+- Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus, FinancialType, FinancialStatus, TreatmentPackageStatus (ACTIVE, COMPLETED, CANCELED), ClinicAccessStatus, PlanStatus, SensitiveLegalBasis (LGPD Art. 11), DocumentType, ClinicDocumentType, TaskStatus, TaskPriority
 - Config: `backend/prisma.config.ts` — loads `.env.{NODE_ENV}` (defaults to `.env.dev`)
 - `PrismaModule` is global — inject `PrismaService` in any service without importing the module
 - Prisma version: 7.x (connection URL in `prisma.config.ts`, NOT in `schema.prisma`)
@@ -424,12 +435,14 @@ Features are defined in `backend/src/subscription/plan-features.ts` as `PlanFeat
 
 ### Key Config
 
-- Global prefix: `/api`
+- Global prefix `/api` + URI versioning (`defaultVersion: '1'`) — **all routes live at `/api/v1/...`**. Anything parsing request paths (middleware excludes, interceptors) must account for the `v1` segment.
+- Helmet enabled (restrictive CSP + HSTS in production; permissive CSP in dev for Swagger)
 - CORS: `CORS_ORIGIN` env var (comma-separated origins), defaults to `http://localhost:8080`
-- `ValidationPipe` enabled globally (class-validator, whitelist + transform)
+- `ValidationPipe` enabled globally (class-validator, whitelist + forbidNonWhitelisted + transform)
 - `AllExceptionsFilter` enabled globally — standardized error responses: `{ statusCode, message, timestamp, path }`
 - `JwtAuthGuard` + `RolesGuard` enabled globally via `APP_GUARD`
-- Swagger docs at `/docs`
+- Swagger docs at `/docs` (disabled in production)
+- **Redis** (`REDIS_URL`, ioredis via global `RedisModule`) used for: refresh tokens + access-token blacklist, throttler storage, BullMQ reminder queue, and caches (agenda 30s, subscription snapshot 5 min, org accessStatus 60s). Cache reads/writes are fail-open (fall back to DB); refresh-token validation is fail-closed on purpose.
 
 ### Testing (Backend)
 
@@ -456,7 +469,10 @@ Features are defined in `backend/src/subscription/plan-features.ts` as `PlanFeat
 | `organization.service.spec.ts` | CRUD de org, addUser (limites de plano, conflitos), getPlanUsage, removeUser (soft delete) |
 | `person.service.spec.ts` | Criação com hash bcrypt, conflitos CPF/email, update, soft delete, findOrganizations |
 | `audit.service.spec.ts` | Persistência de log com e sem campos opcionais |
-| `internal.service.spec.ts` | createClinic, listClinics, updateClinicAccess |
+| `internal.service.spec.ts` | createClinic, listClinics, updateClinicAccess (+ invalidação do cache de accessStatus) |
+| `subscription.service.spec.ts` | Snapshot, cache Redis fail-open, hasFeature |
+| `audit.interceptor.spec.ts` | Parsing de entity/entityId em rotas versionadas `/api/v1` |
+| `access-status.middleware.spec.ts` | Bloqueio de org, skip no login, cache de accessStatus fail-open |
 
 **Mock pattern:**
 ```ts
@@ -487,9 +503,22 @@ $transaction: jest.fn((ops) => Promise.all(ops))
 
 **Current state**: only `main` / prod is running. The `staging` environment is not active at the moment.
 
-**PR flow**: all PRs target `staging` first. After validation, `staging` → `main` for prod deploy.
+**PR flow (current)**: while `staging` is inactive, PRs target `main` directly. When staging is reactivated, restore the PR → `staging` → `main` flow.
 
-Never open PRs directly to `main`.
+---
+
+## Project Management (Linear)
+
+Work is tracked in Linear, team **SouPelvi** (key `SOU`), project **Pelvi Core**. Issue identifiers look like `SOU-5`.
+
+**Commit convention — required for Linear's GitHub integration to auto-link work:**
+
+- Branch name must contain the issue identifier, lowercase (Linear auto-suggests this — copy it from the issue's `gitBranchName`, e.g. `bravilal/sou-5-revogar-sessoes-existentes-ao-trocarresetar-senha`).
+- Commit messages and/or PR titles/descriptions should reference the issue with a Linear magic word so status auto-transitions on merge:
+  - `Fixes SOU-5` / `Closes SOU-5` — merges the PR and moves the issue to Done
+  - `Part of SOU-5` / `Ref SOU-5` — links without auto-closing (use for partial work spanning multiple PRs)
+- One PR closing multiple issues: repeat the magic word per issue (`Fixes SOU-5, Fixes SOU-7`).
+- Without the identifier in the branch name or PR text, the PR won't link to the issue at all — Linear has no other way to associate them.
 
 ---
 
@@ -545,14 +574,15 @@ Backend (`backend/.env.dev`, Coolify):
 - `INTERNAL_API_KEY` — API key for internal routes (min 32 chars); must match `CLINIC_INTERNAL_API_KEY` in pelvi-admin
 - `ADMIN_API_URL` — pelvi-admin base URL (no trailing slash); e.g. `http://localhost:3001`
 - `ADMIN_EXTERNAL_API_KEY` — key sent as `x-clinic-api-key` to pelvi-admin; must match `CLINIC_EXTERNAL_API_KEY` in pelvi-admin
+- `REDIS_URL` — Redis connection string (tokens, caches, throttler, BullMQ)
+- `APP_URL` — frontend base URL, used to build password-reset links
+- `RESEND_API_KEY`, `RESEND_FROM`, `RESEND_TEMPLATE_PASSWORD_RESET_ID` — transactional e-mail (Resend)
 - `CORS_ORIGIN` — Comma-separated allowed origins
 - `PORT` — Server port (Coolify sets automatically)
 
 Frontend (build-time only):
 - `VITE_API_URL` — Backend API base URL. Defaults to `http://localhost:3000`.
 - `VITE_SENTRY_DSN` — Sentry DSN for frontend error tracking (optional, no-op if absent).
-- `VITE_POSTHOG_KEY` — PostHog project API key. If absent, analytics is a no-op (dev default).
-- `VITE_POSTHOG_HOST` — PostHog ingestion host. Defaults to `https://us.i.posthog.com`.
 - `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` — Build-time only, for source map upload via `sentryVitePlugin`.
 
 ---
