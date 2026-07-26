@@ -36,6 +36,8 @@ backend/.env.test
 
 docs/*
 
+.superpowers/
+
 *.keys
 
 svg
