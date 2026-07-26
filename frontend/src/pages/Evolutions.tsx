@@ -8,6 +8,7 @@ import {
   Search,
   Users,
   Plus,
+  Pencil,
   TrendingUp,
   Loader2,
 } from 'lucide-react';
@@ -18,12 +19,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
+import type { Evolution } from '@/types/clinic';
 
 export default function Evolutions() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEvolution, setEditingEvolution] = useState<Evolution | null>(null);
 
   const { data: patientsData, isLoading: loadingPatients } = useQuery({
     queryKey: ['patients', search],
@@ -47,6 +50,16 @@ export default function Evolutions() {
       .join('')
       .slice(0, 2)
       .toUpperCase();
+  };
+
+  const openCreateDialog = () => {
+    setEditingEvolution(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (evolution: Evolution) => {
+    setEditingEvolution(evolution);
+    setDialogOpen(true);
   };
 
   return (
@@ -111,7 +124,7 @@ export default function Evolutions() {
               {patient ? `Evoluções - ${patient.name}` : 'Selecione um Paciente'}
             </CardTitle>
             {patient && (
-              <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <Button size="sm" onClick={openCreateDialog}>
                 <Plus className="w-4 h-4 mr-2" />
                 Nova Evolução
               </Button>
@@ -135,7 +148,7 @@ export default function Evolutions() {
                 description="Adicione a primeira evolução clínica deste paciente"
                 action={{
                   label: 'Nova Evolução',
-                  onClick: () => setDialogOpen(true),
+                  onClick: openCreateDialog,
                 }}
               />
             ) : (
@@ -149,12 +162,22 @@ export default function Evolutions() {
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-foreground">
-                              {format(new Date(evolution.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                              {format(new Date(evolution.evolutionDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                             </span>
                           </div>
-                          <span className="text-sm text-muted-foreground">
-                            {evolution.professional?.person?.name ?? ''}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">
+                              {evolution.professional?.person?.name ?? ''}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="Editar evolução"
+                              onClick={() => openEditDialog(evolution)}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-sm text-foreground leading-relaxed">
                           {evolution.description}
@@ -172,9 +195,13 @@ export default function Evolutions() {
       {selectedPatient && (
         <EvolutionFormDialog
           open={dialogOpen}
-          onOpenChange={setDialogOpen}
+          onOpenChange={(next) => {
+            setDialogOpen(next);
+            if (!next) setEditingEvolution(null);
+          }}
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['evolutions', selectedPatient] })}
           patientId={selectedPatient}
+          evolution={editingEvolution ?? undefined}
         />
       )}
     </div>
