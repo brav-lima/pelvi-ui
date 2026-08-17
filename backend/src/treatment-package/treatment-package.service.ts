@@ -235,7 +235,7 @@ export class TreatmentPackageService {
     // Delete financial records linked to this package, then the package
     await this.prisma.$transaction([
       this.prisma.financialRecord.deleteMany({
-        where: { treatmentPackageId: id },
+        where: { treatmentPackageId: String(id) },
       }),
       this.prisma.treatmentPackage.delete({ where: { id } }),
     ]);
