@@ -235,8 +235,8 @@ export class FinancialService {
     if (mode === 'this_and_future' && record.recurrenceGroupId) {
       return this.prisma.financialRecord.updateMany({
         where: {
-          organizationId,
-          recurrenceGroupId: record.recurrenceGroupId,
+          organizationId: String(organizationId),
+          recurrenceGroupId: String(record.recurrenceGroupId),
           recurrenceIndex: { gte: record.recurrenceIndex ?? 0 },
           deletedAt: null,
         },
