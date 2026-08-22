@@ -1,7 +1,15 @@
 // backend/scripts/migrate-anamnesis-fields.ts
-import { PrismaClient } from '@prisma/client';
+import { config } from 'dotenv';
 
-const prisma = new PrismaClient();
+config({ path: `.env.${process.env.NODE_ENV || 'dev'}` });
+
+import { writeFileSync } from 'fs';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+});
 
 const FIELD_KEYS = ['queixaPrincipal', 'impacto', 'historiaAtual', 'historiaPregressa'] as const;
 type FieldKey = typeof FIELD_KEYS[number];
@@ -22,7 +30,7 @@ function emptyAnamnesisData(): AnamnesisData {
   };
 }
 
-function formatKey(key: string): string {
+export function formatKey(key: string): string {
   const result = key.replace(/([A-Z])/g, ' $1').toLowerCase();
   return result.charAt(0).toUpperCase() + result.slice(1);
 }
@@ -58,7 +66,7 @@ const LEGACY_SECTION_TARGET_MAP: Record<string, FieldKey> = {
   'Habitos de Vida': 'historiaPregressa',
 };
 
-function flattenSection(
+export function flattenSection(
   section: Record<string, unknown>,
   excludeKeys: string[] = [],
   formatLabel = true,
@@ -74,7 +82,7 @@ function flattenSection(
     .join('\n');
 }
 
-function migrateData(data: Record<string, unknown>): AnamnesisData {
+export function migrateData(data: Record<string, unknown>): AnamnesisData {
   const result = emptyAnamnesisData();
   const texts: Record<FieldKey, string[]> = {
     queixaPrincipal: [], impacto: [], historiaAtual: [], historiaPregressa: [],
@@ -116,36 +124,108 @@ function migrateData(data: Record<string, unknown>): AnamnesisData {
   return result;
 }
 
+// Detects records already in the new 4-field shape, so re-running --apply on an
+// already-migrated table is a no-op instead of falling into the legacy branch
+// and mangling already-correct data.
+function isAlreadyMigrated(data: Record<string, unknown>): boolean {
+  if ('_template' in data) return false;
+  return FIELD_KEYS.every((key) => {
+    const v = data[key];
+    return (
+      !!v &&
+      typeof v === 'object' &&
+      typeof (v as AnamnesisFieldData).texto === 'string' &&
+      Array.isArray((v as AnamnesisFieldData).hipoteses)
+    );
+  });
+}
+
+interface BackupRecord {
+  id: string;
+  patientId: string;
+  before: unknown;
+  skipped?: boolean;
+  after?: AnamnesisData;
+}
+
 async function main() {
   const apply = process.argv.includes('--apply');
   const anamneses = await prisma.anamnesis.findMany();
 
   console.log(`Encontradas ${anamneses.length} anamneses. Modo: ${apply ? 'APPLY' : 'DRY-RUN'}`);
 
-  for (const anamnesis of anamneses) {
+  // Safety net: dump the full "before" state of every record to a local backup
+  // file BEFORE any writes happen (even in dry-run). Restorable if the
+  // migration goes wrong. Also holds ANTES/DEPOIS detail instead of stdout,
+  // since anamnesis data is LGPD Art. 11 sensitive health data.
+  const backupPath = `migrate-anamnesis-fields-backup-${Date.now()}.json`;
+  const backupRecords: BackupRecord[] = anamneses.map((a) => ({
+    id: a.id,
+    patientId: a.patientId,
+    before: a.data,
+  }));
+  writeFileSync(backupPath, JSON.stringify(backupRecords, null, 2));
+  console.log(`Backup salvo em ${backupPath}`);
+
+  const updates: { id: string; after: AnamnesisData }[] = [];
+
+  for (let i = 0; i < anamneses.length; i++) {
+    const anamnesis = anamneses[i];
     const before = anamnesis.data as Record<string, unknown>;
-    const after = migrateData(before);
+    const record = backupRecords[i];
 
-    console.log(`\n--- Anamnesis ${anamnesis.id} (paciente ${anamnesis.patientId}) ---`);
-    console.log('ANTES:', JSON.stringify(before, null, 2));
-    console.log('DEPOIS:', JSON.stringify(after, null, 2));
+    const skipped = isAlreadyMigrated(before);
 
-    if (apply) {
-      await prisma.anamnesis.update({
-        where: { id: anamnesis.id },
-        data: { data: after as object },
-      });
+    if (!skipped) {
+      const after = migrateData(before);
+      record.after = after;
+      if (apply) {
+        updates.push({ id: anamnesis.id, after });
+      }
+    } else {
+      record.skipped = true;
     }
+
+    console.log(
+      `Anamnesis ${anamnesis.id}: ${apply ? 'migrado' : 'seria migrado'} (${skipped ? 'pulado, já migrado' : 'ok'})`,
+    );
   }
 
-  console.log(`\n${apply ? 'Aplicado' : 'Simulado'} em ${anamneses.length} registro(s).`);
+  // Re-write the backup file now that it also carries ANTES/DEPOIS detail.
+  writeFileSync(backupPath, JSON.stringify(backupRecords, null, 2));
+
+  if (apply && updates.length > 0) {
+    await prisma.$transaction(
+      updates.map((u) =>
+        prisma.anamnesis.update({
+          where: { id: u.id },
+          data: { data: u.after as object },
+        }),
+      ),
+    );
+  }
+
+  console.log(
+    `\n${apply ? 'Aplicado' : 'Simulado'} em ${updates.length} registro(s), ${anamneses.length - updates.length} pulado(s)/sem alteração (total ${anamneses.length}).`,
+  );
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// Guards main() so importing this module (e.g. from the jest spec) doesn't
+// trigger a real run against the DB. `require.main === module` is true only
+// when this file is the process entry point — Bun fully implements Node's
+// CJS module semantics, so this works identically under `bun scripts/...`.
+// (import.meta.main would be the more idiomatic Bun-only check, but this
+// project's backend tsconfig has no `"type": "module"`, so .ts files compile
+// as CommonJS and `import.meta` is a TS1470 compile error there — this
+// require.main form is the CommonJS-safe equivalent, needed so both
+// `bunx tsc --noEmit` and ts-jest importing this file for tests stay clean.)
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
