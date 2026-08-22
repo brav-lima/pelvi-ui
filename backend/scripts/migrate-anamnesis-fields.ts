@@ -58,7 +58,11 @@ const LEGACY_SECTION_TARGET_MAP: Record<string, FieldKey> = {
   'Habitos de Vida': 'historiaPregressa',
 };
 
-function flattenSection(section: Record<string, unknown>, excludeKeys: string[] = []): string {
+function flattenSection(
+  section: Record<string, unknown>,
+  excludeKeys: string[] = [],
+  formatLabel = true,
+): string {
   return Object.entries(section)
     .filter(([k, v]) => {
       if (excludeKeys.includes(k)) return false;
@@ -66,7 +70,7 @@ function flattenSection(section: Record<string, unknown>, excludeKeys: string[] 
       if (Array.isArray(v)) return v.length > 0;
       return String(v).trim() !== '';
     })
-    .map(([k, v]) => `${formatKey(k)}: ${Array.isArray(v) ? v.join(', ') : v}`)
+    .map(([k, v]) => `${formatLabel ? formatKey(k) : k}: ${Array.isArray(v) ? v.join(', ') : v}`)
     .join('\n');
 }
 
@@ -100,7 +104,7 @@ function migrateData(data: Record<string, unknown>): AnamnesisData {
       }
       const target = LEGACY_SECTION_TARGET_MAP[sectionLabel] ?? 'historiaPregressa';
       if (typeof sectionValue === 'object' && sectionValue !== null) {
-        const text = flattenSection(sectionValue as Record<string, unknown>);
+        const text = flattenSection(sectionValue as Record<string, unknown>, [], false);
         if (text) texts[target].push(`[${sectionLabel}]\n${text}`);
       }
     }
