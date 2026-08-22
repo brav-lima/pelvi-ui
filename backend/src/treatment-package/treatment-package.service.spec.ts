@@ -163,6 +163,15 @@ describe('TreatmentPackageService', () => {
       const callArgs = prisma.treatmentPackage.findMany.mock.calls[0][0];
       expect(callArgs.where.patientId).toBe('patient-1');
     });
+
+    it('deve filtrar por status quando informado', async () => {
+      prisma.treatmentPackage.findMany.mockResolvedValue([]);
+
+      await service.findAll(orgId, undefined, TreatmentPackageStatus.ACTIVE);
+
+      const callArgs = prisma.treatmentPackage.findMany.mock.calls[0][0];
+      expect(callArgs.where.status).toBe(TreatmentPackageStatus.ACTIVE);
+    });
   });
 
   describe('findById', () => {
