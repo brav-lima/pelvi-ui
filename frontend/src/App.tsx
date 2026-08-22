@@ -22,7 +22,6 @@ const Patients = lazy(() => import("./pages/Patients"));
 const PatientProfile = lazy(() => import("./pages/PatientProfile"));
 const Professionals = lazy(() => import("./pages/Professionals"));
 const Procedures = lazy(() => import("./pages/Procedures"));
-const Anamnesis = lazy(() => import("./pages/Anamnesis"));
 const Evolutions = lazy(() => import("./pages/Evolutions"));
 const Financial = lazy(() => import("./pages/Financial"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -78,7 +77,6 @@ const App = () => (
                     <Route path="/patients/:patientId/anamnesis/:anamnesisId" element={<FeatureRoute feature="ANAMNESIS"><AnamnesisEditorPage /></FeatureRoute>} />
                     <Route path="/professionals" element={<ProtectedRoute roles={['ADMIN']}><FeatureRoute feature="MULTI_PROFESSIONAL"><Professionals /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/procedures" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><Procedures /></ProtectedRoute>} />
-                    <Route path="/anamnesis" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><FeatureRoute feature="ANAMNESIS"><Anamnesis /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/evolutions" element={<ProtectedRoute roles={['ADMIN', 'PROFESSIONAL']}><FeatureRoute feature="EVOLUTIONS"><Evolutions /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/financial" element={<ProtectedRoute roles={['ADMIN']}><FeatureRoute feature="FINANCIAL_BASIC"><Financial /></FeatureRoute></ProtectedRoute>} />
                     <Route path="/documents" element={<FeatureRoute feature="DOCUMENTS"><Documents /></FeatureRoute>} />

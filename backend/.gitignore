@@ -6,3 +6,6 @@ node_modules
 
 coverage/
 dist
+
+# One-off migration script backups — contain real patient health data (LGPD Art. 11)
+migrate-anamnesis-fields-backup-*.json

@@ -176,7 +176,7 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 | Perfil Paciente | `PatientProfile.tsx` | Tabs: Consultas, Anamnese, Evolucoes, Avaliação Perineal, Pacotes |
 | Profissionais | `Professionals.tsx` | Card/list toggle, avatar, role badge |
 | Procedimentos | `Procedures.tsx` | Active toggle, formatted currency, delete confirmation |
-| Anamnese | `Anamnesis.tsx` | Patient list + anamnesis viewer (flexible JSON rendering) |
+| Anamnese | `AnamnesisEditorPage.tsx` | Single-page 4-field form (queixa, impacto, história atual/pregressa) with grouped hypotheses; reached via the patient profile's Anamnese tab, not a standalone route |
 | Evolucoes | `Evolutions.tsx` | Patient list + evolution timeline |
 | Financeiro | `Financial.tsx` | Stats cards, records table, "dar baixa" inline |
 | Configurações | `Settings.tsx` | Clinic settings (ADMIN only) |
