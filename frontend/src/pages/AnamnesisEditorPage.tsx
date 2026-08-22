@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   ArrowLeft, Check, Download, Loader2,
-  Activity, ClipboardList, Package,
+  Activity, ClipboardList, Package, AlertTriangle,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { patientsApi, anamnesisApi, treatmentPackagesApi } from '@/lib/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -46,6 +47,12 @@ export default function AnamnesisEditorPage() {
   });
 
   const existing = isNew ? null : allAnamneses.find(a => a.id === anamnesisId);
+
+  // An existing anamnesis whose data isn't yet in the new 4-field shape means it
+  // hasn't been through the Task 6 migration script. The backend's PATCH does a
+  // shallow merge, so letting the user save here would silently overwrite the
+  // original (still-legacy) content with the blank form below.
+  const isLegacyUnmigrated = !isNew && !!existing && !isAnamnesisData(existing.data);
 
   useEffect(() => {
     if (existing?.data && isAnamnesisData(existing.data)) {
@@ -105,13 +112,13 @@ export default function AnamnesisEditorPage() {
             <Download className="w-3.5 h-3.5 mr-1.5" />
             Exportar PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
+          <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending || isLegacyUnmigrated}>
             {saveMutation.isPending ? (
               <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
             ) : null}
             Salvar rascunho
           </Button>
-          <Button size="sm" onClick={handleSaveAndExit} disabled={saveMutation.isPending}>
+          <Button size="sm" onClick={handleSaveAndExit} disabled={saveMutation.isPending || isLegacyUnmigrated}>
             <Check className="w-3.5 h-3.5 mr-1.5" />
             Salvar e finalizar
           </Button>
@@ -138,6 +145,15 @@ export default function AnamnesisEditorPage() {
       {/* 2-column layout: form + patient sidebar */}
       <div className="grid gap-4 items-start" style={{ gridTemplateColumns: '1fr 280px' }}>
         <Card className="p-5 space-y-6">
+          {isLegacyUnmigrated && (
+            <Alert variant="destructive" className="border-destructive/50">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Esta avaliação está em um formato antigo e ainda não foi migrada. Salvar aqui vai
+                sobrescrever o conteúdo original. Entre em contato com o suporte antes de editar.
+              </AlertDescription>
+            </Alert>
+          )}
           {ANAMNESIS_FIELDS.map(field => (
             <HypothesisField
               key={field.key}

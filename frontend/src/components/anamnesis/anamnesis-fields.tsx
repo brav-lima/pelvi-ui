@@ -177,6 +177,7 @@ export function GroupedHypotheses({ data }: { data: Partial<AnamnesisData> }) {
 
 export function isAnamnesisData(value: unknown): value is AnamnesisData {
   if (!value || typeof value !== 'object') return false;
+  if ('_template' in value) return false;
   return ANAMNESIS_FIELDS.every(field => {
     const v = (value as Record<string, unknown>)[field.key];
     return (
