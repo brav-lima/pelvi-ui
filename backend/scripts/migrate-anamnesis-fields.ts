@@ -96,7 +96,14 @@ export function migrateData(data: Record<string, unknown>): AnamnesisData {
       const target = SECTION_TARGET_MAP[sectionId] ?? 'historiaPregressa';
 
       if (typeof section.hipoteses === 'string' && section.hipoteses.trim() !== '') {
-        result.historiaAtual.hipoteses.push(section.hipoteses.trim());
+        // Old free-text hipoteses could hold several hypotheses, one per line
+        // (the conclusion step was a single textarea) — split so each becomes
+        // its own entry, matching the new UI's one-hypothesis-per-chip model.
+        const linhas = section.hipoteses
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l !== '');
+        result.historiaAtual.hipoteses.push(...linhas);
       }
 
       const text = flattenSection(section, ['hipoteses']);
@@ -168,6 +175,7 @@ async function main() {
   console.log(`Backup salvo em ${backupPath}`);
 
   const updates: { id: string; after: AnamnesisData }[] = [];
+  let migratedCount = 0;
 
   for (let i = 0; i < anamneses.length; i++) {
     const anamnesis = anamneses[i];
@@ -179,6 +187,7 @@ async function main() {
     if (!skipped) {
       const after = migrateData(before);
       record.after = after;
+      migratedCount++;
       if (apply) {
         updates.push({ id: anamnesis.id, after });
       }
@@ -206,7 +215,7 @@ async function main() {
   }
 
   console.log(
-    `\n${apply ? 'Aplicado' : 'Simulado'} em ${updates.length} registro(s), ${anamneses.length - updates.length} pulado(s)/sem alteração (total ${anamneses.length}).`,
+    `\n${apply ? 'Aplicado' : 'Seria aplicado'} em ${migratedCount} registro(s), ${anamneses.length - migratedCount} pulado(s)/sem alteração (total ${anamneses.length}).`,
   );
 }
 

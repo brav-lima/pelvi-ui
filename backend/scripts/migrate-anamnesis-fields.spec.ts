@@ -34,6 +34,23 @@ describe('migrateData', () => {
     expect(result.historiaAtual.hipoteses).toContain('Disfunção do assoalho pélvico');
   });
 
+  it('splits a multi-line hipoteses string into separate hypothesis entries', () => {
+    const templateFixture = {
+      _template: 'dor-pelvica',
+      conclusao: {
+        hipoteses: 'Iliococcigeo tenso?\nLigamento largo aderido?\n\nLigamento do colo de utero aderido?\n',
+      },
+    };
+
+    const result = migrateData(templateFixture);
+
+    expect(result.historiaAtual.hipoteses).toEqual([
+      'Iliococcigeo tenso?',
+      'Ligamento largo aderido?',
+      'Ligamento do colo de utero aderido?',
+    ]);
+  });
+
   it('migrates the legacy AnamnesisFormDialog shape without mangling Title Case labels', () => {
     const legacyFixture = {
       'Queixa Principal': {
