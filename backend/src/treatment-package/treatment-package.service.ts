@@ -185,9 +185,14 @@ export class TreatmentPackageService {
     });
   }
 
-  async findAll(organizationId: string, patientId?: string) {
+  async findAll(
+    organizationId: string,
+    patientId?: string,
+    status?: TreatmentPackageStatus,
+  ) {
     const where: Prisma.TreatmentPackageWhereInput = { organizationId };
     if (patientId) where.patientId = patientId;
+    if (status) where.status = status;
 
     return this.prisma.treatmentPackage.findMany({
       where,

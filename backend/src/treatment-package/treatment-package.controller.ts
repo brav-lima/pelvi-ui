@@ -35,7 +35,7 @@ export class TreatmentPackageController {
   @Get()
   @ApiOperation({ summary: 'Listar pacotes de tratamento' })
   findAll(@OrgId() orgId: string, @Query() query: QueryTreatmentPackageDto) {
-    return this.service.findAll(orgId, query.patientId);
+    return this.service.findAll(orgId, query.patientId, query.status);
   }
 
   @Get(':id')
