@@ -267,6 +267,19 @@ describe('AppointmentService', () => {
       const callArgs = prisma.appointment.findMany.mock.calls[0][0];
       expect(callArgs.where.professionalId).toBe('prof-1');
     });
+
+    it('deve filtrar por patientId sem exigir intervalo de datas, ordenado desc', async () => {
+      prisma.appointment.findMany.mockResolvedValue([]);
+
+      await service.findAll(orgId, { patientId: 'patient-1' } as any);
+
+      expect(prisma.appointment.findMany).toHaveBeenCalledWith({
+        where: { organizationId: orgId, deletedAt: null, patientId: 'patient-1' },
+        orderBy: { startAt: 'desc' },
+        include: expect.anything(),
+      });
+      expect(redisService.getJson).not.toHaveBeenCalled();
+    });
   });
 
   describe('create (com treatment package)', () => {

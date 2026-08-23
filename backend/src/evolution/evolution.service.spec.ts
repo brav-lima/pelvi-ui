@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 describe('EvolutionService', () => {
   let service: EvolutionService;
-  let prisma: { evolution: any; organizationUser: any };
+  let prisma: { evolution: any; organizationUser: any; appointment: any };
 
   const orgId = 'org-1';
   const personId = 'person-1';
@@ -22,6 +22,9 @@ describe('EvolutionService', () => {
       },
       organizationUser: {
         findUnique: jest.fn(),
+      },
+      appointment: {
+        findFirst: jest.fn(),
       },
     };
 
@@ -62,6 +65,7 @@ describe('EvolutionService', () => {
 
     it('deve criar evolução vinculada a um agendamento quando appointmentId informado', async () => {
       prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
       prisma.evolution.create.mockResolvedValue({ id: 'evo-1' });
 
       await service.create(orgId, personId, {
@@ -70,11 +74,30 @@ describe('EvolutionService', () => {
         appointmentId: 'apt-1',
       });
 
+      expect(prisma.appointment.findFirst).toHaveBeenCalledWith({
+        where: { id: 'apt-1', organizationId: orgId, patientId: 'patient-1', deletedAt: null },
+        select: { id: true },
+      });
       expect(prisma.evolution.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ appointmentId: 'apt-1' }),
         }),
       );
+    });
+
+    it('deve lançar BadRequestException quando appointmentId não pertence ao paciente', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+      prisma.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(orgId, personId, {
+          patientId: 'patient-1',
+          description: 'Sessão concluída.',
+          appointmentId: 'apt-de-outro-paciente',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.evolution.create).not.toHaveBeenCalled();
     });
 
     it('deve lançar ForbiddenException quando orgUser não existe', async () => {
@@ -239,6 +262,47 @@ describe('EvolutionService', () => {
       ).rejects.toThrow(BadRequestException);
 
       expect(prisma.evolution.update).not.toHaveBeenCalled();
+    });
+
+    it('deve vincular a um agendamento do mesmo paciente quando appointmentId informado', async () => {
+      const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1' };
+      prisma.evolution.findFirst.mockResolvedValue(existing);
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      prisma.evolution.update.mockResolvedValue({ ...existing, appointmentId: 'apt-1' });
+
+      await service.update(orgId, 'evo-1', { appointmentId: 'apt-1' });
+
+      expect(prisma.appointment.findFirst).toHaveBeenCalledWith({
+        where: { id: 'apt-1', organizationId: orgId, patientId: 'patient-1', deletedAt: null },
+        select: { id: true },
+      });
+      expect(prisma.evolution.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { appointmentId: 'apt-1' } }),
+      );
+    });
+
+    it('deve lançar BadRequestException quando appointmentId não pertence ao paciente da evolução', async () => {
+      prisma.evolution.findFirst.mockResolvedValue({ id: 'evo-1', organizationId: orgId, patientId: 'patient-1' });
+      prisma.appointment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(orgId, 'evo-1', { appointmentId: 'apt-de-outro-paciente' }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.evolution.update).not.toHaveBeenCalled();
+    });
+
+    it('deve desvincular o agendamento quando appointmentId é null', async () => {
+      const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1' };
+      prisma.evolution.findFirst.mockResolvedValue(existing);
+      prisma.evolution.update.mockResolvedValue({ ...existing, appointmentId: null });
+
+      await service.update(orgId, 'evo-1', { appointmentId: null });
+
+      expect(prisma.appointment.findFirst).not.toHaveBeenCalled();
+      expect(prisma.evolution.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { appointmentId: null } }),
+      );
     });
   });
 });

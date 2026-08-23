@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { track, AnalyticsEvent } from '@/lib/analytics';
 import {
   Dialog,
@@ -16,9 +18,18 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
-import { evolutionsApi } from '@/lib/api';
+import { evolutionsApi, appointmentsApi } from '@/lib/api';
 import type { Evolution } from '@/types/clinic';
+
+const NO_APPOINTMENT = 'none';
 
 function makeEvolutionSchema(isEditMode: boolean) {
   return z.object({
@@ -42,8 +53,15 @@ interface EvolutionFormDialogProps {
 export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, evolution }: EvolutionFormDialogProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [appointmentId, setAppointmentId] = useState<string | null>(null);
 
   const isEditMode = !!evolution;
+
+  const { data: appointments = [] } = useQuery({
+    queryKey: ['appointments', 'patient', patientId],
+    queryFn: () => appointmentsApi.list({ patientId }),
+    enabled: open && !!patientId,
+  });
 
   const form = useForm<EvolutionFormData>({
     resolver: zodResolver(makeEvolutionSchema(isEditMode)),
@@ -60,11 +78,13 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
           description: evolution.description,
           evolutionDate: format(new Date(evolution.evolutionDate), 'yyyy-MM-dd'),
         });
+        setAppointmentId(evolution.appointment?.id ?? evolution.appointmentId ?? null);
       } else {
         form.reset({
           description: '',
           evolutionDate: format(new Date(), 'yyyy-MM-dd'),
         });
+        setAppointmentId(null);
       }
       setError('');
     }
@@ -82,6 +102,7 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
         await evolutionsApi.update(evolution.id, {
           description: data.description,
           evolutionDate: evolutionDateIso,
+          appointmentId,
         });
         toast.success('Evolução atualizada com sucesso');
       } else {
@@ -89,6 +110,7 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
           patientId,
           description: data.description,
           evolutionDate: evolutionDateIso,
+          appointmentId: appointmentId ?? undefined,
         });
         toast.success('Evolução registrada com sucesso');
         track(AnalyticsEvent.EvolutionCreated);
@@ -127,6 +149,30 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
             {form.formState.errors.evolutionDate && (
               <p className="text-sm text-destructive">{form.formState.errors.evolutionDate.message}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="appointmentId">Atendimento relacionado</Label>
+            <Select
+              value={appointmentId ?? NO_APPOINTMENT}
+              onValueChange={(value) => setAppointmentId(value === NO_APPOINTMENT ? null : value)}
+            >
+              <SelectTrigger id="appointmentId">
+                <SelectValue placeholder="Nenhum atendimento vinculado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_APPOINTMENT}>Nenhum atendimento vinculado</SelectItem>
+                {appointments.map((apt) => (
+                  <SelectItem key={apt.id} value={apt.id}>
+                    {format(new Date(apt.startAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    {apt.procedure ? ` — ${apt.procedure.name}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Selecione a qual atendimento esta evolução se refere, especialmente se ela for registrada depois da sessão.
+            </p>
           </div>
 
           <div className="space-y-2">

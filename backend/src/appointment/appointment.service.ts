@@ -121,19 +121,43 @@ export class AppointmentService {
   }
 
   async findAll(organizationId: string, query: QueryAppointmentDto) {
-    const cacheKey = agendaKey(organizationId, query.startDate, query.endDate, query.professionalId);
+    if (query.patientId) {
+      const where: Record<string, unknown> = {
+        organizationId,
+        deletedAt: null,
+        patientId: query.patientId,
+      };
+
+      if (query.professionalId) {
+        where.professionalId = query.professionalId;
+      }
+
+      if (query.startDate && query.endDate) {
+        const endDate = new Date(query.endDate);
+        endDate.setUTCHours(23, 59, 59, 999);
+        where.startAt = { gte: new Date(query.startDate), lte: endDate };
+      }
+
+      return this.prisma.appointment.findMany({
+        where,
+        orderBy: { startAt: 'desc' },
+        include: appointmentIncludes,
+      });
+    }
+
+    const cacheKey = agendaKey(organizationId, query.startDate!, query.endDate!, query.professionalId);
     // Redis indisponível não pode derrubar a agenda — cache falhou, vai ao banco
     const cached = await this.redis.getJson(cacheKey).catch(() => null);
     if (cached) return cached;
 
-    const endDate = new Date(query.endDate);
+    const endDate = new Date(query.endDate!);
     endDate.setUTCHours(23, 59, 59, 999);
 
     const where: Record<string, unknown> = {
       organizationId,
       deletedAt: null,
       startAt: {
-        gte: new Date(query.startDate),
+        gte: new Date(query.startDate!),
         lte: endDate,
       },
     };

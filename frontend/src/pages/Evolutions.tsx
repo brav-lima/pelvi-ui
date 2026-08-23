@@ -182,6 +182,11 @@ export default function Evolutions() {
                         <p className="text-sm text-foreground leading-relaxed">
                           {evolution.description}
                         </p>
+                        {evolution.appointment && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Atendimento: {format(new Date(evolution.appointment.startAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
