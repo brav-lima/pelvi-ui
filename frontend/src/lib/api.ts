@@ -199,8 +199,11 @@ export const professionalsApi = {
 };
 
 export const appointmentsApi = {
-  list: (params: { startDate: string; endDate: string; professionalId?: string }) =>
-    api.get<Appointment[]>(`/appointments?${queryString(params)}`),
+  list: (
+    params:
+      | { startDate: string; endDate: string; professionalId?: string; patientId?: string }
+      | { patientId: string; professionalId?: string },
+  ) => api.get<Appointment[]>(`/appointments?${queryString(params)}`),
   getById: (id: string) => api.get<Appointment>(`/appointments/${id}`),
   create: (data: {
     patientId: string;
@@ -260,7 +263,7 @@ export const evolutionsApi = {
   getById: (id: string) => api.get<Evolution>(`/evolutions/${id}`),
   create: (data: { patientId: string; description: string; evolutionDate?: string; appointmentId?: string }) =>
     api.post<Evolution>('/evolutions', data),
-  update: (id: string, data: { description?: string; evolutionDate?: string }) =>
+  update: (id: string, data: { description?: string; evolutionDate?: string; appointmentId?: string | null }) =>
     api.patch<Evolution>(`/evolutions/${id}`, data),
 };
 

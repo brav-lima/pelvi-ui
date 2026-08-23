@@ -180,6 +180,7 @@ export interface Evolution {
   updatedAt: string;
   patient?: { id: string; name: string };
   professional?: { id: string; person: { name: string } };
+  appointment?: { id: string; startAt: string; status: AppointmentStatus } | null;
 }
 
 export type TreatmentPackageStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELED';

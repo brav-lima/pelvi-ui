@@ -23,6 +23,14 @@ export class EvolutionService {
       this.assertNotFutureDate(dto.evolutionDate);
     }
 
+    if (dto.appointmentId) {
+      await this.assertAppointmentBelongsToPatient(
+        organizationId,
+        dto.patientId,
+        dto.appointmentId,
+      );
+    }
+
     return this.prisma.evolution.create({
       data: {
         organizationId,
@@ -94,11 +102,20 @@ export class EvolutionService {
       this.assertNotFutureDate(dto.evolutionDate);
     }
 
+    if (dto.appointmentId) {
+      await this.assertAppointmentBelongsToPatient(
+        organizationId,
+        existing.patientId,
+        dto.appointmentId,
+      );
+    }
+
     return this.prisma.evolution.update({
       where: { id },
       data: {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.evolutionDate && { evolutionDate: new Date(dto.evolutionDate) }),
+        ...(dto.appointmentId !== undefined && { appointmentId: dto.appointmentId }),
       },
       include: {
         professional: {
@@ -109,6 +126,21 @@ export class EvolutionService {
         },
       },
     });
+  }
+
+  private async assertAppointmentBelongsToPatient(
+    organizationId: string,
+    patientId: string,
+    appointmentId: string,
+  ) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id: appointmentId, organizationId, patientId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!appointment) {
+      throw new BadRequestException('Agendamento não pertence a este paciente');
+    }
   }
 
   private assertNotFutureDate(date: string) {

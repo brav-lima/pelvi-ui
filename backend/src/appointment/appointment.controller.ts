@@ -53,8 +53,9 @@ export class AppointmentController {
   @ApiOperation({
     summary: 'Listar agenda',
     description:
-      'Filtro obrigatório por intervalo de datas (startDate, endDate). ' +
-      'Filtro opcional por professionalId. Ordenado por start_at.',
+      'Filtro obrigatório por intervalo de datas (startDate, endDate), a menos que patientId seja informado — ' +
+      'nesse caso retorna todos os agendamentos do paciente (mais recentes primeiro), sem exigir datas. ' +
+      'Filtro opcional por professionalId.',
   })
   findAll(@OrgId() orgId: string, @Query() query: QueryAppointmentDto) {
     return this.appointmentService.findAll(orgId, query);
