@@ -190,6 +190,50 @@ describe('Agenda — status mutation analytics', () => {
   });
 });
 
+describe('view default por dispositivo', () => {
+  const realInnerWidth = window.innerWidth;
+
+  function setInnerWidth(value: number) {
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-07-06T12:00:00.000Z'));
+
+    vi.clearAllMocks();
+    vi.mocked(appointmentsApi.list).mockResolvedValue([] as any);
+    vi.mocked(professionalsApi.list).mockResolvedValue([] as any);
+    vi.mocked(organizationApi.getProfile).mockResolvedValue({ settings: {} } as any);
+    vi.mocked(agendaBlocksApi.list).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    setInnerWidth(realInnerWidth);
+  });
+
+  it('inicia em "Dia" quando a largura é de mobile (< 768px)', async () => {
+    setInnerWidth(500);
+    renderAgenda();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Dia' }).className).toContain('bg-primary');
+    });
+    expect(screen.getByRole('button', { name: 'Semana' }).className).toContain('border-input');
+  });
+
+  it('inicia em "Semana" quando a largura é de desktop (>= 768px)', async () => {
+    setInnerWidth(1024);
+    renderAgenda();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Semana' }).className).toContain('bg-primary');
+    });
+    expect(screen.getByRole('button', { name: 'Dia' }).className).toContain('border-input');
+  });
+});
+
 describe('agenda blocks', () => {
   beforeEach(() => {
     // Freeze "today" so the visible week contains the fixture block's date below —

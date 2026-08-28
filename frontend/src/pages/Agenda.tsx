@@ -275,7 +275,11 @@ export default function Agenda() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>('week');
+  // Device-aware default only: mobile opens on the day view (week grid needs
+  // horizontal scroll on narrow screens). User can still switch freely afterwards.
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => (typeof window !== 'undefined' && window.innerWidth < 768 ? 'day' : 'week'),
+  );
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [professionalFilter, setProfessionalFilter] = useState<string>('all');

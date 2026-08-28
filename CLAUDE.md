@@ -144,6 +144,12 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 - **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query.
 - **View preferences**: Card/list toggle persisted in `localStorage` (`patients-view`, `procedures-view`, `professionals-view`)
 
+### Responsive / Device-Aware UI
+
+- **CSS-first**: layout, spacing, visibility → Tailwind breakpoint utilities (`sm:`, `md:`, `hidden md:block`, `flex-col sm:flex-row`). This is the default for anything purely visual.
+- **JS (`useIsMobile()` — `frontend/src/hooks/use-mobile.tsx`, 768px breakpoint)**: only when the device changes **behavior/logic**, not appearance — e.g. the Agenda's initial view mode, drag vs. tap interaction, how many items to prefetch. Don't reach for it to do what a CSS breakpoint already does (avoids the `undefined`→`false` first-render flash and extra re-renders).
+- **Device-aware initial state**: `useIsMobile()` returns `false` on the first render, so it can't seed `useState`. For an initial value, read `window.innerWidth < 768` directly in the `useState` initializer (synchronous, no flash, same breakpoint). Example: `Agenda.tsx` `viewMode` defaults to `'day'` on mobile, `'week'` otherwise; the user can still switch freely afterwards.
+
 ### API Client (`frontend/src/lib/api.ts`)
 
 - `request<T>()` — prefixes every path with `/api/v1`, sends `credentials: 'include'` (cookies travel automatically), no manual token injection; 30s timeout via AbortController
