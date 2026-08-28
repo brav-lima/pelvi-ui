@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AgendaBlockService } from './agenda-block.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -100,6 +100,17 @@ describe('AgendaBlockService', () => {
       await expect(service.create(orgId, personId, 'PROFESSIONAL', dto)).rejects.toThrow(ConflictException);
       expect(prisma.agendaBlock.create).not.toHaveBeenCalled();
     });
+
+    it('throws BadRequestException when endAt is before startAt', async () => {
+      await expect(
+        service.create(orgId, personId, 'PROFESSIONAL', {
+          ...dto,
+          startAt: '2026-09-01T11:00:00.000Z',
+          endAt: '2026-09-01T10:00:00.000Z',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.agendaBlock.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAll', () => {
@@ -138,6 +149,24 @@ describe('AgendaBlockService', () => {
       await expect(
         service.update(orgId, personId, 'ADMIN', 'missing', { title: 'x' }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws BadRequestException when endAt is before startAt', async () => {
+      prisma.agendaBlock.findFirst.mockResolvedValue({
+        id: 'block-1',
+        organizationId: orgId,
+        professionalId: ownOrgUser.id,
+        startAt: new Date('2026-09-01T10:00:00.000Z'),
+        endAt: new Date('2026-09-01T11:00:00.000Z'),
+      });
+
+      await expect(
+        service.update(orgId, personId, 'PROFESSIONAL', 'block-1', {
+          startAt: '2026-09-01T11:00:00.000Z',
+          endAt: '2026-09-01T10:00:00.000Z',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.agendaBlock.update).not.toHaveBeenCalled();
     });
   });
 

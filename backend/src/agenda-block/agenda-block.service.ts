@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -24,6 +25,10 @@ export class AgendaBlockService {
 
     const startAt = new Date(dto.startAt);
     const endAt = new Date(dto.endAt);
+
+    if (endAt <= startAt) {
+      throw new BadRequestException('Data/hora de fim deve ser depois do início');
+    }
 
     await this.checkConflict(organizationId, dto.professionalId, startAt, endAt);
 
@@ -72,6 +77,10 @@ export class AgendaBlockService {
 
     const startAt = dto.startAt ? new Date(dto.startAt) : existing.startAt;
     const endAt = dto.endAt ? new Date(dto.endAt) : existing.endAt;
+
+    if (endAt <= startAt) {
+      throw new BadRequestException('Data/hora de fim deve ser depois do início');
+    }
 
     if (dto.startAt || dto.endAt || dto.professionalId) {
       await this.checkConflict(organizationId, professionalId, startAt, endAt, id);
