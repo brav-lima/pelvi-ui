@@ -111,6 +111,24 @@ describe('AgendaBlockService', () => {
       ).rejects.toThrow(BadRequestException);
       expect(prisma.agendaBlock.create).not.toHaveBeenCalled();
     });
+
+    it('rejects when organizationUser not found (resolveOrgUser returns null)', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create(orgId, personId, 'PROFESSIONAL', dto),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.agendaBlock.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when organizationUser is inactive (resolveOrgUser finds inactive user)', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue({ ...ownOrgUser, active: false });
+
+      await expect(
+        service.create(orgId, personId, 'PROFESSIONAL', dto),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.agendaBlock.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAll', () => {
@@ -167,6 +185,44 @@ describe('AgendaBlockService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.agendaBlock.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects PROFESSIONAL trying to reassign block to another professional', async () => {
+      prisma.agendaBlock.findFirst.mockResolvedValue({
+        id: 'block-1',
+        organizationId: orgId,
+        professionalId: ownOrgUser.id,
+        startAt: new Date('2026-09-01T10:00:00.000Z'),
+        endAt: new Date('2026-09-01T11:00:00.000Z'),
+      });
+
+      await expect(
+        service.update(orgId, personId, 'PROFESSIONAL', 'block-1', {
+          professionalId: 'other-prof',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.agendaBlock.update).not.toHaveBeenCalled();
+    });
+
+    it('skips conflict check when only title/notes are updated', async () => {
+      prisma.agendaBlock.findFirst.mockResolvedValue({
+        id: 'block-1',
+        organizationId: orgId,
+        professionalId: ownOrgUser.id,
+        startAt: new Date('2026-09-01T10:00:00.000Z'),
+        endAt: new Date('2026-09-01T11:00:00.000Z'),
+      });
+      prisma.agendaBlock.update.mockResolvedValue({ id: 'block-1' });
+
+      await service.update(orgId, personId, 'PROFESSIONAL', 'block-1', {
+        title: 'New Title',
+      });
+
+      // checkConflict calls prisma.agendaBlock.findFirst (conflict check),
+      // distinct from the ownership-lookup findFirst already mocked above.
+      // Verify it was only called once (for ownership lookup, not conflict check).
+      expect(prisma.agendaBlock.findFirst).toHaveBeenCalledTimes(1);
+      expect(prisma.agendaBlock.update).toHaveBeenCalled();
     });
   });
 
