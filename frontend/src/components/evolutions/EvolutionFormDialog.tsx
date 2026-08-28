@@ -162,12 +162,14 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_APPOINTMENT}>Nenhum atendimento vinculado</SelectItem>
-                {appointments.map((apt) => (
-                  <SelectItem key={apt.id} value={apt.id}>
-                    {format(new Date(apt.startAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    {apt.procedure ? ` — ${apt.procedure.name}` : ''}
-                  </SelectItem>
-                ))}
+                {appointments
+                  .filter((apt) => apt.status !== 'CANCELED' || apt.id === appointmentId)
+                  .map((apt) => (
+                    <SelectItem key={apt.id} value={apt.id}>
+                      {format(new Date(apt.startAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      {apt.procedure ? ` — ${apt.procedure.name}` : ''}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
