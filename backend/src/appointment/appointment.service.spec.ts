@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import { AppointmentService } from './appointment.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,7 +12,15 @@ import { REMINDER_QUEUE } from '../queue/jobs/reminder.job';
 jest.mock('@sentry/nestjs', () => ({
   addBreadcrumb: jest.fn(),
   captureException: jest.fn(),
+  captureMessage: jest.fn(),
 }));
+
+function serializationConflict(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError(
+    'Transaction failed due to a write conflict or a deadlock. Please retry your transaction.',
+    { code: 'P2034', clientVersion: '7.0.0' },
+  );
+}
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
@@ -214,6 +223,69 @@ describe('AppointmentService', () => {
         level: 'error',
         data: { appointmentId: 'apt-1' },
       });
+    });
+
+    it('retries on a Prisma P2034 serialization conflict and succeeds once it clears', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.appointment.findFirst.mockResolvedValue(null);
+      prisma.appointment.create.mockResolvedValue({ id: 'apt-1' });
+
+      prisma.$transaction
+        .mockRejectedValueOnce(serializationConflict())
+        .mockImplementationOnce((fn: any) =>
+          fn({ appointment: prisma.appointment, agendaBlock: prisma.agendaBlock }),
+        );
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: '2025-06-15T09:00:00Z',
+        }),
+      ).resolves.toEqual(expect.objectContaining({ id: 'apt-1' }));
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives up and propagates the error after repeated P2034 conflicts, without duplicating the appointment', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.appointment.findFirst.mockResolvedValue(null);
+      prisma.$transaction.mockRejectedValue(serializationConflict());
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: '2025-06-15T09:00:00Z',
+        }),
+      ).rejects.toThrow(/write conflict/);
+
+      // Bounded attempts, not indefinite/unbounded retries.
+      expect(prisma.$transaction).toHaveBeenCalledTimes(3);
+      expect(prisma.appointment.create).not.toHaveBeenCalled();
+      expect(Sentry.captureMessage).toHaveBeenCalled();
+    });
+
+    it('does not retry a genuine slot conflict (ConflictException) — only one attempt is made', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.appointment.findFirst.mockResolvedValue({
+        id: 'existing-apt',
+        startAt: new Date('2025-06-15T09:30:00Z'),
+        endAt: new Date('2025-06-15T10:30:00Z'),
+      });
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: '2025-06-15T09:00:00Z',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 

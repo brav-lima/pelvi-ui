@@ -10,6 +10,7 @@ import { Prisma, AppointmentStatus, TreatmentPackageStatus } from '@prisma/clien
 import * as Sentry from '@sentry/nestjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { withSerializationRetry } from '../common/prisma/retry-transaction';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { CreateBulkAppointmentDto } from './dto/create-bulk-appointment.dto';
@@ -88,32 +89,40 @@ export class AppointmentService {
       startAt.getTime() + procedure.durationMinutes * 60_000,
     );
 
-    return this.prisma.$transaction(async (tx) => {
-      await this.checkConflict(
-        organizationId,
-        dto.professionalId,
-        startAt,
-        endAt,
-        undefined,
-        tx,
-      );
-
-      const created = await tx.appointment.create({
-        data: {
+    // Idempotency: a SERIALIZABLE abort commits nothing, so retrying the
+    // transaction below can't create a duplicate. A client-level double
+    // submit (double click, network retry after a lost response) also can't
+    // duplicate the slot — the retried request's own checkConflict finds the
+    // appointment it just created as an overlap and gets a 409 instead. No
+    // separate idempotency-key mechanism is needed on top of that.
+    return withSerializationRetry('appointment.create', () =>
+      this.prisma.$transaction(async (tx) => {
+        await this.checkConflict(
           organizationId,
-          patientId: dto.patientId,
-          professionalId: dto.professionalId,
-          procedureId: dto.procedureId,
-          treatmentPackageId: dto.treatmentPackageId,
+          dto.professionalId,
           startAt,
           endAt,
-          notes: dto.notes,
-        },
-        include: appointmentIncludes,
-      });
+          undefined,
+          tx,
+        );
 
-      return created;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (created) => {
+        const created = await tx.appointment.create({
+          data: {
+            organizationId,
+            patientId: dto.patientId,
+            professionalId: dto.professionalId,
+            procedureId: dto.procedureId,
+            treatmentPackageId: dto.treatmentPackageId,
+            startAt,
+            endAt,
+            notes: dto.notes,
+          },
+          include: appointmentIncludes,
+        });
+
+        return created;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    ).then(async (created) => {
       await this.invalidateAgendaCache(organizationId);
       await this.scheduleReminder(created.id, dto.patientId, organizationId, startAt);
       return created;
@@ -225,21 +234,23 @@ export class AppointmentService {
     const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
     const professionalId = dto.professionalId ?? existing.professionalId;
 
-    return this.prisma.$transaction(async (tx) => {
-      await this.checkConflict(organizationId, professionalId, startAt, endAt, id, tx);
-      return tx.appointment.update({
-        where: { id },
-        data: {
-          patientId: dto.patientId,
-          professionalId: dto.professionalId,
-          procedureId: dto.procedureId,
-          startAt,
-          endAt,
-          notes: dto.notes,
-        },
-        include: appointmentIncludes,
-      });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (updated) => {
+    return withSerializationRetry('appointment.update', () =>
+      this.prisma.$transaction(async (tx) => {
+        await this.checkConflict(organizationId, professionalId, startAt, endAt, id, tx);
+        return tx.appointment.update({
+          where: { id },
+          data: {
+            patientId: dto.patientId,
+            professionalId: dto.professionalId,
+            procedureId: dto.procedureId,
+            startAt,
+            endAt,
+            notes: dto.notes,
+          },
+          include: appointmentIncludes,
+        });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+    ).then(async (updated) => {
       await this.invalidateAgendaCache(organizationId);
       if (dto.startAt) {
         await this.rescheduleReminder(id, existing.patientId, organizationId, startAt);
@@ -360,39 +371,41 @@ export class AppointmentService {
       }
     }
 
-    const created = await this.prisma.$transaction(
-      async (tx) => {
-        const results: Array<{
-          apt: Awaited<ReturnType<typeof tx.appointment.create>>;
-          startAt: Date;
-        }> = [];
-        for (const item of dto.appointments) {
-          const procedure = procedureMap.get(item.procedureId)!;
-          const startAt = new Date(item.startAt);
-          const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
+    const created = await withSerializationRetry('appointment.createBulk', () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const results: Array<{
+            apt: Awaited<ReturnType<typeof tx.appointment.create>>;
+            startAt: Date;
+          }> = [];
+          for (const item of dto.appointments) {
+            const procedure = procedureMap.get(item.procedureId)!;
+            const startAt = new Date(item.startAt);
+            const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
 
-          await this.checkConflict(organizationId, item.professionalId, startAt, endAt, undefined, tx);
+            await this.checkConflict(organizationId, item.professionalId, startAt, endAt, undefined, tx);
 
-          const apt = await tx.appointment.create({
-            data: {
-              organizationId,
-              patientId: item.patientId,
-              professionalId: item.professionalId,
-              procedureId: item.procedureId,
-              treatmentPackageId: item.treatmentPackageId,
-              startAt,
-              endAt,
-              notes: item.notes,
-              recurrenceGroupId: dto.recurrenceGroupId,
-              recurrenceIndex: item.recurrenceIndex,
-            },
-            include: appointmentIncludes,
-          });
-          results.push({ apt, startAt });
-        }
-        return results;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+            const apt = await tx.appointment.create({
+              data: {
+                organizationId,
+                patientId: item.patientId,
+                professionalId: item.professionalId,
+                procedureId: item.procedureId,
+                treatmentPackageId: item.treatmentPackageId,
+                startAt,
+                endAt,
+                notes: item.notes,
+                recurrenceGroupId: dto.recurrenceGroupId,
+                recurrenceIndex: item.recurrenceIndex,
+              },
+              include: appointmentIncludes,
+            });
+            results.push({ apt, startAt });
+          }
+          return results;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
     );
 
     await this.invalidateAgendaCache(organizationId);
@@ -433,37 +446,39 @@ export class AppointmentService {
 
     const newTime = dto.startAt ? new Date(dto.startAt) : null;
 
-    const updated = await this.prisma.$transaction(
-      async (tx) => {
-        const results: Awaited<ReturnType<typeof tx.appointment.update>>[] = [];
-        for (const sibling of siblings) {
-          let startAt = sibling.startAt;
-          if (newTime) {
-            startAt = new Date(sibling.startAt);
-            startAt.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
+    const updated = await withSerializationRetry('appointment.updateRecurrenceForward', () =>
+      this.prisma.$transaction(
+        async (tx) => {
+          const results: Awaited<ReturnType<typeof tx.appointment.update>>[] = [];
+          for (const sibling of siblings) {
+            let startAt = sibling.startAt;
+            if (newTime) {
+              startAt = new Date(sibling.startAt);
+              startAt.setHours(newTime.getHours(), newTime.getMinutes(), 0, 0);
+            }
+            const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
+
+            const profId = dto.professionalId ?? sibling.professionalId;
+            await this.checkConflict(organizationId, profId, startAt, endAt, sibling.id, tx);
+
+            const result = await tx.appointment.update({
+              where: { id: sibling.id },
+              data: {
+                ...(dto.patientId !== undefined && { patientId: dto.patientId }),
+                ...(dto.professionalId !== undefined && { professionalId: dto.professionalId }),
+                procedureId,
+                startAt,
+                endAt,
+                ...(dto.notes !== undefined && { notes: dto.notes }),
+              },
+              include: appointmentIncludes,
+            });
+            results.push(result);
           }
-          const endAt = new Date(startAt.getTime() + procedure.durationMinutes * 60_000);
-
-          const profId = dto.professionalId ?? sibling.professionalId;
-          await this.checkConflict(organizationId, profId, startAt, endAt, sibling.id, tx);
-
-          const result = await tx.appointment.update({
-            where: { id: sibling.id },
-            data: {
-              ...(dto.patientId !== undefined && { patientId: dto.patientId }),
-              ...(dto.professionalId !== undefined && { professionalId: dto.professionalId }),
-              procedureId,
-              startAt,
-              endAt,
-              ...(dto.notes !== undefined && { notes: dto.notes }),
-            },
-            include: appointmentIncludes,
-          });
-          results.push(result);
-        }
-        return results;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+          return results;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
     );
 
     await this.invalidateAgendaCache(organizationId);
