@@ -444,9 +444,35 @@ export default function Agenda() {
   const dragBlockMutation = useMutation({
     mutationFn: ({ id, startAt, endAt }: { id: string; startAt: string; endAt: string }) =>
       agendaBlocksApi.update(id, { startAt, endAt }),
-    onError: () => toast.error('Erro ao reagendar bloqueio'),
-    onSuccess: () => toast.success('Bloqueio reagendado'),
+    onMutate: async ({ id, startAt, endAt }) => {
+      // Cancel in-flight fetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['agenda-blocks'] });
+
+      // Snapshot current cache
+      const queryKey = ['agenda-blocks', startDate, endDate, professionalFilter];
+      const previous = queryClient.getQueryData<AgendaBlock[]>(queryKey);
+
+      // Optimistically update the block in the cache
+      if (previous) {
+        queryClient.setQueryData<AgendaBlock[]>(queryKey, (old) =>
+          (old ?? []).map((b) => (b.id === id ? { ...b, startAt, endAt } : b)),
+        );
+      }
+
+      return { previous, queryKey };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+      toast.error('Erro ao reagendar bloqueio');
+    },
+    onSuccess: () => {
+      toast.success('Bloqueio reagendado');
+    },
     onSettled: () => {
+      // Always refetch to ensure server state is in sync
       queryClient.invalidateQueries({ queryKey: ['agenda-blocks'] });
     },
   });
