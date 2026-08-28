@@ -31,6 +31,7 @@ describe('AgendaBlockService', () => {
       },
       organizationUser: {
         findUnique: jest.fn().mockResolvedValue(ownOrgUser),
+        findFirst: jest.fn().mockResolvedValue({ id: ownOrgUser.id }),
       },
     };
 
@@ -129,6 +130,19 @@ describe('AgendaBlockService', () => {
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.agendaBlock.create).not.toHaveBeenCalled();
     });
+
+    it('rejects a professionalId that does not belong to the organization (or is inactive)', async () => {
+      prisma.organizationUser.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(orgId, personId, 'ADMIN', { ...dto, professionalId: 'other-org-prof' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.organizationUser.findFirst).toHaveBeenCalledWith({
+        where: { id: 'other-org-prof', organizationId: orgId, active: true },
+        select: { id: true },
+      });
+      expect(prisma.agendaBlock.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAll', () => {
@@ -143,6 +157,24 @@ describe('AgendaBlockService', () => {
       expect(result).toEqual([{ id: 'block-1' }]);
       expect(prisma.agendaBlock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ organizationId: orgId }) }),
+      );
+    });
+
+    it('includes the entire end date in the range (same-day / day-view query)', async () => {
+      prisma.agendaBlock.findMany.mockResolvedValue([]);
+
+      await service.findAll(orgId, {
+        startDate: '2026-09-01',
+        endDate: '2026-09-01',
+      });
+
+      expect(prisma.agendaBlock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            startAt: { lt: new Date('2026-09-01T23:59:59.999Z') },
+            endAt: { gt: new Date('2026-09-01T00:00:00.000Z') },
+          }),
+        }),
       );
     });
   });
@@ -201,6 +233,28 @@ describe('AgendaBlockService', () => {
           professionalId: 'other-prof',
         }),
       ).rejects.toThrow(ForbiddenException);
+      expect(prisma.agendaBlock.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a dto.professionalId that does not belong to the organization (or is inactive)', async () => {
+      prisma.agendaBlock.findFirst.mockResolvedValue({
+        id: 'block-1',
+        organizationId: orgId,
+        professionalId: ownOrgUser.id,
+        startAt: new Date('2026-09-01T10:00:00.000Z'),
+        endAt: new Date('2026-09-01T11:00:00.000Z'),
+      });
+      prisma.organizationUser.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(orgId, personId, 'ADMIN', 'block-1', {
+          professionalId: 'other-org-prof',
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.organizationUser.findFirst).toHaveBeenCalledWith({
+        where: { id: 'other-org-prof', organizationId: orgId, active: true },
+        select: { id: true },
+      });
       expect(prisma.agendaBlock.update).not.toHaveBeenCalled();
     });
 

@@ -21,6 +21,7 @@ export class AgendaBlockService {
     dto: CreateAgendaBlockDto,
   ) {
     const ownOrgUser = await this.resolveOrgUser(organizationId, personId);
+    await this.validateProfessional(organizationId, dto.professionalId);
     this.assertOwnAgendaIfProfessional(role, ownOrgUser.id, dto.professionalId);
 
     const startAt = new Date(dto.startAt);
@@ -45,10 +46,13 @@ export class AgendaBlockService {
   }
 
   async findAll(organizationId: string, query: QueryAgendaBlockDto) {
+    const endDate = new Date(query.endDate);
+    endDate.setUTCHours(23, 59, 59, 999);
+
     return this.prisma.agendaBlock.findMany({
       where: {
         organizationId,
-        startAt: { lt: new Date(query.endDate) },
+        startAt: { lt: endDate },
         endAt: { gt: new Date(query.startDate) },
         ...(query.professionalId && { professionalId: query.professionalId }),
       },
@@ -68,6 +72,11 @@ export class AgendaBlockService {
   ) {
     const ownOrgUser = await this.resolveOrgUser(organizationId, personId);
     const existing = await this.findOwnedBlock(organizationId, id);
+
+    if (dto.professionalId) {
+      await this.validateProfessional(organizationId, dto.professionalId);
+    }
+
     this.assertOwnAgendaIfProfessional(role, ownOrgUser.id, existing.professionalId);
 
     const professionalId = dto.professionalId ?? existing.professionalId;
@@ -124,6 +133,14 @@ export class AgendaBlockService {
       throw new ForbiddenException('Vínculo com a clínica não encontrado');
     }
     return orgUser;
+  }
+
+  private async validateProfessional(organizationId: string, professionalId: string) {
+    const professional = await this.prisma.organizationUser.findFirst({
+      where: { id: professionalId, organizationId, active: true },
+      select: { id: true },
+    });
+    if (!professional) throw new NotFoundException('Profissional não encontrado');
   }
 
   private assertOwnAgendaIfProfessional(
