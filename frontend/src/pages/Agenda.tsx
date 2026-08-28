@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical, Pencil, RotateCcw } from 'lucide-react';
-import { appointmentsApi, professionalsApi, organizationApi } from '@/lib/api';
+import { ChevronLeft, ChevronRight, Plus, Clock, Loader2, CheckCircle, XCircle, CalendarCheck, GripVertical, Pencil, RotateCcw, Lock } from 'lucide-react';
+import { appointmentsApi, agendaBlocksApi, professionalsApi, organizationApi } from '@/lib/api';
 import type { OrganizationProfile } from '@/types/clinic';
 import { isSlotBlocked, type BusinessHour } from '@/lib/business-hours';
 import { track, AnalyticsEvent } from '@/lib/analytics';
@@ -49,8 +49,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import { RecurrenceScopeDialog } from '@/components/appointments/RecurrenceScopeDialog';
+import { AgendaBlockFormDialog } from '@/components/appointments/AgendaBlockFormDialog';
 import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
-import type { Appointment, AppointmentStatus } from '@/types/clinic';
+import type { Appointment, AppointmentStatus, AgendaBlock } from '@/types/clinic';
 
 // --- Constants ---
 const START_HOUR = 8;
@@ -162,6 +163,56 @@ function DraggableAppointment({
   );
 }
 
+// --- Draggable agenda block card ---
+function DraggableBlock({
+  block,
+  onClick,
+  style,
+}: {
+  block: AgendaBlock;
+  onClick: () => void;
+  style: React.CSSProperties;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: block.id,
+    data: { block },
+  });
+
+  const startTime = format(parseISO(block.startAt), 'HH:mm');
+  const endTime = format(parseISO(block.endAt), 'HH:mm');
+  const cardHeight = typeof style.height === 'number' ? style.height : 0;
+  const showTime = cardHeight >= 44;
+
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onClick}
+      style={style}
+      className={cn(
+        'absolute left-1 right-1 rounded-md text-left text-xs border border-dashed bg-muted/60 border-border text-muted-foreground transition-all hover:brightness-95 overflow-hidden z-10',
+        isDragging && 'opacity-30',
+      )}
+    >
+      <div className="flex flex-col h-full p-1.5 gap-0.5 overflow-hidden">
+        <div className="flex items-start justify-between gap-1 min-w-0">
+          <p className="font-semibold leading-tight truncate min-w-0 flex items-center gap-1">
+            <Lock className="w-3 h-3 shrink-0 opacity-60" />
+            {block.title}
+          </p>
+          <span {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing shrink-0 touch-none -mt-0.5 -mr-0.5">
+            <GripVertical className="w-3 h-3 opacity-40" />
+          </span>
+        </div>
+        {showTime && (
+          <p className="opacity-60 leading-tight tabular-nums shrink-0 mt-auto">
+            {startTime}–{endTime}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+}
+
 // --- Droppable time slot zone (invisible, behind appointments) ---
 function DroppableSlot({
   id,
@@ -229,6 +280,9 @@ export default function Agenda() {
   const [createOpen, setCreateOpen] = useState(false);
   const [professionalFilter, setProfessionalFilter] = useState<string>('all');
   const [draggedAppointment, setDraggedAppointment] = useState<Appointment | null>(null);
+  const [draggedBlock, setDraggedBlock] = useState<AgendaBlock | null>(null);
+  const [createBlockOpen, setCreateBlockOpen] = useState(false);
+  const [editBlock, setEditBlock] = useState<AgendaBlock | null>(null);
   const [slotPreset, setSlotPreset] = useState<{ date: string; time: string } | null>(null);
   const [editAppointment, setEditAppointment] = useState<Appointment | null>(null);
   const [pendingDoneConfirm, setPendingDoneConfirm] = useState(false);
@@ -270,6 +324,15 @@ export default function Agenda() {
   const { data: appointments = [], isLoading } = useQuery({
     queryKey: ['appointments', startDate, endDate, professionalFilter],
     queryFn: () => appointmentsApi.list({
+      startDate,
+      endDate,
+      ...(professionalFilter !== 'all' && { professionalId: professionalFilter }),
+    }),
+  });
+
+  const { data: blocks = [] } = useQuery({
+    queryKey: ['agenda-blocks', startDate, endDate, professionalFilter],
+    queryFn: () => agendaBlocksApi.list({
       startDate,
       endDate,
       ...(professionalFilter !== 'all' && { professionalId: professionalFilter }),
@@ -378,18 +441,32 @@ export default function Agenda() {
     },
   });
 
+  const dragBlockMutation = useMutation({
+    mutationFn: ({ id, startAt, endAt }: { id: string; startAt: string; endAt: string }) =>
+      agendaBlocksApi.update(id, { startAt, endAt }),
+    onError: () => toast.error('Erro ao reagendar bloqueio'),
+    onSuccess: () => toast.success('Bloqueio reagendado'),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['agenda-blocks'] });
+    },
+  });
+
   const handleDragStart = (event: DragStartEvent) => {
-    const apt = event.active.data.current?.appointment as Appointment;
+    const apt = event.active.data.current?.appointment as Appointment | undefined;
+    const block = event.active.data.current?.block as AgendaBlock | undefined;
     setDraggedAppointment(apt ?? null);
+    setDraggedBlock(block ?? null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setDraggedAppointment(null);
+    setDraggedBlock(null);
     const { active, over } = event;
     if (!over) return;
 
-    const apt = active.data.current?.appointment as Appointment;
-    if (!apt) return;
+    const apt = active.data.current?.appointment as Appointment | undefined;
+    const block = active.data.current?.block as AgendaBlock | undefined;
+    if (!apt && !block) return;
 
     const slotId = over.id as string;
     if (!slotId.startsWith('slot-')) return;
@@ -408,14 +485,28 @@ export default function Agenda() {
     const newDate = setMinutes(setHours(parseISO(dateStr + 'T00:00:00'), hour), min);
     const newStartAt = newDate.toISOString();
 
-    const originalDate = parseISO(apt.startAt);
-    if (format(originalDate, 'yyyy-MM-dd HH:mm') === `${dateStr} ${timeStr}`) return;
+    if (apt) {
+      const originalDate = parseISO(apt.startAt);
+      if (format(originalDate, 'yyyy-MM-dd HH:mm') === `${dateStr} ${timeStr}`) return;
+      dragMutation.mutate({ id: apt.id, startAt: newStartAt });
+      return;
+    }
 
-    dragMutation.mutate({ id: apt.id, startAt: newStartAt });
+    if (block) {
+      const originalDate = parseISO(block.startAt);
+      if (format(originalDate, 'yyyy-MM-dd HH:mm') === `${dateStr} ${timeStr}`) return;
+      const durationMs = parseISO(block.endAt).getTime() - parseISO(block.startAt).getTime();
+      const newEndAt = new Date(newDate.getTime() + durationMs).toISOString();
+      dragBlockMutation.mutate({ id: block.id, startAt: newStartAt, endAt: newEndAt });
+    }
   };
 
   const getAppointmentsForDay = (date: Date) => {
     return visibleAppointments.filter((a) => isSameDay(parseISO(a.startAt), date));
+  };
+
+  const getBlocksForDay = (date: Date) => {
+    return blocks.filter((b) => isSameDay(parseISO(b.startAt), date));
   };
 
   const navigatePrev = () => {
@@ -464,10 +555,16 @@ export default function Agenda() {
         title="Agenda"
         description="Gerencie os agendamentos da clínica"
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Agendamento
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCreateBlockOpen(true)}>
+              <Lock className="w-4 h-4 mr-2" />
+              Bloquear Horário
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Agendamento
+            </Button>
+          </div>
         }
       />
 
@@ -700,6 +797,25 @@ export default function Agenda() {
                             );
                           })}
 
+                          {/* Agenda blocks */}
+                          {getBlocksForDay(d).map((block) => {
+                            const top = getAppointmentTop(block.startAt);
+                            const durationMinutes =
+                              (parseISO(block.endAt).getTime() - parseISO(block.startAt).getTime()) / 60000;
+                            const height = getAppointmentHeight(durationMinutes);
+
+                            if (top < 0 || top >= GRID_HEIGHT) return null;
+
+                            return (
+                              <DraggableBlock
+                                key={block.id}
+                                block={block}
+                                onClick={() => setEditBlock(block)}
+                                style={{ top, height: Math.min(height, GRID_HEIGHT - top) }}
+                              />
+                            );
+                          })}
+
                           {/* Current time indicator */}
                           {isToday && isCurrentTimeVisible && (
                             <div
@@ -736,6 +852,19 @@ export default function Agenda() {
                 >
                   <p className="font-medium truncate">{draggedAppointment.patient?.name ?? 'Paciente'}</p>
                   <p className="truncate opacity-80">{draggedAppointment.procedure?.name ?? ''}</p>
+                </div>
+              );
+            })()}
+            {draggedBlock && (() => {
+              const durationMinutes =
+                (parseISO(draggedBlock.endAt).getTime() - parseISO(draggedBlock.startAt).getTime()) / 60000;
+              const height = getAppointmentHeight(durationMinutes);
+              return (
+                <div
+                  className="p-1.5 rounded-md text-xs shadow-lg border border-dashed bg-muted/60 text-muted-foreground"
+                  style={{ height, width: 120 }}
+                >
+                  <p className="font-medium truncate">{draggedBlock.title}</p>
                 </div>
               );
             })()}
@@ -957,6 +1086,31 @@ export default function Agenda() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['appointments'] });
           setEditAppointment(null);
+        }}
+      />
+
+      {/* Create Block Dialog */}
+      <AgendaBlockFormDialog
+        open={createBlockOpen}
+        onOpenChange={(open) => {
+          setCreateBlockOpen(open);
+          if (!open) setSlotPreset(null);
+        }}
+        defaultDate={slotPreset?.date}
+        defaultTime={slotPreset?.time}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['agenda-blocks'] })}
+      />
+
+      {/* Edit Block Dialog */}
+      <AgendaBlockFormDialog
+        open={!!editBlock}
+        onOpenChange={(open) => {
+          if (!open) setEditBlock(null);
+        }}
+        block={editBlock ?? undefined}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['agenda-blocks'] });
+          setEditBlock(null);
         }}
       />
 
