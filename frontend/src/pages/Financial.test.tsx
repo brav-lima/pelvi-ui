@@ -85,6 +85,7 @@ vi.mock('@/components/ui/alert-dialog', () => ({
 vi.mock('lucide-react', () => ({
   TrendingUp: () => null, TrendingDown: () => null, BookOpen: () => null,
   CheckCircle: () => <span>✓</span>, Plus: () => null, Trash2: () => <span>🗑</span>,
+  Pencil: () => <span>✎</span>,
   Loader2: () => null, ChevronRight: () => null, ChevronLeft: () => null,
   AlertCircle: () => null,
 }));
