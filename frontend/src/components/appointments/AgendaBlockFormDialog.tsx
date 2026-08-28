@@ -13,6 +13,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -76,6 +87,7 @@ export function AgendaBlockFormDialog({
   block,
 }: AgendaBlockFormDialogProps) {
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const { user } = useAuth();
   const isEditMode = !!block;
@@ -171,6 +183,21 @@ export function AgendaBlockFormDialog({
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!block) return;
+    setDeleting(true);
+    try {
+      await agendaBlocksApi.remove(block.id);
+      toast.success('Bloqueio removido com sucesso');
+      onSuccess();
+      onOpenChange(false);
+    } catch {
+      toast.error('Erro ao remover bloqueio');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -284,13 +311,42 @@ export function AgendaBlockFormDialog({
 
           {error && <p role="alert" className="text-sm text-destructive text-center">{error}</p>}
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" loading={loading}>
-              {isEditMode ? 'Salvar' : 'Bloquear'}
-            </Button>
+          <DialogFooter className="sm:justify-between">
+            {isEditMode && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive" className="sm:mr-auto">
+                    Remover bloqueio
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remover bloqueio</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja remover este bloqueio? Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      disabled={deleting}
+                      onClick={handleDelete}
+                    >
+                      Remover
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={loading}>
+                {isEditMode ? 'Salvar' : 'Bloquear'}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

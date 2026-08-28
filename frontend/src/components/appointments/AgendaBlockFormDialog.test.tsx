@@ -9,7 +9,7 @@ vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual('@/lib/api');
   return {
     ...actual,
-    agendaBlocksApi: { create: vi.fn(), update: vi.fn() },
+    agendaBlocksApi: { create: vi.fn(), update: vi.fn(), remove: vi.fn() },
     professionalsApi: { list: vi.fn() },
   };
 });
@@ -67,6 +67,33 @@ describe('AgendaBlockFormDialog', () => {
         title: 'Consulta odontológica',
       }),
     ));
+    expect(onSuccess).toHaveBeenCalled();
+  });
+
+  it('removes the block after confirming deletion in edit mode', async () => {
+    vi.mocked(useAuth).mockReturnValue({ user: { id: 'user-1', role: 'ADMIN' } } as any);
+    vi.mocked(agendaBlocksApi.remove).mockResolvedValue(undefined as any);
+    const user = userEvent.setup();
+    const block = {
+      id: 'block-1',
+      organizationId: 'org-1',
+      professionalId: 'own-org-user',
+      title: 'Consulta odontológica',
+      startAt: '2026-09-01T14:00:00.000Z',
+      endAt: '2026-09-01T15:00:00.000Z',
+      notes: '',
+      createdAt: '2026-09-01T00:00:00.000Z',
+      updatedAt: '2026-09-01T00:00:00.000Z',
+    };
+    const { onSuccess } = renderDialog({ block: block as any });
+
+    await waitFor(() => expect(screen.getByLabelText(/Título/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Remover bloqueio/i }));
+
+    const confirmButton = await screen.findByRole('button', { name: 'Remover' });
+    await user.click(confirmButton);
+
+    await waitFor(() => expect(agendaBlocksApi.remove).toHaveBeenCalledWith('block-1'));
     expect(onSuccess).toHaveBeenCalled();
   });
 });
