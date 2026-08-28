@@ -13,6 +13,12 @@ vi.mock('@/lib/api', () => ({
     list: vi.fn(),
     updateStatus: vi.fn(),
   },
+  agendaBlocksApi: {
+    list: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+  },
   professionalsApi: {
     list: vi.fn(),
   },
@@ -62,6 +68,14 @@ vi.mock('@/components/appointments/RecurrenceScopeDialog', () => ({
   RecurrenceScopeDialog: () => null,
 }));
 
+// Lightweight stand-in: real AgendaBlockFormDialog pulls in useAuth() (needs an
+// AuthProvider this test tree doesn't set up) and react-hook-form/zod plumbing we
+// don't need — just enough to assert it opened with the right title.
+vi.mock('@/components/appointments/AgendaBlockFormDialog', () => ({
+  AgendaBlockFormDialog: ({ open, block }: { open: boolean; block?: { title: string } }) =>
+    open ? <div role="dialog">{block ? 'Editar Bloqueio' : 'Bloquear Horário'}</div> : null,
+}));
+
 // @dnd-kit needs real pointer/sensor wiring we don't exercise here — stub it out
 // so the day/week grid renders without requiring drag interactions.
 vi.mock('@dnd-kit/core', () => ({
@@ -71,7 +85,7 @@ vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => undefined, isOver: false }),
 }));
 
-import { appointmentsApi, professionalsApi, organizationApi } from '@/lib/api';
+import { appointmentsApi, agendaBlocksApi, professionalsApi, organizationApi } from '@/lib/api';
 import { track } from '@/lib/analytics';
 import Agenda from './Agenda';
 
@@ -173,5 +187,52 @@ describe('Agenda — status mutation analytics', () => {
       expect(appointmentsApi.updateStatus).toHaveBeenCalledWith('apt1', 'CONFIRMED', { deductFromPackage: undefined });
     });
     expect(track).not.toHaveBeenCalled();
+  });
+});
+
+describe('agenda blocks', () => {
+  beforeEach(() => {
+    // Freeze "today" so the visible week contains the fixture block's date below —
+    // same reasoning as the describe block above.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'));
+
+    vi.clearAllMocks();
+    vi.mocked(appointmentsApi.list).mockResolvedValue([] as any);
+    vi.mocked(professionalsApi.list).mockResolvedValue([] as any);
+    vi.mocked(organizationApi.getProfile).mockResolvedValue({ settings: {} } as any);
+    vi.mocked(agendaBlocksApi.list).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('renders a block in the week grid', async () => {
+    vi.mocked(agendaBlocksApi.list).mockResolvedValue([
+      {
+        id: 'block-1',
+        organizationId: 'org-1',
+        professionalId: 'prof-1',
+        title: 'Consulta odontológica',
+        startAt: '2026-09-01T14:00:00.000Z',
+        endAt: '2026-09-01T15:00:00.000Z',
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T00:00:00.000Z',
+      },
+    ] as any);
+
+    renderAgenda();
+
+    expect(await screen.findByText('Consulta odontológica')).toBeInTheDocument();
+  });
+
+  it('opens the block dialog from the "Bloquear horário" button', async () => {
+    renderAgenda();
+
+    fireEvent.click(screen.getByRole('button', { name: /Bloquear horário/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Bloquear Horário');
   });
 });

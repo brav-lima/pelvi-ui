@@ -15,6 +15,7 @@ import { PatientModule } from './patient/patient.module';
 import { ProfessionalModule } from './professional/professional.module';
 import { ProcedureModule } from './procedure/procedure.module';
 import { AppointmentModule } from './appointment/appointment.module';
+import { AgendaBlockModule } from './agenda-block/agenda-block.module';
 import { AnamnesisModule } from './anamnesis/anamnesis.module';
 import { PerinealAssessmentModule } from './perineal-assessment/perineal-assessment.module';
 import { EvolutionModule } from './evolution/evolution.module';
@@ -55,6 +56,7 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     ProfessionalModule,
     ProcedureModule,
     AppointmentModule,
+    AgendaBlockModule,
     AnamnesisModule,
     PerinealAssessmentModule,
     EvolutionModule,

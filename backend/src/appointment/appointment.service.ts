@@ -585,5 +585,19 @@ export class AppointmentService {
         'Conflito de horário: já existe um agendamento neste período para este profissional',
       );
     }
+
+    const blockConflict = await client.agendaBlock.findFirst({
+      where: {
+        organizationId,
+        professionalId,
+        AND: [{ startAt: { lt: endAt } }, { endAt: { gt: startAt } }],
+      },
+    });
+
+    if (blockConflict) {
+      throw new ConflictException(
+        'Conflito de horário: já existe um bloqueio de agenda neste período para este profissional',
+      );
+    }
   }
 }

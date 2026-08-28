@@ -76,6 +76,7 @@ model Organization {
   patients            Patient[]
   procedures          Procedure[]
   appointments        Appointment[]
+  agendaBlocks        AgendaBlock[]
   anamneses           Anamnesis[]
   perinealAssessments PerinealAssessment[]
   evolutions          Evolution[]
@@ -154,6 +155,7 @@ model OrganizationUser {
   person       Person       @relation(fields: [personId], references: [id])
 
   appointments        Appointment[]
+  agendaBlocks         AgendaBlock[]
   anamneses           Anamnesis[]
   perinealAssessments PerinealAssessment[]
   evolutions          Evolution[]
@@ -263,6 +265,29 @@ model Appointment {
   @@index([organizationId, professionalId, startAt, deletedAt])
   @@index([organizationId, patientId, deletedAt])
   @@map("appointments")
+}
+
+// ──────────────────────────────────────────────
+// AgendaBlock (Bloqueio de Agenda)
+// ──────────────────────────────────────────────
+
+model AgendaBlock {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  professionalId String   @map("professional_id")
+  title          String
+  startAt        DateTime @map("start_at")
+  endAt          DateTime @map("end_at")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  professional OrganizationUser @relation(fields: [professionalId], references: [id])
+
+  @@index([organizationId, startAt, endAt])
+  @@index([organizationId, professionalId, startAt])
+  @@map("agenda_blocks")
 }
 
 // ──────────────────────────────────────────────

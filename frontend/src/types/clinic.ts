@@ -144,6 +144,22 @@ export interface Appointment {
   treatmentPackage?: { id: string; name: string };
 }
 
+export interface AgendaBlock {
+  id: string;
+  organizationId: string;
+  professionalId: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  professional?: {
+    id: string;
+    person: { id: string; name: string };
+  };
+}
+
 export interface Anamnesis {
   id: string;
   organizationId: string;

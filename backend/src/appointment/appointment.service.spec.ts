@@ -21,6 +21,7 @@ describe('AppointmentService', () => {
     treatmentPackage: any;
     patient: any;
     organizationUser: any;
+    agendaBlock: any;
     $transaction: jest.Mock;
   };
 
@@ -57,6 +58,10 @@ describe('AppointmentService', () => {
       delete: jest.fn(),
     };
 
+    const agendaBlockMock = {
+      findFirst: jest.fn().mockResolvedValue(null),
+    };
+
     prisma = {
       appointment: appointmentMock,
       procedure: {
@@ -72,7 +77,10 @@ describe('AppointmentService', () => {
       organizationUser: {
         findFirst: jest.fn().mockResolvedValue({ id: 'prof-1' }),
       },
-      $transaction: jest.fn((fn, _opts?) => fn({ appointment: appointmentMock })),
+      agendaBlock: agendaBlockMock,
+      $transaction: jest.fn((fn, _opts?) =>
+        fn({ appointment: appointmentMock, agendaBlock: agendaBlockMock }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -165,6 +173,21 @@ describe('AppointmentService', () => {
           startAt: '2025-06-15T09:00:00Z',
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ConflictException when an agenda block overlaps the requested slot', async () => {
+      prisma.procedure.findFirst.mockResolvedValue({ id: 'proc-1', durationMinutes: 30 });
+      prisma.appointment.findFirst.mockResolvedValue(null);
+      prisma.agendaBlock.findFirst.mockResolvedValue({ id: 'block-1' });
+
+      await expect(
+        service.create(orgId, {
+          patientId: 'patient-1',
+          professionalId: 'prof-1',
+          procedureId: 'proc-1',
+          startAt: '2026-09-01T10:00:00.000Z',
+        }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('deve capturar no Sentry e propagar erro quando enfileirar o lembrete falha', async () => {
@@ -514,6 +537,7 @@ describe('AppointmentService', () => {
             .mockResolvedValueOnce(updated[0])
             .mockResolvedValueOnce(updated[1]),
         },
+        agendaBlock: { findFirst: jest.fn().mockResolvedValue(null) },
       };
       prisma.$transaction = jest.fn().mockImplementation(async (fn) => fn(txMock));
 
@@ -601,6 +625,7 @@ describe('AppointmentService', () => {
             .mockResolvedValueOnce(createdApts[0])
             .mockResolvedValueOnce(createdApts[1]),
         },
+        agendaBlock: { findFirst: jest.fn().mockResolvedValue(null) },
       };
       prisma.$transaction = jest.fn().mockImplementation(async (fn) => fn(txMock));
 
