@@ -74,3 +74,16 @@ export function formatCurrency(value: number | string | null | undefined): strin
   const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  DINHEIRO: 'Dinheiro',
+  CARTAO_CREDITO: 'Cartão Crédito',
+  CARTAO_DEBITO: 'Cartão Débito',
+  PIX: 'PIX',
+  TRANSFERENCIA: 'Transferência',
+};
+
+export function formatPaymentMethod(method: string | null | undefined): string {
+  if (!method) return '-';
+  return PAYMENT_METHOD_LABELS[method] ?? method;
+}

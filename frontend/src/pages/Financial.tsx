@@ -18,15 +18,17 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, BookOpen, CheckCircle, Plus, Trash2, Loader2, ChevronRight, ChevronLeft, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, BookOpen, CheckCircle, Plus, Trash2, Pencil, Loader2, ChevronRight, ChevronLeft, AlertCircle } from 'lucide-react';
 import { financialApi } from '@/lib/api';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, formatPaymentMethod } from '@/lib/formatters';
 import { track, AnalyticsEvent } from '@/lib/analytics';
 import { toast } from 'sonner';
 import { format, addMonths, subMonths } from 'date-fns';
 import { FinancialFormDialog } from '@/components/financial/FinancialFormDialog';
+import { FinancialEditDialog } from '@/components/financial/FinancialEditDialog';
 import { LivroCaixaSheet } from '@/components/financial/LivroCaixaSheet';
 import { useHasRole } from '@/components/auth/RoleGuard';
+import type { FinancialRecord } from '@/types/clinic';
 
 function DeleteRecordDialog({
   record,
@@ -103,6 +105,7 @@ export default function Financial() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [livroOpen, setLivroOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<FinancialRecord | null>(null);
   const isAdmin = useHasRole('ADMIN');
 
   const now = new Date();
@@ -290,7 +293,7 @@ export default function Financial() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {record.paymentMethod ?? '-'}
+                        {formatPaymentMethod(record.paymentMethod)}
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={record.type} />
@@ -332,6 +335,15 @@ export default function Financial() {
                                 </AlertDialogContent>
                               </AlertDialog>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Editar"
+                              onClick={() => setEditingRecord(record)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                             <DeleteRecordDialog
                               record={record}
                               onDelete={(id, mode) => deleteMutation.mutate({ id, mode })}
@@ -359,6 +371,15 @@ export default function Financial() {
         onOpenChange={setDialogOpen}
         onSuccess={handleSuccess}
       />
+
+      {editingRecord && (
+        <FinancialEditDialog
+          record={editingRecord}
+          open={!!editingRecord}
+          onOpenChange={(open) => !open && setEditingRecord(null)}
+          onSuccess={handleSuccess}
+        />
+      )}
     </div>
   );
 }
