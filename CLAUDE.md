@@ -267,6 +267,7 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 | `professional` | `/api/professionals` | Staff listing/management (based on OrganizationUser) |
 | `procedure` | `/api/procedures` | Clinic services CRUD (name, duration, price) |
 | `appointment` | `/api/appointments` | Schedule CRUD, conflict detection, status changes |
+| `agenda-block` | `/api/agenda-blocks` | Non-appointment agenda reservations (block a professional's time slot) |
 | `anamnesis` | `/api/anamneses` | Patient anamnesis (flexible JSON structure) |
 | `perineal-assessment` | `/api/perineal-assessments` | Pelvic floor clinical evaluation (flexible JSON data) |
 | `evolution` | `/api/evolutions` | Clinical evolution notes (timeline) |
@@ -381,6 +382,12 @@ All paths below are shown as `/api/...` for brevity — **actual paths carry the
 - `PATCH /api/appointments/:id/status` — change status
 - `DELETE /api/appointments/:id` — remove
 
+**Agenda Blocks** (JWT required):
+- `POST /api/agenda-blocks` — create (PROFESSIONAL role restricted to own agenda)
+- `GET /api/agenda-blocks?startDate=&endDate=&professionalId=` — list by date range
+- `PATCH /api/agenda-blocks/:id` — update (reschedule, edit title/notes)
+- `DELETE /api/agenda-blocks/:id` — remove
+
 **Anamneses** (JWT required):
 - `POST /api/anamneses` — create (flexible JSON data)
 - `GET /api/anamneses?patientId=` — list by patient
@@ -426,7 +433,7 @@ All paths below are shown as `/api/...` for brevity — **actual paths carry the
 ### Prisma
 
 - Schema: `backend/prisma/schema.prisma`
-- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, Anamnesis, PerinealAssessment, Evolution, TreatmentPackage, TreatmentPackageProcedure, FinancialRecord, AuditLog, ClinicDocument, Task, RefreshToken (legacy — refresh tokens now live in Redis)
+- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, AgendaBlock, Anamnesis, PerinealAssessment, Evolution, TreatmentPackage, TreatmentPackageProcedure, FinancialRecord, AuditLog, ClinicDocument, Task, RefreshToken (legacy — refresh tokens now live in Redis)
 - Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus, FinancialType, FinancialStatus, TreatmentPackageStatus (ACTIVE, COMPLETED, CANCELED), ClinicAccessStatus, PlanStatus, SensitiveLegalBasis (LGPD Art. 11), DocumentType, ClinicDocumentType, TaskStatus, TaskPriority
 - Config: `backend/prisma.config.ts` — loads `.env.{NODE_ENV}` (defaults to `.env.dev`)
 - `PrismaModule` is global — inject `PrismaService` in any service without importing the module
@@ -460,6 +467,7 @@ All paths below are shown as `/api/...` for brevity — **actual paths carry the
 | `auth.service.spec.ts` | Login, multi-clínica, selectOrganization, getProfile, updateProfile, changePassword, refreshToken |
 | `patient.service.spec.ts` | Isolamento por org, busca/paginação |
 | `appointment.service.spec.ts` | Cálculo de endAt, conflito de horário, validação de pacote, status com sessões |
+| `agenda-block.service.spec.ts` | CRUD, isolamento por org, permissão "só própria agenda", conflito bidirecional |
 | `procedure.service.spec.ts` | CRUD completo com isolamento por org |
 | `professional.service.spec.ts` | CRUD + shape de retorno sem campos internos |
 | `anamnesis.service.spec.ts` | resolveOrgUser, merge de JSON, isolamento por org |
