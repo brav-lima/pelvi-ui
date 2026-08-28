@@ -9,6 +9,7 @@ import type {
   Procedure,
   Professional,
   Appointment,
+  AgendaBlock,
   AppointmentStatus,
   Anamnesis,
   PerinealAssessment,
@@ -235,6 +236,26 @@ export const appointmentsApi = {
     options?: { deductFromPackage?: boolean },
   ) => api.patch<Appointment>(`/appointments/${id}/status`, { status, ...options }),
   remove: (id: string) => api.delete<void>(`/appointments/${id}`),
+};
+
+export const agendaBlocksApi = {
+  list: (params: { startDate: string; endDate: string; professionalId?: string }) =>
+    api.get<AgendaBlock[]>(`/agenda-blocks?${queryString(params)}`),
+  create: (data: {
+    professionalId: string;
+    title: string;
+    startAt: string;
+    endAt: string;
+    notes?: string;
+  }) => api.post<AgendaBlock>('/agenda-blocks', data),
+  update: (id: string, data: Partial<{
+    professionalId: string;
+    title: string;
+    startAt: string;
+    endAt: string;
+    notes?: string;
+  }>) => api.patch<AgendaBlock>(`/agenda-blocks/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/agenda-blocks/${id}`),
 };
 
 export const anamnesisApi = {
