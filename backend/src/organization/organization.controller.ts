@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
@@ -13,6 +14,7 @@ import { OrganizationService } from './organization.service';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { CreateOrganizationUserDto } from './dto/create-organization-user.dto';
 import { UpdateOrganizationUserDto } from './dto/update-organization-user.dto';
+import { InviteProfessionalDto } from './dto/invite-professional.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 
@@ -50,6 +52,23 @@ export class OrganizationController {
     @Body() dto: UpdateOrganizationDto,
   ) {
     return this.organizationService.update(orgId, dto);
+  }
+
+  // ── Convite de profissionais ──
+
+  @Get('professionals/lookup')
+  @ApiOperation({ summary: 'Verificar se já existe uma pessoa com o CPF (dados mascarados)' })
+  lookupPerson(@Query('cpf') cpf: string) {
+    return this.organizationService.lookupPersonByCpf(cpf);
+  }
+
+  @Post('professionals')
+  @ApiOperation({ summary: 'Convidar profissional pelo CPF (vincula pessoa existente ou cria nova)' })
+  inviteProfessional(
+    @OrgId() orgId: string,
+    @Body() dto: InviteProfessionalDto,
+  ) {
+    return this.organizationService.inviteProfessional(orgId, dto);
   }
 
   // ── OrganizationUser (vínculos) ──

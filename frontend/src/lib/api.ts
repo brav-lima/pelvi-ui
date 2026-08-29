@@ -182,10 +182,11 @@ export const proceduresApi = {
   remove: (id: string) => api.delete<void>(`/procedures/${id}`),
 };
 
-export const personsApi = {
-  create: (data: { cpf: string; name: string; email: string; phone?: string; password: string }) =>
-    api.post<{ id: string }>('/persons', data),
-};
+export interface PersonLookupResult {
+  exists: boolean;
+  maskedName?: string;
+  maskedEmail?: string;
+}
 
 export const professionalsApi = {
   list: (params?: { search?: string }) =>
@@ -193,8 +194,16 @@ export const professionalsApi = {
   getById: (id: string) => api.get<Professional>(`/professionals/${id}`),
   update: (id: string, data: { role?: string; active?: boolean; specialty?: string; professionalRegistration?: string }) =>
     api.patch<Professional>(`/professionals/${id}`, data),
-  addToOrg: (_orgId: string, data: { personId: string; role: string }) =>
-    api.post<unknown>('/organizations/users', data),
+  lookup: (cpf: string) =>
+    api.get<PersonLookupResult>(`/organizations/professionals/lookup?${queryString({ cpf })}`),
+  invite: (data: {
+    cpf: string;
+    role: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    password?: string;
+  }) => api.post<unknown>('/organizations/professionals', data),
   removeFromOrg: (_orgId: string, userId: string) =>
     api.delete<void>(`/organizations/users/${userId}`),
 };
