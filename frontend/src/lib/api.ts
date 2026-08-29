@@ -151,7 +151,12 @@ export const authApi = {
 
 function queryString(params?: Record<string, unknown>): string {
   if (!params) return '';
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== '');
+  const entries = Object.entries(params).filter(
+    ([, v]) =>
+      v !== undefined &&
+      v !== '' &&
+      (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'),
+  );
   return new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
 }
 
