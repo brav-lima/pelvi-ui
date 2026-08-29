@@ -13,6 +13,8 @@ describe('OrganizationService', () => {
     organization: any;
     organizationUser: any;
     patient: any;
+    person: any;
+    $transaction: any;
   };
 
   const mockOrg = { id: 'org-1', name: 'Clínica A', cnpj: '12345678000199' };
@@ -46,6 +48,14 @@ describe('OrganizationService', () => {
       patient: {
         count: jest.fn(),
       },
+      person: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
+      $transaction: jest.fn(async (arg: any) =>
+        typeof arg === 'function' ? arg(prisma) : Promise.all(arg),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -237,6 +247,129 @@ describe('OrganizationService', () => {
         }),
       );
       expect(result).toEqual(mockLink);
+    });
+  });
+
+  describe('lookupPersonByCpf', () => {
+    it('deve retornar exists:false quando não há pessoa com o CPF', async () => {
+      prisma.person.findUnique.mockResolvedValue(null);
+
+      const result = await service.lookupPersonByCpf('11111111111');
+
+      expect(result).toEqual({ exists: false });
+    });
+
+    it('deve retornar nome e email mascarados quando a pessoa existe', async () => {
+      prisma.person.findUnique.mockResolvedValue({
+        name: 'Maria Silva Santos',
+        email: 'maria@gmail.com',
+      });
+
+      const result = await service.lookupPersonByCpf('11111111111');
+
+      expect(result.exists).toBe(true);
+      expect(result.maskedName).toBe('Ma*** Sa****');
+      expect(result.maskedEmail).toBe('m***@g***.com');
+    });
+  });
+
+  describe('inviteProfessional', () => {
+    it('deve apenas criar o vínculo quando já existe Person com o CPF, ignorando dados enviados', async () => {
+      prisma.organization.findUnique
+        .mockReset()
+        .mockResolvedValueOnce(mockOrg) // findById
+        .mockResolvedValueOnce({ planMaxUsers: null }); // plan check
+      prisma.person.findUnique.mockResolvedValue({ id: 'person-1', cpf: '11111111111' });
+      prisma.organizationUser.findUnique.mockResolvedValue(null);
+      prisma.organizationUser.count.mockResolvedValue(0);
+      prisma.organizationUser.create.mockResolvedValue(mockLink);
+
+      const result = await service.inviteProfessional('org-1', {
+        cpf: '11111111111',
+        role: 'PROFESSIONAL' as any,
+        name: 'Nome Digitado Errado',
+        email: 'errado@x.com',
+        password: 'secret123',
+      });
+
+      expect(prisma.person.create).not.toHaveBeenCalled();
+      expect(prisma.organizationUser.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ organizationId: 'org-1', personId: 'person-1' }),
+        }),
+      );
+      expect(result).toEqual(mockLink);
+    });
+
+    it('deve criar Person e vínculo quando não existe Person e todos os dados foram enviados', async () => {
+      prisma.organization.findUnique
+        .mockReset()
+        .mockResolvedValueOnce(mockOrg) // findById
+        .mockResolvedValueOnce({ planMaxUsers: null }); // plan check
+      prisma.person.findUnique.mockResolvedValue(null);
+      prisma.person.findFirst.mockResolvedValue(null); // email livre
+      prisma.person.create.mockResolvedValue({ id: 'person-novo' });
+      prisma.organizationUser.findUnique.mockResolvedValue(null);
+      prisma.organizationUser.count.mockResolvedValue(0);
+      prisma.organizationUser.create.mockResolvedValue({ ...mockLink, personId: 'person-novo' });
+
+      const result = await service.inviteProfessional('org-1', {
+        cpf: '22222222222',
+        role: 'PROFESSIONAL' as any,
+        name: 'Dr. Novo',
+        email: 'novo@c.com',
+        phone: '11999999999',
+        password: 'secret123',
+      });
+
+      expect(prisma.person.create).toHaveBeenCalled();
+      expect(prisma.organizationUser.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ personId: 'person-novo' }) }),
+      );
+      expect(result.personId).toBe('person-novo');
+    });
+
+    it('deve lançar BadRequestException quando não existe Person e faltam dados obrigatórios', async () => {
+      prisma.organization.findUnique.mockReset().mockResolvedValueOnce(mockOrg);
+      prisma.person.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.inviteProfessional('org-1', {
+          cpf: '22222222222',
+          role: 'PROFESSIONAL' as any,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.person.create).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar ConflictException quando a Person já está vinculada à clínica', async () => {
+      prisma.organization.findUnique.mockReset().mockResolvedValueOnce(mockOrg);
+      prisma.person.findUnique.mockResolvedValue({ id: 'person-1' });
+      prisma.organizationUser.findUnique.mockResolvedValue(mockLink);
+
+      await expect(
+        service.inviteProfessional('org-1', {
+          cpf: '11111111111',
+          role: 'PROFESSIONAL' as any,
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('deve lançar BadRequestException quando o limite de usuários do plano foi atingido', async () => {
+      prisma.organization.findUnique
+        .mockReset()
+        .mockResolvedValueOnce(mockOrg) // findById
+        .mockResolvedValueOnce({ planMaxUsers: 2 }); // plan check
+      prisma.person.findUnique.mockResolvedValue({ id: 'person-1' });
+      prisma.organizationUser.findUnique.mockResolvedValue(null);
+      prisma.organizationUser.count.mockResolvedValue(2);
+
+      await expect(
+        service.inviteProfessional('org-1', {
+          cpf: '11111111111',
+          role: 'PROFESSIONAL' as any,
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

@@ -4,12 +4,41 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { CreateOrganizationUserDto } from './dto/create-organization-user.dto';
 import { UpdateOrganizationUserDto } from './dto/update-organization-user.dto';
+import { InviteProfessionalDto } from './dto/invite-professional.dto';
+
+const personLinkSelect = {
+  id: true,
+  cpf: true,
+  name: true,
+  email: true,
+  phone: true,
+} as const;
+
+/** Mascara um nome mantendo as 2 primeiras letras do primeiro e do último token. */
+function maskName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const mask = (w: string) =>
+    w.length <= 2 ? `${w[0]}*` : w.slice(0, 2) + '*'.repeat(w.length - 2);
+  if (parts.length === 0) return '***';
+  if (parts.length === 1) return mask(parts[0]);
+  return `${mask(parts[0])} ${mask(parts[parts.length - 1])}`;
+}
+
+/** Mascara um e-mail: `maria@gmail.com` -> `m***@g***.com`. */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  const [host, ...tldParts] = domain.split('.');
+  const tld = tldParts.join('.');
+  return `${local[0]}***@${host[0]}***${tld ? `.${tld}` : ''}`;
+}
 
 @Injectable()
 export class OrganizationService {
@@ -111,26 +140,42 @@ export class OrganizationService {
       throw new NotFoundException('Pessoa não encontrada');
     }
 
-    const existing = await this.prisma.organizationUser.findUnique({
+    return this.linkPerson(
+      organizationId,
+      dto.personId,
+      dto.role,
+      dto.permissions as Prisma.InputJsonValue | undefined,
+    );
+  }
+
+  /**
+   * Cria o vínculo Person ↔ Organization, validando vínculo duplicado e
+   * limite de usuários do plano. `client` permite reuso dentro de uma transação.
+   */
+  private async linkPerson(
+    organizationId: string,
+    personId: string,
+    role: Role | undefined,
+    permissions?: Prisma.InputJsonValue,
+    client: Prisma.TransactionClient = this.prisma,
+  ) {
+    const existing = await client.organizationUser.findUnique({
       where: {
-        organizationId_personId: {
-          organizationId,
-          personId: dto.personId,
-        },
+        organizationId_personId: { organizationId, personId },
       },
     });
     if (existing) {
       throw new ConflictException(
-        'Pessoa já vinculada a esta organização',
+        'Profissional já vinculado a esta clínica',
       );
     }
 
-    const org = await this.prisma.organization.findUnique({
+    const org = await client.organization.findUnique({
       where: { id: organizationId },
       select: { planMaxUsers: true },
     });
     if (org?.planMaxUsers) {
-      const count = await this.prisma.organizationUser.count({
+      const count = await client.organizationUser.count({
         where: { organizationId, active: true },
       });
       if (count >= org.planMaxUsers) {
@@ -140,24 +185,77 @@ export class OrganizationService {
       }
     }
 
-    return this.prisma.organizationUser.create({
-      data: {
-        organizationId,
-        personId: dto.personId,
-        role: dto.role,
-        permissions: dto.permissions as Prisma.InputJsonValue | undefined,
-      },
-      include: {
-        person: {
-          select: {
-            id: true,
-            cpf: true,
-            name: true,
-            email: true,
-            phone: true,
-          },
+    return client.organizationUser.create({
+      data: { organizationId, personId, role, permissions },
+      include: { person: { select: personLinkSelect } },
+    });
+  }
+
+  /**
+   * Consulta se existe uma Person com o CPF informado, retornando apenas
+   * dados mascarados — suficiente para o admin confirmar a identidade sem
+   * expor PII completa de pessoas de outras clínicas.
+   */
+  async lookupPersonByCpf(cpf: string) {
+    const person = await this.prisma.person.findUnique({
+      where: { cpf },
+      select: { name: true, email: true },
+    });
+
+    if (!person) {
+      return { exists: false as const };
+    }
+
+    return {
+      exists: true as const,
+      maskedName: maskName(person.name),
+      maskedEmail: maskEmail(person.email),
+    };
+  }
+
+  /**
+   * Convida um profissional pelo CPF:
+   * - Person já existe → apenas cria o vínculo (dados enviados são ignorados).
+   * - Person não existe → exige nome/e-mail/senha e cria Person + vínculo (transacional).
+   */
+  async inviteProfessional(organizationId: string, dto: InviteProfessionalDto) {
+    await this.findById(organizationId);
+
+    const person = await this.prisma.person.findUnique({
+      where: { cpf: dto.cpf },
+    });
+
+    if (person) {
+      return this.linkPerson(organizationId, person.id, dto.role);
+    }
+
+    if (!dto.name || !dto.email || !dto.password) {
+      throw new BadRequestException(
+        'Nome, e-mail e senha são obrigatórios para cadastrar um novo profissional',
+      );
+    }
+
+    const emailTaken = await this.prisma.person.findFirst({
+      where: { email: dto.email },
+    });
+    if (emailTaken) {
+      throw new ConflictException('E-mail já cadastrado');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.person.create({
+        data: {
+          cpf: dto.cpf,
+          name: dto.name!,
+          email: dto.email!,
+          phone: dto.phone,
+          passwordHash,
         },
-      },
+      });
+
+      return this.linkPerson(organizationId, created.id, dto.role, undefined, tx);
     });
   }
 
