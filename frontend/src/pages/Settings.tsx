@@ -308,7 +308,7 @@ export default function Settings() {
 
   const professionalsQuery = useQuery({
     queryKey: ['professionals'],
-    queryFn: professionalsApi.list,
+    queryFn: () => professionalsApi.list(),
   });
 
   const usage = usageQuery.data;

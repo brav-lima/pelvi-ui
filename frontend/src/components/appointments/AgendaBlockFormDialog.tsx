@@ -94,7 +94,7 @@ export function AgendaBlockFormDialog({
 
   const { data: professionals = [] } = useQuery({
     queryKey: ['professionals'],
-    queryFn: professionalsApi.list,
+    queryFn: () => professionalsApi.list(),
     enabled: open,
   });
 

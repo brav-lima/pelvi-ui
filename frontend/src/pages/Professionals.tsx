@@ -71,7 +71,7 @@ export default function Professionals() {
 
   const { data: professionals = [], isLoading } = useQuery({
     queryKey: ['professionals'],
-    queryFn: professionalsApi.list,
+    queryFn: () => professionalsApi.list(),
   });
 
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
