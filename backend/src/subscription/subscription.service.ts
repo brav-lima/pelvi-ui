@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common'
 import Redis from 'ioredis'
 import { PrismaService } from '../prisma/prisma.service'
 import { AdminApiService } from '../admin-api/admin-api.service'
-import { REDIS_CLIENT } from '../redis/redis.constants'
+import { REDIS_CLIENT, subscriptionStatusCacheKey } from '../redis/redis.constants'
 import { ALL_PLAN_FEATURES, PlanFeature } from './plan-features'
 
 const CACHE_TTL_SECONDS = 300 // 5 minutes
@@ -28,7 +28,7 @@ export class SubscriptionService {
   ) {}
 
   private cacheKey(organizationId: string): string {
-    return `subscription:status:${organizationId}`
+    return subscriptionStatusCacheKey(organizationId)
   }
 
   async invalidateCache(organizationId: string): Promise<void> {
@@ -68,25 +68,30 @@ export class SubscriptionService {
       select: { plan: true, planStatus: true, trialEndsAt: true, founderDiscount: true },
     })
 
+    const admin = await this.fetchAdminSubscription(organizationId)
+
+    // Fonte da verdade: pelvi-admin. As colunas locais só valem quando o admin
+    // não respondeu ou a org ainda não foi configurada lá.
+    const plan = admin?.plan ?? org.plan
+    const planStatus = admin?.planStatus ?? org.planStatus
+    const trialEndsAt = admin?.trialEndsAt ?? org.trialEndsAt
+
     const isTrialExpired =
-      org.planStatus === 'TRIAL' &&
-      org.trialEndsAt !== null &&
-      org.trialEndsAt < new Date()
+      planStatus === 'TRIAL' && trialEndsAt !== null && trialEndsAt < new Date()
 
     const isActive =
-      org.planStatus === 'ACTIVE' ||
-      (org.planStatus === 'TRIAL' && !isTrialExpired)
+      planStatus === 'ACTIVE' || (planStatus === 'TRIAL' && !isTrialExpired)
 
     const daysLeftInTrial =
-      org.trialEndsAt != null
-        ? Math.max(0, Math.ceil((org.trialEndsAt.getTime() - Date.now()) / 86_400_000))
+      trialEndsAt != null
+        ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
         : null
 
-    const features = await this.fetchFeaturesFromAdmin(organizationId, isActive)
+    const features = isActive ? this.resolveFeatures(admin, organizationId) : []
 
     return {
-      plan: org.plan,
-      planStatus: org.planStatus,
+      plan,
+      planStatus,
       isActive,
       isTrialExpired,
       daysLeftInTrial,
@@ -95,43 +100,62 @@ export class SubscriptionService {
     }
   }
 
-  // Fetches the feature list for the org's active subscription from pelvi-admin.
-  // Fails-open (ALL_PLAN_FEATURES) when admin is unavailable — orgs that are active
-  // must not be locked out due to a transient dependency failure.
-  private async fetchFeaturesFromAdmin(
-    organizationId: string,
-    isActive: boolean,
-  ): Promise<PlanFeature[]> {
-    if (!isActive) return []
-
+  // Busca a assinatura no pelvi-admin. Retorna null (→ fallback para colunas locais)
+  // quando o admin está fora do ar ou a org não está configurada lá.
+  private async fetchAdminSubscription(organizationId: string): Promise<{
+    plan: string | null
+    planStatus: string
+    trialEndsAt: Date | null
+    rawFeatures: unknown
+  } | null> {
     try {
       const data = await this.adminApi.getSubscription(organizationId)
-
-      // subscription: null means the org isn't set up in pelvi-admin yet — fail open
       if (!data?.subscription) {
-        this.logger.warn(`No subscription found in pelvi-admin for org ${organizationId}. Falling back to ALL_PLAN_FEATURES.`)
-        return ALL_PLAN_FEATURES
+        this.logger.warn(
+          `No subscription in pelvi-admin for org ${organizationId}. Falling back to local columns.`,
+        )
+        return null
       }
-
-      const raw: unknown = data.subscription.plan?.features ?? []
-      // Compatibilidade com planos antigos cujo features é { nfse: true, ... }
-      const rawFeatures: unknown[] = Array.isArray(raw)
-        ? raw
-        : Object.entries(raw as Record<string, boolean>).filter(([, v]) => v).map(([k]) => k)
-      const features = rawFeatures.filter((f): f is PlanFeature => typeof f === 'string')
-
-      // Empty feature list from a configured plan also means not-yet-configured — fail open
-      if (features.length === 0) {
-        this.logger.warn(`Empty features list from pelvi-admin for org ${organizationId}. Falling back to ALL_PLAN_FEATURES.`)
-        return ALL_PLAN_FEATURES
+      const sub = data.subscription
+      return {
+        plan: sub.plan?.name ?? null,
+        planStatus: String(sub.status),
+        trialEndsAt: sub.trialEndsAt ? new Date(sub.trialEndsAt) : null,
+        rawFeatures: sub.plan?.features ?? [],
       }
-
-      return features
     } catch (err) {
       this.logger.warn(
-        `Could not fetch features from pelvi-admin for org ${organizationId}: ${err}. Falling back to ALL_PLAN_FEATURES.`,
+        `Could not fetch subscription from pelvi-admin for org ${organizationId}: ${err}. Falling back to local columns.`,
+      )
+      return null
+    }
+  }
+
+  // Normaliza a lista de features. Fail-open (ALL_PLAN_FEATURES) quando o admin
+  // não respondeu ou o plano ainda não tem features configuradas.
+  private resolveFeatures(
+    admin: { rawFeatures: unknown } | null,
+    organizationId: string,
+  ): PlanFeature[] {
+    if (!admin) {
+      this.logger.warn(
+        `Falling back to ALL_PLAN_FEATURES for org ${organizationId} (admin unavailable).`,
       )
       return ALL_PLAN_FEATURES
     }
+    const raw = admin.rawFeatures
+    const rawFeatures: unknown[] = Array.isArray(raw)
+      ? raw
+      : Object.entries(raw as Record<string, boolean>)
+          .filter(([, v]) => v)
+          .map(([k]) => k)
+    const features = rawFeatures.filter((f): f is PlanFeature => typeof f === 'string')
+    if (features.length === 0) {
+      this.logger.warn(
+        `Empty features from pelvi-admin for org ${organizationId}. Falling back to ALL_PLAN_FEATURES.`,
+      )
+      return ALL_PLAN_FEATURES
+    }
+    return features
   }
 }

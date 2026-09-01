@@ -20,7 +20,11 @@ describe('SubscriptionService', () => {
   };
 
   const adminSubscription = {
-    subscription: { plan: { features: ['AGENDA', 'PATIENTS'] } },
+    subscription: {
+      status: 'ACTIVE',
+      trialEndsAt: null,
+      plan: { name: 'Origem', features: ['AGENDA', 'PATIENTS'] },
+    },
   };
 
   beforeEach(async () => {
@@ -78,6 +82,100 @@ describe('SubscriptionService', () => {
     await expect(service.getSubscription(orgId)).resolves.toMatchObject({
       isActive: true,
     });
+  });
+
+  it('usa planStatus e plan do pelvi-admin, ignorando as colunas locais', async () => {
+    prisma.organization.findUniqueOrThrow.mockResolvedValue({
+      plan: 'SOLO', planStatus: 'TRIAL', trialEndsAt: null, founderDiscount: false,
+    });
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'ACTIVE', trialEndsAt: null, plan: { name: 'Origem', features: ['AGENDA'] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.plan).toBe('Origem');
+    expect(result.planStatus).toBe('ACTIVE');
+    expect(result.isActive).toBe(true);
+  });
+
+  it('marca org PAST_DUE como inativa e sem features', async () => {
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'PAST_DUE', trialEndsAt: null, plan: { name: 'Origem', features: ['AGENDA'] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.isActive).toBe(false);
+    expect(result.features).toEqual([]);
+  });
+
+  it('marca org CANCELED como inativa e sem features', async () => {
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'CANCELED', trialEndsAt: null, plan: { name: 'Origem', features: ['AGENDA'] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.isActive).toBe(false);
+    expect(result.features).toEqual([]);
+  });
+
+  it('trial expirado (trialEndsAt no passado) fica inativo', async () => {
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: {
+        status: 'TRIAL',
+        trialEndsAt: new Date(Date.now() - 86_400_000).toISOString(),
+        plan: { name: 'Origem', features: ['AGENDA'] },
+      },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.isTrialExpired).toBe(true);
+    expect(result.isActive).toBe(false);
+  });
+
+  it('trial válido expõe daysLeftInTrial', async () => {
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: {
+        status: 'TRIAL',
+        trialEndsAt: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+        plan: { name: 'Origem', features: ['AGENDA'] },
+      },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.isActive).toBe(true);
+    expect(result.daysLeftInTrial).toBeGreaterThan(0);
+  });
+
+  it('cai para as colunas locais quando o pelvi-admin lança', async () => {
+    prisma.organization.findUniqueOrThrow.mockResolvedValue({
+      plan: 'Origem', planStatus: 'ACTIVE', trialEndsAt: null, founderDiscount: true,
+    });
+    adminApi.getSubscription.mockRejectedValue(new Error('admin down'));
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.plan).toBe('Origem');
+    expect(result.planStatus).toBe('ACTIVE');
+    expect(result.isActive).toBe(true);
+    expect(result.features).toEqual(expect.arrayContaining(['AGENDA', 'PATIENTS']));
+    expect(result.founderDiscount).toBe(true);
+  });
+
+  it('cai para as colunas locais quando subscription é null no pelvi-admin', async () => {
+    prisma.organization.findUniqueOrThrow.mockResolvedValue({
+      plan: 'Origem', planStatus: 'ACTIVE', trialEndsAt: null, founderDiscount: false,
+    });
+    adminApi.getSubscription.mockResolvedValue({ subscription: null });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.planStatus).toBe('ACTIVE');
+    expect(result.features.length).toBeGreaterThan(0); // ALL_PLAN_FEATURES fail-open
   });
 
   it('hasFeature responde mesmo com Redis fora do ar', async () => {
