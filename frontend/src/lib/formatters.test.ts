@@ -7,6 +7,7 @@ import {
   formatCPF,
   formatCPFMasked,
   formatCNPJ,
+  formatDocument,
   formatPhone,
   formatCurrency,
 } from '@/lib/formatters';
@@ -145,6 +146,25 @@ describe('formatCNPJ', () => {
 
   it('returns value as-is when not 14 digits', () => {
     expect(formatCNPJ('123')).toBe('123');
+  });
+});
+
+// ── formatDocument ────────────────────────────────────────────────────────────
+
+describe('formatDocument', () => {
+  it('formats a CNPJ with a CNPJ label (default when type omitted)', () => {
+    expect(formatDocument('12345678000195', 'CNPJ')).toBe('CNPJ 12.345.678/0001-95');
+    expect(formatDocument('12345678000195')).toBe('CNPJ 12.345.678/0001-95');
+  });
+
+  it('formats a CPF with a CPF label', () => {
+    expect(formatDocument('12345678901', 'CPF')).toBe('CPF 123.456.789-01');
+  });
+
+  it('returns empty string when the document is missing', () => {
+    expect(formatDocument(null)).toBe('');
+    expect(formatDocument(undefined, 'CPF')).toBe('');
+    expect(formatDocument('')).toBe('');
   });
 });
 

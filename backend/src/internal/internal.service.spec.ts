@@ -142,6 +142,35 @@ describe('InternalService', () => {
       expect(result.accessStatus).toBe('BLOCKED');
     });
 
+    it('sem opcionais, grava SOMENTE accessStatus (não vaza planStatus/limites/plan)', async () => {
+      prisma.organization.findUnique.mockResolvedValue(mockClinic);
+      prisma.organization.update.mockResolvedValue({ ...mockClinic, accessStatus: 'BLOCKED' });
+
+      await service.updateClinicAccess('org-1', 'BLOCKED');
+
+      const callData = prisma.organization.update.mock.calls[0][0].data;
+      expect(callData).toEqual({ accessStatus: 'BLOCKED' });
+    });
+
+    it('sem status, grava planStatus/trialEndsAt SEM tocar accessStatus (não desbloqueia clínica)', async () => {
+      prisma.organization.findUnique.mockResolvedValue(mockClinic);
+      prisma.organization.update.mockResolvedValue({ ...mockClinic });
+
+      await service.updateClinicAccess(
+        'org-1',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'ACTIVE',
+        null,
+      );
+
+      const callData = prisma.organization.update.mock.calls[0][0].data;
+      expect(callData).toEqual({ planStatus: 'ACTIVE', trialEndsAt: null });
+      expect(callData).not.toHaveProperty('accessStatus');
+    });
+
     it('deve incluir planMaxUsers e planMaxPatients quando informados', async () => {
       prisma.organization.findUnique.mockResolvedValue(mockClinic);
       prisma.organization.update.mockResolvedValue({
@@ -165,6 +194,39 @@ describe('InternalService', () => {
       await service.updateClinicAccess('org-1', 'BLOCKED');
 
       expect(redis.del).toHaveBeenCalledWith('cache:org-access:org-1');
+    });
+
+    it('deve gravar planStatus e trialEndsAt quando informados', async () => {
+      prisma.organization.findUnique.mockResolvedValue({ id: 'org-1' });
+      prisma.organization.update.mockResolvedValue({ id: 'org-1' });
+
+      await service.updateClinicAccess('org-1', 'ACTIVE', undefined, undefined, undefined, 'ACTIVE', null);
+
+      expect(prisma.organization.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ planStatus: 'ACTIVE', trialEndsAt: null }),
+        }),
+      );
+    });
+
+    it('deve converter trialEndsAt string para Date', async () => {
+      prisma.organization.findUnique.mockResolvedValue({ id: 'org-1' });
+      prisma.organization.update.mockResolvedValue({ id: 'org-1' });
+
+      await service.updateClinicAccess('org-1', 'ACTIVE', undefined, undefined, undefined, 'TRIAL', '2026-12-01T00:00:00.000Z');
+
+      const arg = prisma.organization.update.mock.calls[0][0];
+      expect(arg.data.trialEndsAt).toBeInstanceOf(Date);
+    });
+
+    it('deve invalidar também o cache do snapshot de assinatura', async () => {
+      prisma.organization.findUnique.mockResolvedValue({ id: 'org-1' });
+      prisma.organization.update.mockResolvedValue({ id: 'org-1' });
+
+      await service.updateClinicAccess('org-1', 'BLOCKED');
+
+      expect(redis.del).toHaveBeenCalledWith('cache:org-access:org-1');
+      expect(redis.del).toHaveBeenCalledWith('subscription:status:org-1');
     });
   });
 

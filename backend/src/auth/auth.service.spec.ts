@@ -115,6 +115,31 @@ describe('AuthService', () => {
       );
     });
 
+    it('não expõe campos internos da organização no response de login', async () => {
+      prisma.person.findUnique.mockResolvedValue(mockPerson);
+      personService.findOrganizations.mockResolvedValue([
+        {
+          id: 'org-user-1',
+          role: 'ADMIN',
+          organization: {
+            id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ',
+            settings: null, planStatus: 'TRIAL', founderDiscount: false, email: 'y@y.com',
+          },
+        },
+      ]);
+
+      const result: any = await service.login({
+        cpf: '12345678901',
+        password: 'senha123',
+      });
+
+      expect(result.organization).toEqual({
+        id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ', settings: null,
+      });
+      expect(result.organization).not.toHaveProperty('planStatus');
+      expect(result.organization).not.toHaveProperty('founderDiscount');
+    });
+
     it('deve retornar lista de organizações quando há múltiplas e não persistir refresh', async () => {
       prisma.person.findUnique.mockResolvedValue(mockPerson);
       personService.findOrganizations.mockResolvedValue([
@@ -194,7 +219,10 @@ describe('AuthService', () => {
         active: true,
         role: 'ADMIN',
         person: { id: 'person-1', cpf: '12345678901', name: 'João', email: 'j@e.com' },
-        organization: { id: 'org-1', name: 'Clínica A' },
+        organization: {
+          id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ', settings: null,
+          planStatus: 'TRIAL', founderDiscount: false, email: 'c@c.com',
+        },
       });
       personService.findOrganizations.mockResolvedValue([
         { id: 'org-user-1', role: 'ADMIN', organization: { id: 'org-1', name: 'Clínica A' } },
@@ -207,6 +235,11 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('mock-token');
       expect(result.organizations).toHaveLength(1);
+      expect(result.organization).toEqual({
+        id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ', settings: null,
+      });
+      expect(result.organization).not.toHaveProperty('planStatus');
+      expect(result.organization).not.toHaveProperty('founderDiscount');
       expect(redis.set).toHaveBeenCalledWith(
         expect.stringMatching(/^refresh:/),
         'person-1',
@@ -262,7 +295,10 @@ describe('AuthService', () => {
         active: true,
         role: 'PROFESSIONAL',
         person: { id: 'person-1', cpf: '12345678901', name: 'João', email: 'j@e.com' },
-        organization: { id: 'org-2', name: 'Clínica B' },
+        organization: {
+          id: 'org-2', name: 'Clínica B', document: '456', documentType: 'CPF', settings: null,
+          planStatus: 'TRIAL', founderDiscount: false, email: 'c@c.com',
+        },
       });
       personService.findOrganizations.mockResolvedValue([
         { id: 'org-user-1', role: 'ADMIN', organization: { id: 'org-1', name: 'Clínica A' } },
@@ -273,7 +309,10 @@ describe('AuthService', () => {
 
       expect(redis.del).toHaveBeenCalledWith(expect.stringMatching(/^refresh:/));
       expect(result.accessToken).toBe('mock-token');
-      expect(result.organization.id).toBe('org-2');
+      expect(result.organization).toEqual({
+        id: 'org-2', name: 'Clínica B', document: '456', documentType: 'CPF', settings: null,
+      });
+      expect(result.organization).not.toHaveProperty('planStatus');
       expect(result.role).toBe('PROFESSIONAL');
       expect(result.organizations).toHaveLength(2);
       expect(jwtService.sign).toHaveBeenCalledWith(
@@ -324,7 +363,10 @@ describe('AuthService', () => {
 
     it('deve retornar dados da pessoa e da organização', async () => {
       const person = { id: 'person-1', cpf: '12345678901', name: 'João', email: 'j@e.com', phone: null };
-      const org = { id: 'org-1', name: 'Clínica A' };
+      const org = {
+        id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ', settings: null,
+        planStatus: 'TRIAL', founderDiscount: false, email: 'c@c.com',
+      };
       prisma.person.findUnique.mockResolvedValue(person);
       prisma.organizationUser.findUnique.mockResolvedValue({ organization: org });
       personService.findOrganizations.mockResolvedValue([
@@ -334,7 +376,11 @@ describe('AuthService', () => {
       const result = await service.getProfile(payload);
 
       expect(result.person).toEqual(person);
-      expect(result.organization).toEqual(org);
+      expect(result.organization).toEqual({
+        id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ', settings: null,
+      });
+      expect(result.organization).not.toHaveProperty('planStatus');
+      expect(result.organization).not.toHaveProperty('founderDiscount');
       expect(result.role).toBe('ADMIN');
       expect(result.organizations).toHaveLength(1);
     });

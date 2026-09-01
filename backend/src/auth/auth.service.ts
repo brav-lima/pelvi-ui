@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { PersonService } from '../person/person.service';
+import { PersonService, toClinicPayload } from '../person/person.service';
 import { RedisService } from '../redis/redis.service';
 import { EmailService } from '../email/email.service';
 import { LoginDto } from './dto/login.dto';
@@ -88,7 +88,7 @@ export class AuthService {
       return {
         ...tokens,
         person: personData,
-        organization: org.organization,
+        organization: toClinicPayload(org.organization),
         role: org.role,
         organizations,
       };
@@ -142,7 +142,7 @@ export class AuthService {
     return {
       ...tokens,
       person: link.person,
-      organization: link.organization,
+      organization: toClinicPayload(link.organization),
       role: link.role,
       organizations,
     };
@@ -188,7 +188,7 @@ export class AuthService {
     return {
       ...tokens,
       person: link.person,
-      organization: link.organization,
+      organization: toClinicPayload(link.organization),
       role: link.role,
       organizations,
     };
@@ -214,7 +214,7 @@ export class AuthService {
 
     return {
       person,
-      organization: orgUser?.organization ?? null,
+      organization: orgUser ? toClinicPayload(orgUser.organization) : null,
       role: payload.role,
       organizations,
     };
