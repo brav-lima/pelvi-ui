@@ -57,6 +57,22 @@ describe('SelectClinic', () => {
     await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument());
   });
 
+  it('renders a type-aware document label per clinic (CNPJ / CPF)', () => {
+    const clinicCnpj = { id: 'org-1', name: 'Clínica CNPJ', document: '12345678000195', documentType: 'CNPJ' as const };
+    const clinicCpf = { id: 'org-2', name: 'Clínica CPF', document: '12345678901', documentType: 'CPF' as const };
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'p1', name: 'João' },
+      selectedClinic: null,
+      clinics: [clinicCnpj, clinicCpf],
+      selectClinic: vi.fn(),
+      switchClinic: vi.fn(),
+    } as any);
+    renderPage();
+
+    expect(screen.getByText('CNPJ 12.345.678/0001-95')).toBeInTheDocument();
+    expect(screen.getByText('CPF 123.456.789-01')).toBeInTheDocument();
+  });
+
   it('switch mode (already has selectedClinic): excludes current clinic, calls switchClinic on pick', async () => {
     const switchClinic = vi.fn().mockResolvedValue(true);
     vi.mocked(useAuth).mockReturnValue({

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminApiService } from '../admin-api/admin-api.service';
@@ -176,6 +177,72 @@ describe('SubscriptionService', () => {
 
     expect(result.planStatus).toBe('ACTIVE');
     expect(result.features.length).toBeGreaterThan(0); // ALL_PLAN_FEATURES fail-open
+  });
+
+  it('admin TRIAL com trialEndsAt null vence a coluna local expirada (não mistura fontes)', async () => {
+    prisma.organization.findUniqueOrThrow.mockResolvedValue({
+      plan: 'SOLO',
+      planStatus: 'ACTIVE',
+      trialEndsAt: new Date(Date.now() - 30 * 86_400_000), // coluna local defasada
+      founderDiscount: false,
+    });
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'TRIAL', trialEndsAt: null, plan: { name: 'Origem', features: ['AGENDA'] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.isTrialExpired).toBe(false);
+    expect(result.isActive).toBe(true);
+  });
+
+  it('status desconhecido do pelvi-admin (PAUSED) → fallback para colunas locais + logger.error', async () => {
+    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    prisma.organization.findUniqueOrThrow.mockResolvedValue({
+      plan: 'Origem', planStatus: 'ACTIVE', trialEndsAt: null, founderDiscount: false,
+    });
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'PAUSED', trialEndsAt: null, plan: { name: 'Origem', features: ['AGENDA'] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.planStatus).toBe('ACTIVE'); // valor local
+    expect(result.isActive).toBe(true);
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('status ausente do pelvi-admin → fallback para colunas locais', async () => {
+    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    prisma.organization.findUniqueOrThrow.mockResolvedValue({
+      plan: 'Origem', planStatus: 'ACTIVE', trialEndsAt: null, founderDiscount: false,
+    });
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { trialEndsAt: null, plan: { name: 'Origem', features: ['AGENDA'] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.planStatus).toBe('ACTIVE');
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('trialEndsAt inválido do pelvi-admin → fallback para colunas locais', async () => {
+    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    prisma.organization.findUniqueOrThrow.mockResolvedValue({
+      plan: 'Origem', planStatus: 'ACTIVE', trialEndsAt: null, founderDiscount: false,
+    });
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'TRIAL', trialEndsAt: 'not-a-date', plan: { name: 'Origem', features: ['AGENDA'] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.planStatus).toBe('ACTIVE'); // valor local, não o TRIAL do admin
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it('hasFeature responde mesmo com Redis fora do ar', async () => {

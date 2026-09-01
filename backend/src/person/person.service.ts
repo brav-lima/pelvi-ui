@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { DocumentType, Organization } from '@prisma/client';
+import { Organization } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
@@ -22,8 +22,8 @@ export function toClinicPayload(org: OrganizationLike) {
   return {
     id: org.id,
     name: org.name,
-    document: org.document as string | null,
-    documentType: org.documentType as DocumentType | null,
+    document: org.document,
+    documentType: org.documentType,
     settings: org.settings,
   };
 }

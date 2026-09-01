@@ -1,9 +1,12 @@
-import { IsIn, IsNotEmpty, IsOptional, IsInt, IsString, Min, IsISO8601, ValidateIf } from 'class-validator'
+import { IsIn, IsOptional, IsInt, IsString, Min, IsISO8601, ValidateIf } from 'class-validator'
 
 export class UpdateAccessDto {
+  // Opcional: o pelvi-admin sincroniza planStatus/trialEndsAt sem re-afirmar
+  // ACTIVE/BLOCKED a cada chamada (isso poderia desbloquear silenciosamente uma
+  // clínica que um operador bloqueou manualmente).
+  @IsOptional()
   @IsIn(['ACTIVE', 'BLOCKED'])
-  @IsNotEmpty()
-  status: 'ACTIVE' | 'BLOCKED'
+  status?: 'ACTIVE' | 'BLOCKED'
 
   @IsOptional()
   @IsInt()

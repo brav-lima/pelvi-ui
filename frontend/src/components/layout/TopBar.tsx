@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Building2, ChevronDown, LogOut, Moon, Sun, User, Bell, Menu, Calendar, DollarSign, CheckCheck, X, Search, CheckSquare } from 'lucide-react';
-import { formatCNPJ, formatCPF, formatCurrency } from '@/lib/formatters';
+import { formatDocument, formatCurrency } from '@/lib/formatters';
 import { appointmentsApi, financialApi, tasksApi } from '@/lib/api';
 import { format } from 'date-fns';
 
@@ -152,9 +152,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             </p>
             {selectedClinic?.document && (
               <p className="text-[11px] text-muted-foreground hidden sm:block font-mono mt-px">
-                {selectedClinic.documentType === 'CPF'
-                  ? `CPF ${formatCPF(selectedClinic.document)}`
-                  : `CNPJ ${formatCNPJ(selectedClinic.document)}`}
+                {formatDocument(selectedClinic.document, selectedClinic.documentType)}
               </p>
             )}
           </div>

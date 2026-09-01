@@ -142,6 +142,35 @@ describe('InternalService', () => {
       expect(result.accessStatus).toBe('BLOCKED');
     });
 
+    it('sem opcionais, grava SOMENTE accessStatus (não vaza planStatus/limites/plan)', async () => {
+      prisma.organization.findUnique.mockResolvedValue(mockClinic);
+      prisma.organization.update.mockResolvedValue({ ...mockClinic, accessStatus: 'BLOCKED' });
+
+      await service.updateClinicAccess('org-1', 'BLOCKED');
+
+      const callData = prisma.organization.update.mock.calls[0][0].data;
+      expect(callData).toEqual({ accessStatus: 'BLOCKED' });
+    });
+
+    it('sem status, grava planStatus/trialEndsAt SEM tocar accessStatus (não desbloqueia clínica)', async () => {
+      prisma.organization.findUnique.mockResolvedValue(mockClinic);
+      prisma.organization.update.mockResolvedValue({ ...mockClinic });
+
+      await service.updateClinicAccess(
+        'org-1',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'ACTIVE',
+        null,
+      );
+
+      const callData = prisma.organization.update.mock.calls[0][0].data;
+      expect(callData).toEqual({ planStatus: 'ACTIVE', trialEndsAt: null });
+      expect(callData).not.toHaveProperty('accessStatus');
+    });
+
     it('deve incluir planMaxUsers e planMaxPatients quando informados', async () => {
       prisma.organization.findUnique.mockResolvedValue(mockClinic);
       prisma.organization.update.mockResolvedValue({

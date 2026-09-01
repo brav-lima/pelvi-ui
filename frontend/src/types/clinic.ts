@@ -307,7 +307,6 @@ export type PlanFeature =
   | 'PRIORITY_SUPPORT'
   | 'DOCUMENTS';
 
-export type PlanTier = 'SOLO' | 'CLINICA' | 'REDE';
 export type PlanStatusLocal = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
 
 export interface PlanFeatureStatus {

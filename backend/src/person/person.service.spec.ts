@@ -1,8 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
-import { PersonService } from './person.service';
+import { PersonService, toClinicPayload } from './person.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+describe('toClinicPayload', () => {
+  it('devolve exatamente as 5 chaves públicas da clínica', () => {
+    const fullOrg = {
+      id: 'org-1', name: 'Clínica A', document: '12345678000199', documentType: 'CNPJ',
+      settings: { theme: 'dark' },
+      plan: 'Origem', planStatus: 'ACTIVE', trialEndsAt: new Date(), founderDiscount: true,
+      planMaxUsers: 5, planMaxPatients: 3000, accessStatus: 'ACTIVE',
+      email: 'x@x.com', phone: '11999999999', legalName: 'Clínica A LTDA',
+      addressStreet: 'Rua X', createdAt: new Date(), updatedAt: new Date(),
+    } as any;
+
+    const result = toClinicPayload(fullOrg);
+
+    expect(Object.keys(result).sort()).toEqual(
+      ['document', 'documentType', 'id', 'name', 'settings'],
+    );
+    expect(result).toEqual({
+      id: 'org-1', name: 'Clínica A', document: '12345678000199',
+      documentType: 'CNPJ', settings: { theme: 'dark' },
+    });
+  });
+});
 
 describe('PersonService', () => {
   let service: PersonService;

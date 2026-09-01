@@ -54,11 +54,11 @@ export class InternalService {
 
   async updateClinicAccess(
     clinicId: string,
-    status: 'ACTIVE' | 'BLOCKED',
+    status?: 'ACTIVE' | 'BLOCKED',
     maxUsers?: number,
     maxPatients?: number,
     plan?: string,
-    planStatus?: string,
+    planStatus?: PlanStatus,
     trialEndsAt?: string | null,
   ) {
     const clinic = await this.prisma.organization.findUnique({
@@ -69,11 +69,11 @@ export class InternalService {
     const updated = await this.prisma.organization.update({
       where: { id: clinicId },
       data: {
-        accessStatus: status,
+        ...(status !== undefined && { accessStatus: status }),
         ...(maxUsers !== undefined && { planMaxUsers: maxUsers }),
         ...(maxPatients !== undefined && { planMaxPatients: maxPatients }),
         ...(plan !== undefined && { plan }),
-        ...(planStatus !== undefined && { planStatus: planStatus as PlanStatus }),
+        ...(planStatus !== undefined && { planStatus }),
         ...(trialEndsAt !== undefined && {
           trialEndsAt: trialEndsAt === null ? null : new Date(trialEndsAt),
         }),

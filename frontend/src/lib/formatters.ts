@@ -58,6 +58,15 @@ export function formatCNPJ(cnpj: string | null | undefined): string {
   return numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
 }
 
+/** Formats a clinic document with a type-aware label ("CNPJ 12.345.678/0001-95" / "CPF 123.456.789-01"). Empty string when absent. */
+export function formatDocument(
+  document: string | null | undefined,
+  documentType?: 'CPF' | 'CNPJ' | null,
+): string {
+  if (!document) return '';
+  return documentType === 'CPF' ? `CPF ${formatCPF(document)}` : `CNPJ ${formatCNPJ(document)}`;
+}
+
 export function formatPhone(phone: string | null | undefined): string {
   if (!phone) return '';
   const numbers = phone.replace(/\D/g, '');

@@ -7,6 +7,10 @@ import { ALL_PLAN_FEATURES, PlanFeature } from './plan-features'
 
 const CACHE_TTL_SECONDS = 300 // 5 minutes
 
+// Status de assinatura que o pelvi-ui sabe interpretar. Qualquer valor fora
+// desta lista (casing novo, PAUSED, valores futuros) → fallback para colunas locais.
+const KNOWN_STATUSES = new Set(['TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELED'])
+
 export interface SubscriptionSnapshot {
   plan: string
   planStatus: string
@@ -70,11 +74,18 @@ export class SubscriptionService {
 
     const admin = await this.fetchAdminSubscription(organizationId)
 
-    // Fonte da verdade: pelvi-admin. As colunas locais só valem quando o admin
-    // não respondeu ou a org ainda não foi configurada lá.
-    const plan = admin?.plan ?? org.plan
-    const planStatus = admin?.planStatus ?? org.planStatus
-    const trialEndsAt = admin?.trialEndsAt ?? org.trialEndsAt
+    // Fonte da verdade: pelvi-admin. Escolhe o objeto-fonte UMA vez e lê todos os
+    // campos dele — nunca mistura admin + coluna local no mesmo snapshot. Um
+    // trialEndsAt local defasado não pode sobrepor o `null` legítimo do admin
+    // (senão um trial admin válido viraria "expirado" → lockout).
+    const source = admin ?? {
+      plan: org.plan,
+      planStatus: org.planStatus,
+      trialEndsAt: org.trialEndsAt,
+    }
+    const plan = source.plan ?? org.plan // nome de plano do admin pode faltar → tier local
+    const planStatus = source.planStatus
+    const trialEndsAt = source.trialEndsAt
 
     const isTrialExpired =
       planStatus === 'TRIAL' && trialEndsAt !== null && trialEndsAt < new Date()
@@ -117,10 +128,29 @@ export class SubscriptionService {
         return null
       }
       const sub = data.subscription
+
+      // Contrato do pelvi-admin pode driftar (status desconhecido, data inválida).
+      // Em vez de propagar lixo e travar o PlanGuard por 5 min, cai para o local.
+      const status = String(sub.status)
+      if (!KNOWN_STATUSES.has(status)) {
+        this.logger.error(
+          `Unrecognized subscription status "${status}" from pelvi-admin for org ${organizationId}. Falling back to local columns.`,
+        )
+        return null
+      }
+
+      const trialEndsAt = sub.trialEndsAt ? new Date(sub.trialEndsAt) : null
+      if (trialEndsAt && Number.isNaN(trialEndsAt.getTime())) {
+        this.logger.error(
+          `Invalid trialEndsAt "${sub.trialEndsAt}" from pelvi-admin for org ${organizationId}. Falling back to local columns.`,
+        )
+        return null
+      }
+
       return {
         plan: sub.plan?.name ?? null,
-        planStatus: String(sub.status),
-        trialEndsAt: sub.trialEndsAt ? new Date(sub.trialEndsAt) : null,
+        planStatus: status,
+        trialEndsAt,
         rawFeatures: sub.plan?.features ?? [],
       }
     } catch (err) {
