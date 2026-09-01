@@ -197,8 +197,12 @@ describe('PersonService', () => {
       );
     });
 
-    it('deve retornar vínculos ativos mapeados corretamente', async () => {
-      const org = { id: 'org-1', name: 'Clínica A' };
+    it('deve retornar vínculos ativos com a clínica no shape enxuto', async () => {
+      const org = {
+        id: 'org-1', name: 'Clínica A', document: '12345678000199', documentType: 'CNPJ',
+        settings: null, plan: 'Origem', planStatus: 'ACTIVE', founderDiscount: true,
+        planMaxUsers: 5, accessStatus: 'ACTIVE', email: 'x@x.com',
+      };
       prisma.person.findUnique.mockResolvedValue(mockPerson);
       prisma.organizationUser.findMany.mockResolvedValue([
         { id: 'ou-1', role: 'ADMIN', organization: org },
@@ -209,7 +213,18 @@ describe('PersonService', () => {
       expect(prisma.organizationUser.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { personId: 'person-1', active: true } }),
       );
-      expect(result).toEqual([{ id: 'ou-1', role: 'ADMIN', organization: org }]);
+      expect(result).toEqual([
+        {
+          id: 'ou-1',
+          role: 'ADMIN',
+          organization: {
+            id: 'org-1', name: 'Clínica A',
+            document: '12345678000199', documentType: 'CNPJ', settings: null,
+          },
+        },
+      ]);
+      expect(result[0].organization).not.toHaveProperty('planStatus');
+      expect(result[0].organization).not.toHaveProperty('email');
     });
   });
 });

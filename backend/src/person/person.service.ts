@@ -4,9 +4,29 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { DocumentType, Organization } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
+
+/**
+ * Shape enxuto da clínica para os responses de auth — só o que o frontend usa.
+ * Mantém campos de plano/acesso/contato fora do payload de login.
+ */
+type OrganizationLike = Pick<
+  Organization,
+  'id' | 'name' | 'document' | 'documentType' | 'settings'
+>;
+
+export function toClinicPayload(org: OrganizationLike) {
+  return {
+    id: org.id,
+    name: org.name,
+    document: org.document as string | null,
+    documentType: org.documentType as DocumentType | null,
+    settings: org.settings,
+  };
+}
 
 const personSelect = {
   id: true,
@@ -133,7 +153,7 @@ export class PersonService {
     return links.map((link) => ({
       id: link.id,
       role: link.role,
-      organization: link.organization,
+      organization: toClinicPayload(link.organization),
     }));
   }
 }

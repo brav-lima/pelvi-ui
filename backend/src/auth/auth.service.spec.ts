@@ -115,6 +115,31 @@ describe('AuthService', () => {
       );
     });
 
+    it('não expõe campos internos da organização no response de login', async () => {
+      prisma.person.findUnique.mockResolvedValue(mockPerson);
+      personService.findOrganizations.mockResolvedValue([
+        {
+          id: 'org-user-1',
+          role: 'ADMIN',
+          organization: {
+            id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ',
+            settings: null, planStatus: 'TRIAL', founderDiscount: false, email: 'y@y.com',
+          },
+        },
+      ]);
+
+      const result: any = await service.login({
+        cpf: '12345678901',
+        password: 'senha123',
+      });
+
+      expect(result.organization).toEqual({
+        id: 'org-1', name: 'Clínica A', document: '123', documentType: 'CNPJ', settings: null,
+      });
+      expect(result.organization).not.toHaveProperty('planStatus');
+      expect(result.organization).not.toHaveProperty('founderDiscount');
+    });
+
     it('deve retornar lista de organizações quando há múltiplas e não persistir refresh', async () => {
       prisma.person.findUnique.mockResolvedValue(mockPerson);
       personService.findOrganizations.mockResolvedValue([
