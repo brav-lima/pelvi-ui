@@ -1,9 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import * as bcrypt from 'bcryptjs'
-import { Role } from '@prisma/client'
+import { PlanStatus, Role } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { RedisService } from '../redis/redis.service'
-import { orgAccessCacheKey } from '../redis/redis.constants'
+import { orgAccessCacheKey, subscriptionStatusCacheKey } from '../redis/redis.constants'
 import { CreateClinicDto } from './dto/create-clinic.dto'
 import { CreateInternalPersonDto } from './dto/create-internal-person.dto'
 import { LinkClinicUserDto } from './dto/link-clinic-user.dto'
@@ -58,6 +58,8 @@ export class InternalService {
     maxUsers?: number,
     maxPatients?: number,
     plan?: string,
+    planStatus?: string,
+    trialEndsAt?: string | null,
   ) {
     const clinic = await this.prisma.organization.findUnique({
       where: { id: clinicId },
@@ -71,11 +73,16 @@ export class InternalService {
         ...(maxUsers !== undefined && { planMaxUsers: maxUsers }),
         ...(maxPatients !== undefined && { planMaxPatients: maxPatients }),
         ...(plan !== undefined && { plan }),
+        ...(planStatus !== undefined && { planStatus: planStatus as PlanStatus }),
+        ...(trialEndsAt !== undefined && {
+          trialEndsAt: trialEndsAt === null ? null : new Date(trialEndsAt),
+        }),
       },
     })
 
-    // Bloqueio/desbloqueio precisa valer imediatamente, sem esperar o TTL
+    // Bloqueio/desbloqueio e mudança de plano precisam valer imediatamente, sem esperar o TTL
     await this.redis.del(orgAccessCacheKey(clinicId)).catch(() => undefined)
+    await this.redis.del(subscriptionStatusCacheKey(clinicId)).catch(() => undefined)
 
     return {
       clinicId: updated.id,
