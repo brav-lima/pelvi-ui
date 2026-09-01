@@ -9,7 +9,8 @@ export interface User {
 export interface Clinic {
   id: string;
   name: string;
-  cnpj?: string;
+  document?: string | null;
+  documentType?: 'CPF' | 'CNPJ' | null;
   settings?: Record<string, unknown>;
 }
 
@@ -310,7 +311,7 @@ export type PlanTier = 'SOLO' | 'CLINICA' | 'REDE';
 export type PlanStatusLocal = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
 
 export interface PlanFeatureStatus {
-  plan: PlanTier;
+  plan: string;
   planStatus: PlanStatusLocal;
   isActive: boolean;
   isTrialExpired: boolean;

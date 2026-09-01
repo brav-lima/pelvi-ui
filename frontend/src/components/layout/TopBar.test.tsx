@@ -31,11 +31,34 @@ function renderTopBar() {
   );
 }
 
-const clinicA = { id: 'org-1', name: 'Clínica A' };
+const clinicA = { id: 'org-1', name: 'Clínica A', document: '12345678000199', documentType: 'CNPJ' as const };
 const clinicB = { id: 'org-2', name: 'Clínica B' };
 
 describe('TopBar — Trocar Clínica', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('renders CNPJ label when documentType is CNPJ', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { name: 'João', role: 'ADMIN' },
+      selectedClinic: clinicA,
+      clinics: [clinicA],
+      logout: vi.fn(),
+    } as any);
+    renderTopBar();
+    expect(await screen.findByText(/CNPJ/)).toBeInTheDocument();
+  });
+
+  it('renders CPF label when documentType is CPF', async () => {
+    const clinicCpf = { id: 'org-3', name: 'Clínica C', document: '12345678909', documentType: 'CPF' as const };
+    vi.mocked(useAuth).mockReturnValue({
+      user: { name: 'João', role: 'ADMIN' },
+      selectedClinic: clinicCpf,
+      clinics: [clinicCpf],
+      logout: vi.fn(),
+    } as any);
+    renderTopBar();
+    expect(await screen.findByText(/CPF/)).toBeInTheDocument();
+  });
 
   it('hides "Trocar Clínica" when user belongs to only one clinic', async () => {
     const user = userEvent.setup();
