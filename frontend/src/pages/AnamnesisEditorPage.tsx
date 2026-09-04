@@ -12,6 +12,7 @@ import { patientsApi, anamnesisApi, treatmentPackagesApi } from '@/lib/api';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCPFMasked } from '@/lib/formatters';
+import { useFeature } from '@/contexts/SubscriptionContext';
 import { toast } from 'sonner';
 import {
   ANAMNESIS_FIELDS, emptyAnamnesisData, isAnamnesisData,
@@ -27,6 +28,10 @@ export default function AnamnesisEditorPage() {
 
   const [formData, setFormData] = useState<AnamnesisData>(emptyAnamnesisData());
   const [savedId, setSavedId] = useState<string | null>(null);
+
+  const hasPerineal   = useFeature('PERINEAL_ASSESSMENT');
+  const hasEvolutions = useFeature('EVOLUTIONS');
+  const hasPackages   = useFeature('TREATMENT_PACKAGES');
 
   const { data: patient, isLoading: loadingPatient } = useQuery({
     queryKey: ['patient', patientId],
@@ -87,6 +92,24 @@ export default function AnamnesisEditorPage() {
   };
 
   const activePackage = packages.find(p => p.status === 'ACTIVE');
+
+  const shortcuts = [
+    hasPerineal && {
+      icon: <Activity className="w-4 h-4 shrink-0" />,
+      label: 'Avaliação perineal',
+      to: `/patients/${patientId}/perineal-assessment/new`,
+    },
+    hasEvolutions && {
+      icon: <ClipboardList className="w-4 h-4 shrink-0" />,
+      label: 'Nova evolução',
+      to: `/patients/${patientId}`,
+    },
+    hasPackages && {
+      icon: <Package className="w-4 h-4 shrink-0" />,
+      label: 'Adicionar pacote',
+      to: `/patients/${patientId}`,
+    },
+  ].filter(Boolean) as { icon: JSX.Element; label: string; to: string }[];
 
   if (loadingPatient) {
     return (
@@ -211,28 +234,13 @@ export default function AnamnesisEditorPage() {
             </div>
           </Card>
 
+          {shortcuts.length > 0 && (
           <Card>
             <div className="px-4 py-3 border-b border-border">
               <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Atalhos de avaliação</div>
             </div>
             <div className="p-3 flex flex-col gap-1">
-              {[
-                {
-                  icon: <Activity className="w-4 h-4 shrink-0" />,
-                  label: 'Avaliação perineal',
-                  to: `/patients/${patientId}/perineal-assessment/new`,
-                },
-                {
-                  icon: <ClipboardList className="w-4 h-4 shrink-0" />,
-                  label: 'Nova evolução',
-                  to: `/patients/${patientId}`,
-                },
-                {
-                  icon: <Package className="w-4 h-4 shrink-0" />,
-                  label: 'Adicionar pacote',
-                  to: `/patients/${patientId}`,
-                },
-              ].map(item => (
+              {shortcuts.map(item => (
                 <button
                   key={item.label}
                   onClick={() => navigate(item.to)}
@@ -244,6 +252,7 @@ export default function AnamnesisEditorPage() {
               ))}
             </div>
           </Card>
+          )}
         </div>
       </div>
     </div>

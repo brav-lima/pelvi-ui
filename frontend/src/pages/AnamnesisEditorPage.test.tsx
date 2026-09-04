@@ -15,6 +15,11 @@ vi.mock('@/lib/api', async (importOriginal) => {
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+const features: Record<string, boolean> = {};
+vi.mock('@/contexts/SubscriptionContext', () => ({
+  useFeature: (f: string) => features[f] ?? true,
+}));
+
 import { patientsApi, anamnesisApi, treatmentPackagesApi } from '@/lib/api';
 import AnamnesisEditorPage from './AnamnesisEditorPage';
 import type { Patient, Anamnesis } from '@/types/clinic';
@@ -49,6 +54,7 @@ function renderPage(path: string) {
 describe('AnamnesisEditorPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    for (const k of Object.keys(features)) delete features[k];
     vi.mocked(patientsApi.getById).mockResolvedValue(patient);
     vi.mocked(anamnesisApi.list).mockResolvedValue([]);
     vi.mocked(treatmentPackagesApi.list).mockResolvedValue([]);
@@ -110,5 +116,29 @@ describe('AnamnesisEditorPage', () => {
     // "Hipótese salva" legitimately renders twice: once inline under the field
     // (HypothesisField) and once in the aggregated summary (GroupedHypotheses).
     expect(screen.getAllByText('Hipótese salva').length).toBeGreaterThan(0);
+  });
+
+  it('mostra o atalho "Avaliação perineal" quando a feature está ativa', async () => {
+    renderPage('/patients/patient-1/anamnesis/new');
+    expect(await screen.findByText('Queixa Principal')).toBeInTheDocument();
+    expect(screen.getByText('Avaliação perineal')).toBeInTheDocument();
+  });
+
+  it('esconde o atalho "Avaliação perineal" quando a feature está inativa', async () => {
+    features.PERINEAL_ASSESSMENT = false;
+    renderPage('/patients/patient-1/anamnesis/new');
+    expect(await screen.findByText('Queixa Principal')).toBeInTheDocument();
+    expect(screen.queryByText('Avaliação perineal')).not.toBeInTheDocument();
+    // outros atalhos permanecem, então o quadro continua visível
+    expect(screen.getByText('Atalhos de avaliação')).toBeInTheDocument();
+  });
+
+  it('esconde o quadro "Atalhos de avaliação" quando nenhuma feature de atalho está ativa', async () => {
+    features.PERINEAL_ASSESSMENT = false;
+    features.EVOLUTIONS = false;
+    features.TREATMENT_PACKAGES = false;
+    renderPage('/patients/patient-1/anamnesis/new');
+    expect(await screen.findByText('Queixa Principal')).toBeInTheDocument();
+    expect(screen.queryByText('Atalhos de avaliação')).not.toBeInTheDocument();
   });
 });
