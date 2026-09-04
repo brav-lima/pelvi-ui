@@ -139,7 +139,7 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 ### State Management
 
 - **Auth state**: React Context (`frontend/src/contexts/AuthContext.tsx`) — `useAuth()` hook. Auth via httpOnly cookies (JWT access token + refresh token). Session restoration on mount via `GET /api/v1/auth/me`. `logout()` calls `POST /api/v1/auth/logout` (clears cookies server-side) + clears React state.
-- **Subscription state**: React Context (`frontend/src/contexts/SubscriptionContext.tsx`) — `useSubscription()` / `useFeature(feature)` hooks. Fetches from `GET /api/subscription/status`. Fail-open during loading (returns `true` for all features while query is in flight). Cache key: `['subscription', 'status']`.
+- **Subscription state**: React Context (`frontend/src/contexts/SubscriptionContext.tsx`) — `useSubscription()` / `useFeature(feature)` hooks. Fetches from `GET /api/subscription/status`. Fail-open during loading (returns `true` for all features while query is in flight). Cache key: `['subscription', 'status']`; `staleTime` 30s. The last response is persisted to `localStorage` (`pelvi:subscription-snapshot`, keyed by org id) and seeded back as `initialData`, so a reload renders the real plan immediately (no fail-open flash in the sidebar) and revalidates in the background.
 - **Theme state**: React Context (`frontend/src/contexts/ThemeContext.tsx`) — light/dark toggle
 - **Server state**: TanStack React Query — all API data fetched, cached, and invalidated via React Query.
 - **View preferences**: Card/list toggle persisted in `localStorage` (`patients-view`, `procedures-view`, `professionals-view`)
@@ -343,7 +343,7 @@ Features are defined in `backend/src/subscription/plan-features.ts` as `PlanFeat
 - `ALL_PLAN_FEATURES` constant exported from `plan-features.ts` (used in e2e mock)
 
 **Frontend:**
-- `SubscriptionContext` — `useSubscription()` / `useFeature(feature)` hooks. `hasFeature()` returns `true` while loading (fail-open — avoids flash of hidden content)
+- `SubscriptionContext` — `useSubscription()` / `useFeature(feature)` hooks. `hasFeature()` returns `true` while loading (fail-open — avoids flash of hidden content). Last response persisted to `localStorage` per org and seeded as React Query `initialData`, so reloads skip the loading state entirely and render the real plan
 - `<FeatureRoute feature="X">` — route-level guard; redirects to `/dashboard` if feature inactive
 - `<FeatureGate feature="X" fallback={...}>` — inline component for hiding UI elements
 - `Sidebar` — nav items with `feature` field are filtered by `hasFeature()`

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { subscriptionApi } from '@/lib/api';
 import { useAuth } from './AuthContext';
@@ -12,19 +12,63 @@ interface SubscriptionContextType {
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
+// Last-known feature snapshot, persisted per organization. Seeding the query
+// with it means `isLoading` is never true on a reload, so the sidebar / feature
+// gates render the real plan immediately instead of briefly failing open (menu
+// items appearing then disappearing once the response lands). Revalidated in
+// the background — see staleTime below. Not a security boundary: every
+// @RequireFeature route revalidates on the backend on each real call.
+const SNAPSHOT_KEY = 'pelvi:subscription-snapshot';
+
+interface PersistedSnapshot {
+  orgId: string;
+  updatedAt: number;
+  data: PlanFeatureStatus;
+}
+
+function readSnapshot(orgId: string | undefined): PersistedSnapshot | null {
+  if (!orgId) return null;
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedSnapshot;
+    if (parsed?.orgId !== orgId || !Array.isArray(parsed?.data?.features)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSnapshot(orgId: string, data: PlanFeatureStatus): void {
+  try {
+    const snapshot: PersistedSnapshot = { orgId, updatedAt: Date.now(), data };
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* localStorage unavailable — fall back to fetch-only */
+  }
+}
+
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, selectedClinic } = useAuth();
+  const orgId = selectedClinic?.id;
+  const snapshot = useMemo(() => readSnapshot(orgId), [orgId]);
 
   const { data: subscription, isLoading } = useQuery({
     queryKey: ['subscription', 'status'],
-    queryFn: () => subscriptionApi.getStatus(),
+    queryFn: async () => {
+      const data = await subscriptionApi.getStatus();
+      if (orgId) writeSnapshot(orgId, data);
+      return data;
+    },
     enabled: isAuthenticated,
-    // Backend já cacheia o snapshot no Redis (TTL 5min), então não precisamos
-    // segurar dado velho por muito tempo aqui. Um staleTime curto reduz a janela
-    // de UI desatualizada quando o plano muda fora deste app (ex: pelvi-admin),
-    // enquanto refetchOnWindowFocus cobre o caso de aba deixada aberta.
+    // Backend already caches the snapshot in Redis (TTL 5min), so there is no
+    // point holding stale data long here. A short staleTime narrows the
+    // out-of-date window when the plan changes outside this app (e.g.
+    // pelvi-admin); refetchOnWindowFocus covers the idle-tab case.
     staleTime: 30 * 1000,
     retry: false,
+    initialData: snapshot?.data,
+    initialDataUpdatedAt: snapshot?.updatedAt,
   });
 
   const hasFeature = (feature: PlanFeature): boolean => {
