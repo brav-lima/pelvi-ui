@@ -19,7 +19,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     queryKey: ['subscription', 'status'],
     queryFn: () => subscriptionApi.getStatus(),
     enabled: isAuthenticated,
-    staleTime: 5 * 60 * 1000,
+    // Backend já cacheia o snapshot no Redis (TTL 5min), então não precisamos
+    // segurar dado velho por muito tempo aqui. Um staleTime curto reduz a janela
+    // de UI desatualizada quando o plano muda fora deste app (ex: pelvi-admin),
+    // enquanto refetchOnWindowFocus cobre o caso de aba deixada aberta.
+    staleTime: 30 * 1000,
     retry: false,
   });
 
