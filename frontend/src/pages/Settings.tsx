@@ -332,16 +332,9 @@ export default function Settings() {
       {/* Page header */}
       <div>
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-[26px] font-semibold leading-8" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}>
-              Configurações
-            </h1>
-            {sub && (
-              <span className="inline-flex items-center h-[22px] px-2.5 rounded-full text-[11.5px] font-medium bg-primary/10 text-primary border border-primary/20 translate-y-[-2px]">
-                Plano · {sub.plan.name}
-              </span>
-            )}
-          </div>
+          <h1 className="text-[26px] font-semibold leading-8" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}>
+            Configurações
+          </h1>
           <p className="text-[13px] text-muted-foreground mt-1">Personalize sua clínica e equipe.</p>
         </div>
       </div>

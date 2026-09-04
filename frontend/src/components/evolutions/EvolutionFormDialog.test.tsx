@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { format } from 'date-fns';
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
@@ -107,7 +108,10 @@ describe('EvolutionFormDialog', () => {
       { wrapper: makeWrapper() },
     );
     expect(screen.getByRole('heading', { name: 'Nova Evolução' })).toBeInTheDocument();
-    const today = new Date().toISOString().slice(0, 10);
+    // Component seeds the field with the LOCAL calendar day (date-fns format),
+    // so compare against the same — not toISOString() (UTC), which disagrees in
+    // the evening in negative-offset timezones like Brazil (UTC-3).
+    const today = format(new Date(), 'yyyy-MM-dd');
     expect(screen.getByLabelText(/data da evolução/i)).toHaveValue(today);
   });
 
