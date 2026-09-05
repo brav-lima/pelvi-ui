@@ -12,4 +12,9 @@ describe('StatusBadge', () => {
     render(<StatusBadge status="INACTIVE" />);
     expect(screen.getByText('Inativo')).toBeInTheDocument();
   });
+
+  it('não renderiza nada (e não quebra) para um status desconhecido', () => {
+    const { container } = render(<StatusBadge status={'BOGUS' as never} />);
+    expect(container).toBeEmptyDOMElement();
+  });
 });

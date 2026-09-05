@@ -10,7 +10,11 @@ vi.mock('@/lib/api', () => ({
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@/lib/analytics', () => ({ track: vi.fn(), AnalyticsEvent: {} }));
-vi.mock('@/components/patients/PatientFormDialog', () => ({ PatientFormDialog: () => null }));
+// Expose the `patient` prop so tests can assert which patient the form opened for.
+vi.mock('@/components/patients/PatientFormDialog', () => ({
+  PatientFormDialog: ({ open, patient }: { open: boolean; patient?: { name: string } }) =>
+    open ? <div data-testid="patient-form-dialog">{patient?.name ?? '__new__'}</div> : null,
+}));
 
 // Radix' DropdownMenu relies on pointer-capture APIs jsdom doesn't implement, so
 // the menu never opens under fireEvent.click. Swap it for a transparent
@@ -116,5 +120,34 @@ describe('Patients — filtro de status', () => {
     fireEvent.click(screen.getByRole('button', { name: /inativos/i }));
 
     expect(await screen.findByText('Inativo')).toBeInTheDocument();
+  });
+
+  it('clicar em "Editar dados" no menu da linha abre o formulário com o paciente da linha', async () => {
+    renderPage();
+    const rowEl = await screen.findByTestId('patient-row-a');
+
+    fireEvent.click(within(rowEl).getByRole('button', { name: /ações/i }));
+    fireEvent.click(await screen.findByText('Editar dados'));
+
+    const dialog = await screen.findByTestId('patient-form-dialog');
+    expect(dialog).toHaveTextContent('Ana Ativa');
+  });
+
+  it('mostra a mensagem específica de vazio quando não há pacientes inativos', async () => {
+    vi.mocked(patientsApi.list).mockResolvedValue(paged([]) as any);
+    renderPage();
+    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: /inativos/i }));
+
+    expect(await screen.findByText('Nenhum paciente inativo')).toBeInTheDocument();
+  });
+
+  it('os chips de status expõem aria-pressed', async () => {
+    renderPage();
+    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+
+    expect(screen.getByRole('button', { name: 'Ativos' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Inativos' })).toHaveAttribute('aria-pressed', 'false');
   });
 });

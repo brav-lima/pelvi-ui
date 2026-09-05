@@ -483,6 +483,41 @@ describe('AppointmentFormDialog — filtro de pacientes inativos', () => {
     });
   });
 
+  it('alternar de criação-fechado para edição-aberto (sequência da Agenda) carrega todos os pacientes', async () => {
+    // Agenda mantém o dialog montado permanentemente: appointment vai de
+    // undefined→obj e open vai de false→true no mesmo ciclo. O initializer do
+    // useState só roda na montagem, então o re-sync tem que vir do useEffect([open]).
+    const wrapper = makeWrapper();
+    const baseProps = {
+      onOpenChange: vi.fn(),
+      onSuccess: vi.fn(),
+      defaultDate: '2026-06-01',
+      defaultTime: '09:00',
+    };
+    const view = render(
+      <AppointmentFormDialog {...baseProps} open={false} appointment={undefined} />,
+      { wrapper },
+    );
+
+    view.rerender(
+      <AppointmentFormDialog
+        {...baseProps}
+        open
+        appointment={{
+          id: 'a1', patientId: 'p1', professionalId: 'pr1', procedureId: 'proc1',
+          startAt: '2026-06-01T09:00:00.000Z', endAt: '2026-06-01T10:00:00.000Z',
+          status: 'SCHEDULED',
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+    const everCalledWithActive = vi
+      .mocked(patientsApi.list)
+      .mock.calls.some((c) => c[0]?.status === 'ACTIVE');
+    expect(everCalledWithActive).toBe(false);
+  });
+
   it('em modo edição, carrega todos os pacientes (inclui inativos)', async () => {
     renderDialog({
       appointment: {

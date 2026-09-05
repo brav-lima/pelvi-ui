@@ -47,7 +47,7 @@ function calculateAge(birthDate: string) {
   return age;
 }
 
-function PatientRowActions({ patient }: { patient: Patient }) {
+function PatientRowActions({ patient, onEdit }: { patient: Patient; onEdit: () => void }) {
   const statusMutation = usePatientStatusMutation(patient.id);
   const targetStatus: PatientStatus = patient.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
   const label = patient.status === 'ACTIVE' ? 'Marcar como inativo' : 'Reativar';
@@ -63,7 +63,10 @@ function PatientRowActions({ patient }: { patient: Patient }) {
           <MoreVertical className="w-4 h-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+          Editar dados
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={statusMutation.isPending}
           onClick={(e) => { e.stopPropagation(); statusMutation.mutate(targetStatus); }}
@@ -80,6 +83,7 @@ export default function Patients() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<Patient | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc'>('name_asc');
   const [filterActivePackage, setFilterActivePackage] = useState(false);
   const [filterNoAppointment, setFilterNoAppointment] = useState(false);
@@ -160,6 +164,19 @@ export default function Patients() {
     return pages;
   })();
 
+  const hasQueryOrFilter = !!debouncedSearch || filterActivePackage || filterNoAppointment;
+  const emptyIsInactive = statusFilter === 'INACTIVE' && !hasQueryOrFilter;
+  const emptyTitle = emptyIsInactive
+    ? 'Nenhum paciente inativo'
+    : hasQueryOrFilter || statusFilter === 'INACTIVE'
+      ? 'Nenhum paciente encontrado'
+      : 'Nenhum paciente cadastrado';
+  const emptySubtitle = emptyIsInactive
+    ? 'Os pacientes inativos aparecerão aqui.'
+    : hasQueryOrFilter || statusFilter === 'INACTIVE'
+      ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.'
+      : 'Cadastre o primeiro paciente da clínica.';
+
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Page header */}
@@ -177,7 +194,7 @@ export default function Patients() {
         </div>
         <div className="flex items-center gap-2">
           {/* TODO: exportar pacientes (CSV) — ver docs/ui-funcoes-sem-implementacao.md */}
-          <Button onClick={() => setFormOpen(true)}>
+          <Button onClick={() => { setEditingPatient(undefined); setFormOpen(true); }}>
             <Plus className="w-4 h-4 mr-1.5" />
             Novo paciente
           </Button>
@@ -203,6 +220,8 @@ export default function Patients() {
           ] as const).map(opt => (
             <button
               key={opt.value}
+              type="button"
+              aria-pressed={statusFilter === opt.value}
               onClick={() => setStatusFilter(opt.value)}
               className={cn(
                 'h-[26px] px-2.5 rounded-full text-[12.5px] font-medium transition-colors',
@@ -282,13 +301,13 @@ export default function Patients() {
         <div className="bg-card border border-border rounded-xl flex flex-col items-center justify-center py-14 gap-3 text-center">
           <Users className="w-9 h-9 text-muted-foreground/40" />
           <p className="text-[13.5px] font-medium text-foreground/80">
-            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter === 'INACTIVE' ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
+            {emptyTitle}
           </p>
           <p className="text-[12.5px] text-muted-foreground">
-            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter === 'INACTIVE' ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.' : 'Cadastre o primeiro paciente da clínica.'}
+            {emptySubtitle}
           </p>
           {!debouncedSearch && !filterActivePackage && !filterNoAppointment && statusFilter !== 'INACTIVE' && (
-            <Button size="sm" className="mt-1" onClick={() => setFormOpen(true)}>
+            <Button size="sm" className="mt-1" onClick={() => { setEditingPatient(undefined); setFormOpen(true); }}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Novo paciente
             </Button>
@@ -396,7 +415,10 @@ export default function Patients() {
 
                 {/* More */}
                 <div className="flex justify-end">
-                  <PatientRowActions patient={patient} />
+                  <PatientRowActions
+                    patient={patient}
+                    onEdit={() => { setEditingPatient(patient); setFormOpen(true); }}
+                  />
                 </div>
               </div>
             );
@@ -452,7 +474,12 @@ export default function Patients() {
         </div>
       )}
 
-      <PatientFormDialog open={formOpen} onOpenChange={setFormOpen} onSuccess={() => refetch()} />
+      <PatientFormDialog
+        open={formOpen}
+        onOpenChange={(o) => { setFormOpen(o); if (!o) setEditingPatient(undefined); }}
+        patient={editingPatient}
+        onSuccess={() => { refetch(); setFormOpen(false); setEditingPatient(undefined); }}
+      />
     </div>
   );
 }

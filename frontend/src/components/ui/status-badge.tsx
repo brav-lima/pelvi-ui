@@ -64,6 +64,10 @@ interface StatusBadgeProps {
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = STATUS_MAP[status];
 
+  // Reachable in prod on a web-deployed-before-api skew: patients without a
+  // `status`. Render nothing rather than crashing on `config.variant`.
+  if (!config) return null;
+
   return (
     <Badge variant={config.variant} className={cn(className)}>
       {config.label}

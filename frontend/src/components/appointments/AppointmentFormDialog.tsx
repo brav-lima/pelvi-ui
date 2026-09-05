@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -114,13 +114,19 @@ export function AppointmentFormDialog({
 
   const isEditMode = !!appointment;
 
+  // Edit mode must always load every patient — the appointment's own patient may
+  // be INACTIVE. `includeInactive` state is re-synced by the open effect below,
+  // but the effect runs a render too late to gate the first fetch, so derive the
+  // effective flag here (isEditMode wins immediately).
+  const loadAllPatients = includeInactive || isEditMode;
+
   const { data: patientsData } = useQuery({
-    queryKey: ['patients-select', includeInactive],
+    queryKey: ['patients-select', loadAllPatients],
     queryFn: () =>
       patientsApi.list({
         page: 1,
         limit: 100,
-        status: includeInactive ? undefined : 'ACTIVE',
+        status: loadAllPatients ? undefined : 'ACTIVE',
       }),
     enabled: open,
   });
@@ -137,7 +143,23 @@ export function AppointmentFormDialog({
     enabled: open,
   });
 
-  const patients = patientsData?.data ?? [];
+  const patients = useMemo(() => patientsData?.data ?? [], [patientsData]);
+
+  // Defense in depth: the required Paciente field must never render blank for a
+  // real appointment. If the edit-mode patient list doesn't include the
+  // appointment's own patient (e.g. it became INACTIVE and the list load raced),
+  // prepend it so a matching <SelectItem> always exists.
+  const patientOptions = useMemo(() => {
+    if (
+      isEditMode &&
+      appointment?.patient &&
+      !patients.some((p) => p.id === appointment.patient!.id)
+    ) {
+      return [appointment.patient as unknown as Patient, ...patients];
+    }
+    return patients;
+  }, [patients, isEditMode, appointment]);
+
   const activeProfessionals = professionals.filter((p) => p.active);
   const activeProcedures = procedures.filter((p) => p.active);
 
@@ -158,6 +180,10 @@ export function AppointmentFormDialog({
 
   useEffect(() => {
     if (open) {
+      // Re-sync the "incluir inativos" toggle on every open: edit mode always
+      // loads all patients (the appointment's patient may be INACTIVE), create
+      // mode resets to active-only (kills the sticky-checkbox bug across opens).
+      setIncludeInactive(isEditMode);
       if (isEditMode && appointment) {
         form.reset({
           patientId: appointment.patientId,
@@ -437,7 +463,7 @@ export function AppointmentFormDialog({
                 <SelectValue placeholder="Selecione um paciente" />
               </SelectTrigger>
               <SelectContent>
-                {patients.map((p) => (
+                {patientOptions.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
               </SelectContent>
