@@ -179,6 +179,48 @@ describe('SubscriptionService', () => {
     expect(result.features.length).toBeGreaterThan(0); // ALL_PLAN_FEATURES fail-open
   });
 
+  it('plano válido com features: [] retorna [] (não faz fail-open para ALL_PLAN_FEATURES)', async () => {
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: {
+        status: 'ACTIVE',
+        trialEndsAt: null,
+        plan: { id: 'plan-free', name: 'Gratuito', features: [] },
+      },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.isActive).toBe(true);
+    expect(result.features).toEqual([]);
+  });
+
+  it('subscription presente mas sem plano associado → fail-open para ALL_PLAN_FEATURES + warn', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'ACTIVE', trialEndsAt: null, plan: null },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.isActive).toBe(true);
+    expect(result.features.length).toBeGreaterThan(0);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('plano sem id nem name (objeto degenerado) → tratado como não configurado → ALL_PLAN_FEATURES', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    adminApi.getSubscription.mockResolvedValue({
+      subscription: { status: 'ACTIVE', trialEndsAt: null, plan: { features: [] } },
+    });
+
+    const result = await service.getSubscription(orgId);
+
+    expect(result.features.length).toBeGreaterThan(0);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
   it('admin TRIAL com trialEndsAt null vence a coluna local expirada (não mistura fontes)', async () => {
     prisma.organization.findUniqueOrThrow.mockResolvedValue({
       plan: 'SOLO',
