@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Loader2, ChevronLeft, ChevronRight, Users, ChevronDown, Clock } from 'lucide-react';
+import { Plus, Search, Loader2, ChevronLeft, ChevronRight, Users, ChevronDown, Clock, MoreVertical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -14,8 +14,10 @@ import { useNavigate } from 'react-router-dom';
 import { format, addMonths, isAfter, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
+import { usePatientStatusMutation } from '@/components/patients/use-patient-status-mutation';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
-import type { Appointment, TreatmentPackage } from '@/types/clinic';
+import type { Appointment, Patient, PatientStatus, TreatmentPackage } from '@/types/clinic';
 
 const AVATAR_COLORS = [
   ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'],
@@ -45,6 +47,34 @@ function calculateAge(birthDate: string) {
   return age;
 }
 
+function PatientRowActions({ patient }: { patient: Patient }) {
+  const statusMutation = usePatientStatusMutation(patient.id);
+  const targetStatus: PatientStatus = patient.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  const label = patient.status === 'ACTIVE' ? 'Marcar como inativo' : 'Reativar';
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          aria-label="Ações"
+          className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:bg-muted/60 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem
+          disabled={statusMutation.isPending}
+          onClick={(e) => { e.stopPropagation(); statusMutation.mutate(targetStatus); }}
+        >
+          {label}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function Patients() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -53,6 +83,7 @@ export default function Patients() {
   const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc'>('name_asc');
   const [filterActivePackage, setFilterActivePackage] = useState(false);
   const [filterNoAppointment, setFilterNoAppointment] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'INACTIVE' | 'ALL'>('ACTIVE');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -60,10 +91,10 @@ export default function Patients() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [sortOrder, filterActivePackage, filterNoAppointment]);
+  useEffect(() => { setPage(1); }, [sortOrder, filterActivePackage, filterNoAppointment, statusFilter]);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['patients', debouncedSearch, page, sortOrder === 'name_asc' ? undefined : sortOrder, filterActivePackage, filterNoAppointment],
+    queryKey: ['patients', debouncedSearch, page, sortOrder === 'name_asc' ? undefined : sortOrder, filterActivePackage, filterNoAppointment, statusFilter],
     queryFn: () => patientsApi.list({
       search: debouncedSearch,
       page,
@@ -71,6 +102,7 @@ export default function Patients() {
       orderBy: sortOrder !== 'name_asc' ? sortOrder : undefined,
       hasActivePackage: filterActivePackage || undefined,
       hasNoUpcomingAppointment: filterNoAppointment || undefined,
+      status: statusFilter === 'ALL' ? undefined : statusFilter,
     }),
   });
 
@@ -163,6 +195,26 @@ export default function Patients() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
+        <div className="inline-flex items-center rounded-full border border-border bg-card p-0.5">
+          {([
+            { value: 'ACTIVE', label: 'Ativos' },
+            { value: 'INACTIVE', label: 'Inativos' },
+            { value: 'ALL', label: 'Todos' },
+          ] as const).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setStatusFilter(opt.value)}
+              className={cn(
+                'h-[26px] px-2.5 rounded-full text-[12.5px] font-medium transition-colors',
+                statusFilter === opt.value
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => { setFilterActivePackage(false); setFilterNoAppointment(false); }}
           className={cn(
@@ -172,7 +224,7 @@ export default function Patients() {
               : 'bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground cursor-pointer',
           )}
         >
-          Todos
+          Limpar filtros
           {meta && <span className={cn('ml-1.5 text-[11px] px-1.5 py-px rounded-full tabular-nums', !filterActivePackage && !filterNoAppointment ? 'bg-card text-primary' : 'bg-secondary text-muted-foreground')}>{meta.total}</span>}
         </button>
         {([
@@ -230,12 +282,12 @@ export default function Patients() {
         <div className="bg-card border border-border rounded-xl flex flex-col items-center justify-center py-14 gap-3 text-center">
           <Users className="w-9 h-9 text-muted-foreground/40" />
           <p className="text-[13.5px] font-medium text-foreground/80">
-            {debouncedSearch || filterActivePackage || filterNoAppointment ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter !== 'ALL' ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
           </p>
           <p className="text-[12.5px] text-muted-foreground">
-            {debouncedSearch || filterActivePackage || filterNoAppointment ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.' : 'Cadastre o primeiro paciente da clínica.'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter !== 'ALL' ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.' : 'Cadastre o primeiro paciente da clínica.'}
           </p>
-          {!debouncedSearch && !filterActivePackage && !filterNoAppointment && (
+          {!debouncedSearch && !filterActivePackage && !filterNoAppointment && statusFilter === 'ALL' && (
             <Button size="sm" className="mt-1" onClick={() => setFormOpen(true)}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Novo paciente
@@ -265,6 +317,7 @@ export default function Patients() {
             return (
               <div
                 key={patient.id}
+                data-testid={`patient-row-${patient.id}`}
                 className="grid items-center gap-3 px-4 py-3 border-b border-border/60 last:border-0 hover:bg-muted/40 transition-colors cursor-pointer"
                 style={{ gridTemplateColumns: '2.2fr 1fr 1.2fr 1.4fr 1fr 40px' }}
                 onClick={() => navigate(`/patients/${patient.id}`)}
@@ -278,7 +331,12 @@ export default function Patients() {
                     {initials(patient.name)}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[13.5px] font-medium truncate">{patient.name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13.5px] font-medium truncate">{patient.name}</span>
+                      {statusFilter !== 'ACTIVE' && patient.status === 'INACTIVE' && (
+                        <StatusBadge status="INACTIVE" className="shrink-0" />
+                      )}
+                    </div>
                     <div className="text-[11.5px] text-muted-foreground mt-0.5">
                       {patient.birthDate
                         ? <span>{calculateAge(patient.birthDate)} anos{patient.gender === 'F' ? ' · feminino' : patient.gender === 'M' ? ' · masculino' : ''}</span>
@@ -337,7 +395,9 @@ export default function Patients() {
                 </div>
 
                 {/* More */}
-                <div />
+                <div className="flex justify-end">
+                  <PatientRowActions patient={patient} />
+                </div>
               </div>
             );
           })}
