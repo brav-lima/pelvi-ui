@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useFeature } from '@/contexts/SubscriptionContext';
+import { usePatientStatusMutation } from '@/components/patients/use-patient-status-mutation';
 import { ANAMNESIS_FIELDS, GroupedHypotheses, isAnamnesisData, formatAnamnesisKey } from '@/components/anamnesis/anamnesis-fields';
 
 const AVATAR_COLORS = [
@@ -105,6 +106,8 @@ export default function PatientProfile() {
 
   const [packageOpen, setPackageOpen] = useState(false);
   const [cancelingPackage, setCancelingPackage] = useState<TreatmentPackage | null>(null);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const patientStatusMutation = usePatientStatusMutation(id!);
 
   const deleteAnamnesismutation = useMutation({
     mutationFn: (anamnesisId: string) => anamnesisApi.remove(anamnesisId),
@@ -284,6 +287,14 @@ export default function PatientProfile() {
           Voltar para pacientes
         </button>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setStatusDialogOpen(true)}
+            disabled={patientStatusMutation.isPending}
+          >
+            {patient.status === 'ACTIVE' ? 'Marcar como inativo' : 'Reativar paciente'}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Edit className="w-3.5 h-3.5 mr-1.5" />
             Editar dados
@@ -319,6 +330,7 @@ export default function PatientProfile() {
                 {activePackage.name} · {activePackage.usedSessions}/{activePackage.totalSessions}
               </span>
             )}
+            <StatusBadge status={patient.status} />
           </div>
           <div className="flex items-center gap-4 mt-2 flex-wrap">
             {(patient.birthDate || patient.gender) && (
@@ -356,6 +368,11 @@ export default function PatientProfile() {
               </div>
             )}
           </div>
+          {patient.status === 'INACTIVE' && (
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              Paciente inativo — não aparece em novos agendamentos por padrão.
+            </p>
+          )}
         </div>
 
         {/* Stats strip */}
@@ -1107,6 +1124,32 @@ export default function PatientProfile() {
               onClick={() => cancelingPackage && cancelPackageMutation.mutate(cancelingPackage.id)}
             >
               Cancelar Pacote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {patient.status === 'ACTIVE' ? 'Marcar paciente como inativo?' : 'Reativar paciente?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {patient.status === 'ACTIVE'
+                ? 'O paciente deixa de aparecer nas listagens e no seletor de novos agendamentos por padrão. Você pode reativá-lo a qualquer momento.'
+                : 'O paciente volta a aparecer normalmente nas listagens e agendamentos.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                patientStatusMutation.mutate(patient.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE');
+                setStatusDialogOpen(false);
+              }}
+            >
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

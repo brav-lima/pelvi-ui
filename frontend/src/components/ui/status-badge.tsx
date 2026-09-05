@@ -4,6 +4,7 @@ import type {
   AppointmentStatus,
   FinancialStatus,
   FinancialType,
+  PatientStatus,
   TreatmentPackageStatus,
 } from '@/types/clinic';
 
@@ -17,6 +18,7 @@ export type DomainStatus =
   | AppointmentStatus
   | FinancialStatus
   | FinancialType
+  | PatientStatus
   | TreatmentPackageStatus;
 
 type StatusVariant =
@@ -40,8 +42,9 @@ const STATUS_MAP: Record<DomainStatus, StatusConfig> = {
   CANCELED:  { label: 'Cancelado',  variant: 'soft-destructive' },
   DONE:      { label: 'Concluído',  variant: 'soft-muted' },
 
-  // Treatment package
+  // Treatment package & Patient status
   ACTIVE:    { label: 'Ativo',      variant: 'soft-success' },
+  INACTIVE:  { label: 'Inativo',    variant: 'soft-muted' },
   COMPLETED: { label: 'Concluído',  variant: 'soft-muted' },
 
   // Financial status
@@ -60,6 +63,10 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const config = STATUS_MAP[status];
+
+  // Reachable in prod on a web-deployed-before-api skew: patients without a
+  // `status`. Render nothing rather than crashing on `config.variant`.
+  if (!config) return null;
 
   return (
     <Badge variant={config.variant} className={cn(className)}>

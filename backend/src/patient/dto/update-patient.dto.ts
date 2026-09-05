@@ -1,6 +1,7 @@
 import {
   IsDateString,
   IsEmail,
+  IsIn,
   IsOptional,
   IsString,
   Matches,
@@ -64,4 +65,8 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: 'ACTIVE' | 'INACTIVE';
 }

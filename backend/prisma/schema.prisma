@@ -170,6 +170,11 @@ model OrganizationUser {
 // Patient
 // ──────────────────────────────────────────────
 
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model Patient {
   id                  String    @id @default(uuid())
   organizationId      String    @map("organization_id")
@@ -187,6 +192,7 @@ model Patient {
   addressCity         String?   @map("address_city")
   addressState        String?   @map("address_state")
   notes               String?
+  status              PatientStatus @default(ACTIVE) @map("status")
   deletedAt           DateTime? @map("deleted_at")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
@@ -201,6 +207,7 @@ model Patient {
 
   @@index([organizationId, deletedAt])
   @@index([organizationId, name, deletedAt])
+  @@index([organizationId, status, deletedAt])
   @@map("patients")
 }
 

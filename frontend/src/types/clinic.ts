@@ -70,6 +70,8 @@ export interface Professional {
   };
 }
 
+export type PatientStatus = 'ACTIVE' | 'INACTIVE';
+
 export interface Patient {
   id: string;
   name: string;
@@ -86,6 +88,7 @@ export interface Patient {
   addressCity?: string;
   addressState?: string;
   notes?: string;
+  status: PatientStatus;
   createdAt: string;
   updatedAt: string;
 }

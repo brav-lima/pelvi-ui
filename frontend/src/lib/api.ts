@@ -6,6 +6,7 @@ import type {
   Patient,
   PaginatedResponse,
   CreatePatientData,
+  PatientStatus,
   Procedure,
   Professional,
   Appointment,
@@ -168,11 +169,12 @@ export const patientsApi = {
     orderBy?: 'name_asc' | 'name_desc';
     hasActivePackage?: boolean;
     hasNoUpcomingAppointment?: boolean;
+    status?: PatientStatus;
   }) =>
     api.get<PaginatedResponse<Patient>>(`/patients?${queryString(params)}`),
   getById: (id: string) => api.get<Patient>(`/patients/${id}`),
   create: (data: CreatePatientData) => api.post<Patient>('/patients', data),
-  update: (id: string, data: Partial<CreatePatientData>) =>
+  update: (id: string, data: Partial<CreatePatientData> & { status?: PatientStatus }) =>
     api.patch<Patient>(`/patients/${id}`, data),
   remove: (id: string) => api.delete<void>(`/patients/${id}`),
 };

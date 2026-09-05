@@ -447,3 +447,110 @@ describe('AppointmentFormDialog', () => {
     });
   });
 });
+
+describe('AppointmentFormDialog — filtro de pacientes inativos', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(patientsApi.list).mockResolvedValue(pagedPatients([patient]));
+    vi.mocked(professionalsApi.list).mockResolvedValue([professional] as any);
+    vi.mocked(proceduresApi.list).mockResolvedValue([procedure] as any);
+    vi.mocked(treatmentPackagesApi.list).mockResolvedValue([] as any);
+  });
+
+  it('em modo criação, carrega apenas pacientes ativos', async () => {
+    renderDialog();
+    await waitFor(() =>
+      expect(patientsApi.list).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'ACTIVE' }),
+      ),
+    );
+  });
+
+  it('marcar "Incluir pacientes inativos" recarrega a lista sem filtro de status', async () => {
+    renderDialog();
+    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+
+    const toggle = screen.getByLabelText(/incluir pacientes inativos/i);
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+
+    await waitFor(() => {
+      const calledWithoutStatus = vi
+        .mocked(patientsApi.list)
+        .mock.calls.some((c) => c[0] != null && c[0].status === undefined);
+      expect(calledWithoutStatus).toBe(true);
+    });
+  });
+
+  it('alternar de criação-fechado para edição-aberto (sequência da Agenda) carrega todos os pacientes', async () => {
+    // Agenda mantém o dialog montado permanentemente: appointment vai de
+    // undefined→obj e open vai de false→true no mesmo ciclo. O initializer do
+    // useState só roda na montagem, então o re-sync tem que vir do useEffect([open]).
+    const wrapper = makeWrapper();
+    const baseProps = {
+      onOpenChange: vi.fn(),
+      onSuccess: vi.fn(),
+      defaultDate: '2026-06-01',
+      defaultTime: '09:00',
+    };
+    const view = render(
+      <AppointmentFormDialog {...baseProps} open={false} appointment={undefined} />,
+      { wrapper },
+    );
+
+    view.rerender(
+      <AppointmentFormDialog
+        {...baseProps}
+        open
+        appointment={{
+          id: 'a1', patientId: 'p1', professionalId: 'pr1', procedureId: 'proc1',
+          startAt: '2026-06-01T09:00:00.000Z', endAt: '2026-06-01T10:00:00.000Z',
+          status: 'SCHEDULED',
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+    const everCalledWithActive = vi
+      .mocked(patientsApi.list)
+      .mock.calls.some((c) => c[0]?.status === 'ACTIVE');
+    expect(everCalledWithActive).toBe(false);
+  });
+
+  it('em modo edição, carrega todos os pacientes (inclui inativos)', async () => {
+    renderDialog({
+      appointment: {
+        id: 'a1', patientId: 'p1', professionalId: 'pr1', procedureId: 'proc1',
+        startAt: '2026-06-01T09:00:00.000Z', endAt: '2026-06-01T10:00:00.000Z',
+        status: 'SCHEDULED',
+      },
+    });
+
+    await waitFor(() => {
+      const everCalledWithActive = vi
+        .mocked(patientsApi.list)
+        .mock.calls.some((c) => c[0]?.status === 'ACTIVE');
+      expect(everCalledWithActive).toBe(false);
+      expect(patientsApi.list).toHaveBeenCalled();
+    });
+  });
+
+  it('não mostra o checkbox "Incluir pacientes inativos" em modo edição (inerte lá)', async () => {
+    renderDialog({
+      appointment: {
+        id: 'a1', patientId: 'p1', professionalId: 'pr1', procedureId: 'proc1',
+        startAt: '2026-06-01T09:00:00.000Z', endAt: '2026-06-01T10:00:00.000Z',
+        status: 'SCHEDULED',
+      },
+    });
+
+    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+    expect(screen.queryByLabelText(/incluir pacientes inativos/i)).not.toBeInTheDocument();
+  });
+
+  it('mostra o checkbox "Incluir pacientes inativos" em modo criação', async () => {
+    renderDialog();
+    expect(await screen.findByLabelText(/incluir pacientes inativos/i)).toBeInTheDocument();
+  });
+});

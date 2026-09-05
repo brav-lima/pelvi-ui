@@ -47,7 +47,7 @@ export class PatientService {
 
   async findAll(organizationId: string, query: QueryPatientDto) {
     const now = new Date();
-    const { search, page = 1, limit = 20, orderBy, hasActivePackage, hasNoUpcomingAppointment } = query;
+    const { search, page = 1, limit = 20, orderBy, hasActivePackage, hasNoUpcomingAppointment, status } = query;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = { organizationId, deletedAt: null };
@@ -57,6 +57,10 @@ export class PatientService {
         { name: { contains: search, mode: 'insensitive' } },
         { cpf: { contains: search } },
       ];
+    }
+
+    if (status) {
+      where.status = status;
     }
 
     if (hasActivePackage) {
