@@ -105,6 +105,7 @@ export function AppointmentFormDialog({
   const [error, setError] = useState('');
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [quickPatientOpen, setQuickPatientOpen] = useState(false);
+  const [includeInactive, setIncludeInactive] = useState(!!appointment);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingConflicts, setPendingConflicts] = useState<ConflictItem[]>([]);
   const [pendingDates, setPendingDates] = useState<Date[]>([]);
@@ -114,8 +115,13 @@ export function AppointmentFormDialog({
   const isEditMode = !!appointment;
 
   const { data: patientsData } = useQuery({
-    queryKey: ['patients-select'],
-    queryFn: () => patientsApi.list({ page: 1, limit: 100 }),
+    queryKey: ['patients-select', includeInactive],
+    queryFn: () =>
+      patientsApi.list({
+        page: 1,
+        limit: 100,
+        status: includeInactive ? undefined : 'ACTIVE',
+      }),
     enabled: open,
   });
 
@@ -439,6 +445,16 @@ export function AppointmentFormDialog({
             {form.formState.errors.patientId && (
               <p id="apt-patient-error" className="text-sm text-destructive">{form.formState.errors.patientId.message}</p>
             )}
+            <div className="flex items-center gap-2 pt-0.5">
+              <Checkbox
+                id="apt-include-inactive"
+                checked={includeInactive}
+                onCheckedChange={(checked) => setIncludeInactive(!!checked)}
+              />
+              <Label htmlFor="apt-include-inactive" className="cursor-pointer text-xs text-muted-foreground font-normal">
+                Incluir pacientes inativos
+              </Label>
+            </div>
           </div>
 
           <div className="space-y-2">
