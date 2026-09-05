@@ -8,18 +8,47 @@ import * as Sentry from '@sentry/nestjs';
 // transaction from scratch is safe and is exactly what Postgres' own docs
 // prescribe for SERIALIZABLE clients.
 const RETRYABLE_PRISMA_CODE = 'P2034';
+// Raw SQLSTATE codes: serialization_failure + deadlock_detected. Postgres often
+// only detects a SERIALIZABLE conflict at COMMIT time; with the Prisma 7 pg
+// driver adapter that commit-time failure escapes `$transaction()` as an
+// unconverted DriverAdapterError instead of a P2034 PrismaClientKnownRequestError,
+// so we also match it here.
+const RETRYABLE_PG_CODES = new Set(['40001', '40P01']);
 const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_BASE_DELAY_MS = 30;
 
 const logger = new Logger('PrismaRetry');
 
-function isSerializationConflict(
-  err: unknown,
-): err is Prisma.PrismaClientKnownRequestError {
-  return (
+function isSerializationConflict(err: unknown): boolean {
+  if (
     err instanceof Prisma.PrismaClientKnownRequestError &&
     err.code === RETRYABLE_PRISMA_CODE
-  );
+  ) {
+    return true;
+  }
+
+  // DriverAdapterError from @prisma/driver-adapter-utils — duck-typed to avoid a
+  // hard dependency on the adapter package. `cause` is the driver error payload.
+  if (
+    err instanceof Error &&
+    err.name === 'DriverAdapterError' &&
+    typeof (err as { cause?: unknown }).cause === 'object' &&
+    (err as { cause?: unknown }).cause !== null
+  ) {
+    const cause = (err as { cause: { kind?: string; code?: string } }).cause;
+    return (
+      cause.kind === 'TransactionWriteConflict' ||
+      (typeof cause.code === 'string' && RETRYABLE_PG_CODES.has(cause.code))
+    );
+  }
+
+  return false;
+}
+
+function errorCode(err: unknown): string | undefined {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) return err.code;
+  const cause = (err as { cause?: { kind?: string; code?: string } })?.cause;
+  return cause?.code ?? cause?.kind;
 }
 
 function backoffDelay(attempt: number, baseDelayMs: number): Promise<void> {
@@ -29,8 +58,10 @@ function backoffDelay(attempt: number, baseDelayMs: number): Promise<void> {
 }
 
 /**
- * Retries `run` on Postgres serialization/deadlock conflicts (Prisma P2034),
- * with capped exponential backoff + jitter. Any other error — including our
+ * Retries `run` on Postgres serialization/deadlock conflicts — whether Prisma
+ * surfaces them as P2034 or (for a commit-time abort under the pg driver adapter)
+ * as a raw DriverAdapterError — with capped exponential backoff + jitter. Any
+ * other error — including our
  * own ConflictException thrown from inside the transaction for a genuine
  * double-booking — propagates immediately, untouched.
  */
@@ -54,7 +85,7 @@ export async function withSerializationRetry<T>(
           );
           Sentry.captureMessage(
             `Prisma serialization conflict exhausted retries: ${operation}`,
-            { level: 'warning', extra: { attempt, code: err.code } },
+            { level: 'warning', extra: { attempt, code: errorCode(err) } },
           );
         }
         throw err;
@@ -67,7 +98,7 @@ export async function withSerializationRetry<T>(
         category: 'db',
         message: 'prisma serialization conflict, retrying',
         level: 'warning',
-        data: { operation, attempt, code: err.code },
+        data: { operation, attempt, code: errorCode(err) },
       });
 
       await backoffDelay(attempt, baseDelayMs);
