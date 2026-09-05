@@ -241,6 +241,7 @@ async function main() {
       data: {
         organizationId: clinicA.id,
         name: 'Roberto Ferreira',
+        status: 'INACTIVE',
         email: 'roberto@email.com',
         phone: '11988880005',
         birthDate: new Date('1960-05-12'),

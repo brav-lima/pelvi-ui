@@ -32,4 +32,8 @@ export class QueryPatientDto {
   @Transform(({ value }) => String(value).toLowerCase() === 'true')
   @IsBoolean()
   hasNoUpcomingAppointment?: boolean;
+
+  @IsOptional()
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: 'ACTIVE' | 'INACTIVE';
 }

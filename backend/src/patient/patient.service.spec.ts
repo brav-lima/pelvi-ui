@@ -108,6 +108,20 @@ describe('PatientService', () => {
       expect(result).toEqual({ id: 'patient-1', organizationId: orgB, name: 'Novo' });
     });
 
+    it('update deve repassar status ao prisma.patient.update', async () => {
+      prisma.patient.findFirst.mockResolvedValue({
+        id: 'patient-1', organizationId: orgA, name: 'X',
+      } as any);
+      prisma.patient.update.mockResolvedValue({ id: 'patient-1' } as any);
+
+      await service.update(orgA, 'patient-1', { status: 'INACTIVE' });
+
+      expect(prisma.patient.update).toHaveBeenCalledWith({
+        where: { id: 'patient-1' },
+        data: expect.objectContaining({ status: 'INACTIVE' }),
+      });
+    });
+
     it('remove deve verificar organizationId antes de deletar', async () => {
       prisma.patient.findFirst.mockResolvedValue(null);
 
@@ -218,6 +232,20 @@ describe('PatientService', () => {
 
       const callArgs = prisma.patient.findMany.mock.calls[0][0];
       expect(callArgs.where.appointments).toBeUndefined();
+    });
+
+    it('status deve adicionar filtro de status ao where', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20, status: 'INACTIVE' });
+
+      const callArgs = prisma.patient.findMany.mock.calls[0][0];
+      expect(callArgs.where.status).toBe('INACTIVE');
+    });
+
+    it('sem status não deve adicionar filtro de status ao where', async () => {
+      await service.findAll(orgA, { page: 1, limit: 20 });
+
+      const callArgs = prisma.patient.findMany.mock.calls[0][0];
+      expect(callArgs.where.status).toBeUndefined();
     });
 
     it('filtros combinados com search devem compor o where corretamente', async () => {
