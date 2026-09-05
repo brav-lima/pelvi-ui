@@ -282,12 +282,12 @@ export default function Patients() {
         <div className="bg-card border border-border rounded-xl flex flex-col items-center justify-center py-14 gap-3 text-center">
           <Users className="w-9 h-9 text-muted-foreground/40" />
           <p className="text-[13.5px] font-medium text-foreground/80">
-            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter !== 'ALL' ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter === 'INACTIVE' ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
           </p>
           <p className="text-[12.5px] text-muted-foreground">
-            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter !== 'ALL' ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.' : 'Cadastre o primeiro paciente da clínica.'}
+            {debouncedSearch || filterActivePackage || filterNoAppointment || statusFilter === 'INACTIVE' ? 'Tente buscar por outro nome, CPF ou ajuste os filtros.' : 'Cadastre o primeiro paciente da clínica.'}
           </p>
-          {!debouncedSearch && !filterActivePackage && !filterNoAppointment && statusFilter === 'ALL' && (
+          {!debouncedSearch && !filterActivePackage && !filterNoAppointment && statusFilter !== 'INACTIVE' && (
             <Button size="sm" className="mt-1" onClick={() => setFormOpen(true)}>
               <Plus className="w-3.5 h-3.5 mr-1.5" />
               Novo paciente
