@@ -27,7 +27,8 @@
   Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
   Claude-Session: https://claude.ai/code/session_01QYfmfxD4nzTDCZQyLQsCE1
   ```
-- A branch de trabalho deve conter `sou-17` (ex.: `bravilal/sou-17-status-do-paciente`) para o Linear linkar.
+- A branch de trabalho deve conter `sou-17` (ex.: `bravilal/sou-17-status-do-paciente`) para o Linear linkar. **Branch `bravilal/sou-17-status-do-paciente` já criada a partir de `main`.**
+- Bump de versão: no fim, subir `frontend/package.json` de `0.4.0` para `0.4.1` (a string aparece no rodapé da Sidebar). O commit **deve ser o último da branch** e ter a mensagem `chore: bump version to 0.4.1` (o hook `.husky/pre-push` pula o auto-bump quando o último commit já começa com `chore: bump version to`).
 
 ---
 
@@ -1166,6 +1167,7 @@ EOF
 ### Task 7: Verificação final + spec de fechamento
 
 **Files:**
+- Modify: `frontend/package.json` (bump `0.4.0` → `0.4.1`)
 - Modify: `docs/superpowers/specs/2026-09-05-patient-status-design.md` (marcar como implementado, se desejado)
 
 **Interfaces:**
@@ -1196,12 +1198,23 @@ Expected: ambos sem erro.
 - Nova consulta: "Roberto" não aparece no select; marcar "Incluir pacientes inativos" → aparece.
 - Editar uma consulta cujo paciente foi inativado → paciente continua selecionado.
 
-- [ ] **Step 4: Revisar o diff completo**
+- [ ] **Step 4: Bump de versão (último commit da branch)**
+
+Editar `frontend/package.json`: `"version": "0.4.0"` → `"version": "0.4.1"`.
+
+```bash
+git add frontend/package.json
+git commit -m "chore: bump version to 0.4.1"
+```
+
+A mensagem exata `chore: bump version to 0.4.1` faz o hook `.husky/pre-push` pular o auto-bump. Este deve ser o **último** commit da branch.
+
+- [ ] **Step 5: Revisar o diff completo**
 
 Run: `git log --oneline main..HEAD` e `git diff main...HEAD --stat`
-Expected: 6 commits de feature (Tasks 1-6), arquivos batendo com a seção "Arquivos afetados" da spec.
+Expected: 6 commits de feature (Tasks 1-6) + 1 commit de bump de versão, arquivos batendo com a seção "Arquivos afetados" da spec.
 
-- [ ] **Step 5: Abrir o PR**
+- [ ] **Step 6: Abrir o PR**
 
 Seguir `superpowers:finishing-a-development-branch`. Título/descrição do PR devem conter `Closes SOU-17`. Descrição termina com:
 ```
