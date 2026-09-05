@@ -108,20 +108,6 @@ describe('PatientService', () => {
       expect(result).toEqual({ id: 'patient-1', organizationId: orgB, name: 'Novo' });
     });
 
-    it('update deve repassar status ao prisma.patient.update', async () => {
-      prisma.patient.findFirst.mockResolvedValue({
-        id: 'patient-1', organizationId: orgA, name: 'X',
-      } as any);
-      prisma.patient.update.mockResolvedValue({ id: 'patient-1' } as any);
-
-      await service.update(orgA, 'patient-1', { status: 'INACTIVE' });
-
-      expect(prisma.patient.update).toHaveBeenCalledWith({
-        where: { id: 'patient-1' },
-        data: expect.objectContaining({ status: 'INACTIVE' }),
-      });
-    });
-
     it('remove deve verificar organizationId antes de deletar', async () => {
       prisma.patient.findFirst.mockResolvedValue(null);
 
@@ -146,6 +132,22 @@ describe('PatientService', () => {
           data: expect.objectContaining({ deletedAt: expect.any(Date) }),
         }),
       );
+    });
+  });
+
+  describe('update', () => {
+    it('deve repassar status ao prisma.patient.update', async () => {
+      prisma.patient.findFirst.mockResolvedValue({
+        id: 'patient-1', organizationId: orgA, name: 'X',
+      } as any);
+      prisma.patient.update.mockResolvedValue({ id: 'patient-1' } as any);
+
+      await service.update(orgA, 'patient-1', { status: 'INACTIVE' });
+
+      expect(prisma.patient.update).toHaveBeenCalledWith({
+        where: { id: 'patient-1' },
+        data: expect.objectContaining({ status: 'INACTIVE' }),
+      });
     });
   });
 

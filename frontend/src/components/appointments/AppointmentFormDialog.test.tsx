@@ -535,4 +535,22 @@ describe('AppointmentFormDialog — filtro de pacientes inativos', () => {
       expect(patientsApi.list).toHaveBeenCalled();
     });
   });
+
+  it('não mostra o checkbox "Incluir pacientes inativos" em modo edição (inerte lá)', async () => {
+    renderDialog({
+      appointment: {
+        id: 'a1', patientId: 'p1', professionalId: 'pr1', procedureId: 'proc1',
+        startAt: '2026-06-01T09:00:00.000Z', endAt: '2026-06-01T10:00:00.000Z',
+        status: 'SCHEDULED',
+      },
+    });
+
+    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+    expect(screen.queryByLabelText(/incluir pacientes inativos/i)).not.toBeInTheDocument();
+  });
+
+  it('mostra o checkbox "Incluir pacientes inativos" em modo criação', async () => {
+    renderDialog();
+    expect(await screen.findByLabelText(/incluir pacientes inativos/i)).toBeInTheDocument();
+  });
 });

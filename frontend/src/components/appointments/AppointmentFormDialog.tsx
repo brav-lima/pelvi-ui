@@ -471,16 +471,18 @@ export function AppointmentFormDialog({
             {form.formState.errors.patientId && (
               <p id="apt-patient-error" className="text-sm text-destructive">{form.formState.errors.patientId.message}</p>
             )}
-            <div className="flex items-center gap-2 pt-0.5">
-              <Checkbox
-                id="apt-include-inactive"
-                checked={includeInactive}
-                onCheckedChange={(checked) => setIncludeInactive(!!checked)}
-              />
-              <Label htmlFor="apt-include-inactive" className="cursor-pointer text-xs text-muted-foreground font-normal">
-                Incluir pacientes inativos
-              </Label>
-            </div>
+            {!isEditMode && (
+              <div className="flex items-center gap-2 pt-0.5">
+                <Checkbox
+                  id="apt-include-inactive"
+                  checked={includeInactive}
+                  onCheckedChange={(checked) => setIncludeInactive(!!checked)}
+                />
+                <Label htmlFor="apt-include-inactive" className="cursor-pointer text-xs text-muted-foreground font-normal">
+                  Incluir pacientes inativos
+                </Label>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
