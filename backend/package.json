@@ -23,6 +23,9 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
+  "overrides": {
+    "hono": "4.12.27"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@nest-lab/throttler-storage-redis": "^1.2.0",
