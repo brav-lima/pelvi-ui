@@ -117,7 +117,10 @@ export class SubscriptionService {
     plan: string | null
     planStatus: string
     trialEndsAt: Date | null
-    rawFeatures: unknown
+    // Features cruas do plano, ou `null` quando a assinatura não tem plano real
+    // associado (ainda não configurado no pelvi-admin). `null` → fail-open;
+    // `[]` é um plano legítimo que simplesmente não libera nada.
+    rawFeatures: unknown[] | Record<string, boolean> | null
   } | null> {
     try {
       const data = await this.adminApi.getSubscription(organizationId)
@@ -147,11 +150,15 @@ export class SubscriptionService {
         return null
       }
 
+      // Plano "real" = objeto com id ou name. Sem isso, a assinatura existe mas
+      // não tem plano configurado no admin → rawFeatures `null` (fail-open).
+      const hasRealPlan = Boolean(sub.plan && (sub.plan.id || sub.plan.name))
+
       return {
         plan: sub.plan?.name ?? null,
         planStatus: status,
         trialEndsAt,
-        rawFeatures: sub.plan?.features ?? [],
+        rawFeatures: hasRealPlan ? (sub.plan.features ?? []) : null,
       }
     } catch (err) {
       this.logger.warn(
@@ -161,10 +168,12 @@ export class SubscriptionService {
     }
   }
 
-  // Normaliza a lista de features. Fail-open (ALL_PLAN_FEATURES) quando o admin
-  // não respondeu ou o plano ainda não tem features configuradas.
+  // Normaliza a lista de features. Fail-open (ALL_PLAN_FEATURES) só quando o
+  // admin não respondeu (`!admin`) ou a assinatura não tem plano configurado
+  // (`rawFeatures === null`). Um plano real com `features: []` é intencional —
+  // retorna `[]` e deixa o PlanGuard bloquear as features pagas.
   private resolveFeatures(
-    admin: { rawFeatures: unknown } | null,
+    admin: { rawFeatures: unknown[] | Record<string, boolean> | null } | null,
     organizationId: string,
   ): PlanFeature[] {
     if (!admin) {
@@ -174,18 +183,17 @@ export class SubscriptionService {
       return ALL_PLAN_FEATURES
     }
     const raw = admin.rawFeatures
-    const rawFeatures: unknown[] = Array.isArray(raw)
-      ? raw
-      : Object.entries(raw as Record<string, boolean>)
-          .filter(([, v]) => v)
-          .map(([k]) => k)
-    const features = rawFeatures.filter((f): f is PlanFeature => typeof f === 'string')
-    if (features.length === 0) {
+    if (raw === null) {
       this.logger.warn(
-        `Empty features from pelvi-admin for org ${organizationId}. Falling back to ALL_PLAN_FEATURES.`,
+        `No plan configured in pelvi-admin for org ${organizationId}. Falling back to ALL_PLAN_FEATURES.`,
       )
       return ALL_PLAN_FEATURES
     }
-    return features
+    const rawFeatures: unknown[] = Array.isArray(raw)
+      ? raw
+      : Object.entries(raw)
+          .filter(([, v]) => v)
+          .map(([k]) => k)
+    return rawFeatures.filter((f): f is PlanFeature => typeof f === 'string')
   }
 }
