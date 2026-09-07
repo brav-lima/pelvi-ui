@@ -10,6 +10,9 @@ const capturedCallbacks = vi.hoisted(() => ({
   onConfirm: null as ((resolutions: any[]) => void) | null,
 }));
 
+// Última leva de props recebida pelo PatientCombobox (mockado abaixo).
+const comboboxProps = vi.hoisted(() => ({ current: null as any }));
+
 // ── Module mocks ───────────────────────────────────────────────────────────────
 
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -25,6 +28,26 @@ vi.mock('@/lib/api', async (importOriginal) => {
 });
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+
+// Combobox de paciente: renderiza um <select> nativo (role combobox) para os
+// testes preencherem o formulário; expõe as props para asserção do filtro.
+vi.mock('@/components/patients/PatientCombobox', () => ({
+  PatientCombobox: (props: any) => {
+    comboboxProps.current = props;
+    return (
+      <select
+        aria-label="Paciente"
+        value={props.value}
+        onChange={(e) =>
+          props.onChange(e.target.value, { id: e.target.value, name: 'Maria Costa', status: 'ACTIVE' })
+        }
+      >
+        <option value="">Selecione um paciente</option>
+        <option value="p1">Maria Costa</option>
+      </select>
+    );
+  },
+}));
 
 vi.mock('@/lib/analytics', () => ({
   track: vi.fn(),
@@ -211,6 +234,7 @@ describe('AppointmentFormDialog', () => {
     vi.mocked(proceduresApi.list).mockResolvedValue([procedure] as any);
     vi.mocked(treatmentPackagesApi.list).mockResolvedValue([] as any);
     capturedCallbacks.onConfirm = null;
+    comboboxProps.current = null;
   });
 
   it('não renderiza quando fechado', () => {
@@ -455,35 +479,28 @@ describe('AppointmentFormDialog — filtro de pacientes inativos', () => {
     vi.mocked(professionalsApi.list).mockResolvedValue([professional] as any);
     vi.mocked(proceduresApi.list).mockResolvedValue([procedure] as any);
     vi.mocked(treatmentPackagesApi.list).mockResolvedValue([] as any);
+    comboboxProps.current = null;
   });
 
-  it('em modo criação, carrega apenas pacientes ativos', async () => {
+  it('em modo criação, a busca de paciente começa só com ativos', async () => {
     renderDialog();
-    await waitFor(() =>
-      expect(patientsApi.list).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'ACTIVE' }),
-      ),
-    );
+    await waitFor(() => expect(comboboxProps.current).not.toBeNull());
+    expect(comboboxProps.current.includeInactive).toBe(false);
   });
 
-  it('marcar "Incluir pacientes inativos" recarrega a lista sem filtro de status', async () => {
+  it('marcar "Incluir pacientes inativos" passa includeInactive ao combobox', async () => {
     renderDialog();
-    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+    await waitFor(() => expect(comboboxProps.current).not.toBeNull());
 
     const toggle = screen.getByLabelText(/incluir pacientes inativos/i);
     await act(async () => {
       fireEvent.click(toggle);
     });
 
-    await waitFor(() => {
-      const calledWithoutStatus = vi
-        .mocked(patientsApi.list)
-        .mock.calls.some((c) => c[0] != null && c[0].status === undefined);
-      expect(calledWithoutStatus).toBe(true);
-    });
+    await waitFor(() => expect(comboboxProps.current.includeInactive).toBe(true));
   });
 
-  it('alternar de criação-fechado para edição-aberto (sequência da Agenda) carrega todos os pacientes', async () => {
+  it('alternar de criação-fechado para edição-aberto (sequência da Agenda) inclui inativos', async () => {
     // Agenda mantém o dialog montado permanentemente: appointment vai de
     // undefined→obj e open vai de false→true no mesmo ciclo. O initializer do
     // useState só roda na montagem, então o re-sync tem que vir do useEffect([open]).
@@ -511,29 +528,22 @@ describe('AppointmentFormDialog — filtro de pacientes inativos', () => {
       />,
     );
 
-    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
-    const everCalledWithActive = vi
-      .mocked(patientsApi.list)
-      .mock.calls.some((c) => c[0]?.status === 'ACTIVE');
-    expect(everCalledWithActive).toBe(false);
+    await waitFor(() => expect(comboboxProps.current?.includeInactive).toBe(true));
   });
 
-  it('em modo edição, carrega todos os pacientes (inclui inativos)', async () => {
+  it('em modo edição, o combobox inclui inativos e recebe o paciente do agendamento', async () => {
     renderDialog({
       appointment: {
         id: 'a1', patientId: 'p1', professionalId: 'pr1', procedureId: 'proc1',
         startAt: '2026-06-01T09:00:00.000Z', endAt: '2026-06-01T10:00:00.000Z',
         status: 'SCHEDULED',
+        patient: { id: 'p1', name: 'Maria Inativa' },
       },
     });
 
-    await waitFor(() => {
-      const everCalledWithActive = vi
-        .mocked(patientsApi.list)
-        .mock.calls.some((c) => c[0]?.status === 'ACTIVE');
-      expect(everCalledWithActive).toBe(false);
-      expect(patientsApi.list).toHaveBeenCalled();
-    });
+    await waitFor(() => expect(comboboxProps.current).not.toBeNull());
+    expect(comboboxProps.current.includeInactive).toBe(true);
+    expect(comboboxProps.current.selectedPatient).toEqual({ id: 'p1', name: 'Maria Inativa' });
   });
 
   it('não mostra o checkbox "Incluir pacientes inativos" em modo edição (inerte lá)', async () => {
@@ -545,7 +555,7 @@ describe('AppointmentFormDialog — filtro de pacientes inativos', () => {
       },
     });
 
-    await waitFor(() => expect(patientsApi.list).toHaveBeenCalled());
+    await waitFor(() => expect(comboboxProps.current).not.toBeNull());
     expect(screen.queryByLabelText(/incluir pacientes inativos/i)).not.toBeInTheDocument();
   });
 

@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { track, AnalyticsEvent } from '@/lib/analytics';
@@ -23,7 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { financialApi, patientsApi } from '@/lib/api';
+import { PatientCombobox } from '@/components/patients/PatientCombobox';
+import { financialApi } from '@/lib/api';
 import { maskCurrency, parseCurrency, formatCurrency } from '@/lib/formatters';
 import { format, addMonths } from 'date-fns';
 
@@ -52,14 +52,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [linkPatient, setLinkPatient] = useState(false);
-
-  const { data: patientsData } = useQuery({
-    queryKey: ['patients-select'],
-    queryFn: () => patientsApi.list({ page: 1, limit: 100 }),
-    enabled: open,
-  });
-
-  const patients = patientsData?.data ?? [];
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
 
   const form = useForm<FinancialFormData>({
     resolver: zodResolver(financialSchema),
@@ -176,6 +169,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
       onOpenChange(false);
       form.reset();
       setLinkPatient(false);
+      setSelectedPatient(null);
     } catch {
       toast.error('Erro ao salvar registro financeiro');
       setError('Erro ao salvar registro financeiro. Tente novamente.');
@@ -204,6 +198,7 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
                 form.setValue('type', v as 'INCOME' | 'EXPENSE');
                 if (v === 'EXPENSE') {
                   form.setValue('patientId', '');
+                  setSelectedPatient(null);
                   setLinkPatient(false);
                 }
               }}
@@ -269,25 +264,21 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
                   <button
                     type="button"
                     className="text-xs text-muted-foreground hover:text-foreground underline"
-                    onClick={() => { setLinkPatient(false); form.setValue('patientId', ''); }}
+                    onClick={() => { setLinkPatient(false); form.setValue('patientId', ''); setSelectedPatient(null); }}
                   >
                     Remover
                   </button>
                 )}
               </div>
-              <Select
+              <PatientCombobox
                 value={form.watch('patientId') || ''}
-                onValueChange={(v) => form.setValue('patientId', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um paciente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {patients.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(id, patient) => {
+                  form.setValue('patientId', id);
+                  setSelectedPatient(patient);
+                }}
+                selectedPatient={selectedPatient}
+                includeInactive
+              />
             </div>
           ) : (
             <button

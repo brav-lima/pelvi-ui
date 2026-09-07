@@ -16,7 +16,7 @@ export function usePatientStatusMutation(patientId: string) {
     onSuccess: (_data, status) => {
       queryClient.invalidateQueries({ queryKey: ['patient', patientId] });
       queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['patients-select'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-search'] });
       toast.success(
         status === 'INACTIVE' ? 'Paciente marcado como inativo' : 'Paciente reativado',
       );
