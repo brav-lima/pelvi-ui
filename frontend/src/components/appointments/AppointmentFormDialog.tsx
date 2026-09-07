@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +8,7 @@ import { Plus } from 'lucide-react';
 import type { Appointment, Patient } from '@/types/clinic';
 import { track, AnalyticsEvent } from '@/lib/analytics';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
+import { PatientCombobox } from '@/components/patients/PatientCombobox';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { appointmentsApi, patientsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
+import { appointmentsApi, professionalsApi, proceduresApi, treatmentPackagesApi, ApiError } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { isSlotBlocked, getBusinessHourForDate, type BusinessHour } from '@/lib/business-hours';
 import { RecurrenceConflictDialog, type ConflictItem, type ConflictResolution } from './RecurrenceConflictDialog';
@@ -114,22 +115,15 @@ export function AppointmentFormDialog({
 
   const isEditMode = !!appointment;
 
-  // Edit mode must always load every patient — the appointment's own patient may
-  // be INACTIVE. `includeInactive` state is re-synced by the open effect below,
-  // but the effect runs a render too late to gate the first fetch, so derive the
-  // effective flag here (isEditMode wins immediately).
-  const loadAllPatients = includeInactive || isEditMode;
+  // Edit mode always allows INACTIVE patients in the search — the appointment's
+  // own patient may have been deactivated after it was scheduled.
+  const searchIncludesInactive = includeInactive || isEditMode;
 
-  const { data: patientsData } = useQuery({
-    queryKey: ['patients-select', loadAllPatients],
-    queryFn: () =>
-      patientsApi.list({
-        page: 1,
-        limit: 100,
-        status: loadAllPatients ? undefined : 'ACTIVE',
-      }),
-    enabled: open,
-  });
+  // Paciente vinculado ao valor atual, para o combobox exibir o rótulo mesmo
+  // quando ele não veio de uma busca (edição, ou "Novo paciente").
+  const [selectedPatient, setSelectedPatient] = useState<
+    { id: string; name: string } | null
+  >(appointment?.patient ?? null);
 
   const { data: professionals = [] } = useQuery({
     queryKey: ['professionals'],
@@ -142,23 +136,6 @@ export function AppointmentFormDialog({
     queryFn: proceduresApi.list,
     enabled: open,
   });
-
-  const patients = useMemo(() => patientsData?.data ?? [], [patientsData]);
-
-  // Defense in depth: the required Paciente field must never render blank for a
-  // real appointment. If the edit-mode patient list doesn't include the
-  // appointment's own patient (e.g. it became INACTIVE and the list load raced),
-  // prepend it so a matching <SelectItem> always exists.
-  const patientOptions = useMemo(() => {
-    if (
-      isEditMode &&
-      appointment?.patient &&
-      !patients.some((p) => p.id === appointment.patient!.id)
-    ) {
-      return [appointment.patient as unknown as Patient, ...patients];
-    }
-    return patients;
-  }, [patients, isEditMode, appointment]);
 
   const activeProfessionals = professionals.filter((p) => p.active);
   const activeProcedures = procedures.filter((p) => p.active);
@@ -184,6 +161,7 @@ export function AppointmentFormDialog({
       // loads all patients (the appointment's patient may be INACTIVE), create
       // mode resets to active-only (kills the sticky-checkbox bug across opens).
       setIncludeInactive(isEditMode);
+      setSelectedPatient(isEditMode ? appointment?.patient ?? null : null);
       if (isEditMode && appointment) {
         form.reset({
           patientId: appointment.patientId,
@@ -233,9 +211,10 @@ export function AppointmentFormDialog({
     : activeProcedures;
 
   const handleQuickPatientSuccess = (patient?: Patient) => {
-    queryClient.invalidateQueries({ queryKey: ['patients-select'] });
+    queryClient.invalidateQueries({ queryKey: ['patient-search'] });
     if (patient) {
       form.setValue('patientId', patient.id, { shouldValidate: true });
+      setSelectedPatient(patient);
       setSelectedPackageId('');
       form.setValue('procedureId', '');
     }
@@ -447,27 +426,20 @@ export function AppointmentFormDialog({
                 Novo paciente
               </Button>
             </div>
-            <Select
+            <PatientCombobox
+              id="apt-patient"
               value={form.watch('patientId') || ''}
-              onValueChange={(v) => {
-                form.setValue('patientId', v, { shouldValidate: true });
+              onChange={(id, patient) => {
+                form.setValue('patientId', id, { shouldValidate: true });
+                setSelectedPatient(patient);
                 setSelectedPackageId('');
                 form.setValue('procedureId', '');
               }}
-            >
-              <SelectTrigger
-                id="apt-patient"
-                error={!!form.formState.errors.patientId}
-                aria-describedby={form.formState.errors.patientId ? 'apt-patient-error' : undefined}
-              >
-                <SelectValue placeholder="Selecione um paciente" />
-              </SelectTrigger>
-              <SelectContent>
-                {patientOptions.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              selectedPatient={selectedPatient}
+              includeInactive={searchIncludesInactive}
+              error={!!form.formState.errors.patientId}
+              aria-describedby={form.formState.errors.patientId ? 'apt-patient-error' : undefined}
+            />
             {form.formState.errors.patientId && (
               <p id="apt-patient-error" className="text-sm text-destructive">{form.formState.errors.patientId.message}</p>
             )}
