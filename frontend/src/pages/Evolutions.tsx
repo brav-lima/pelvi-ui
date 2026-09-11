@@ -260,7 +260,10 @@ export default function Evolutions() {
             setDialogOpen(next);
             if (!next) setEditingEvolution(null);
           }}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['evolutions', selectedPatient] })}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['evolutions', selectedPatient] });
+            queryClient.invalidateQueries({ queryKey: ['appointments', 'patient', selectedPatient] });
+          }}
           patientId={selectedPatient}
           evolution={editingEvolution ?? undefined}
         />

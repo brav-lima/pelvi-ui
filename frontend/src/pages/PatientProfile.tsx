@@ -136,6 +136,7 @@ export default function PatientProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patient-evolutions', id] });
       queryClient.invalidateQueries({ queryKey: ['patient-appointments', id] });
+      queryClient.invalidateQueries({ queryKey: ['appointments', 'patient', id] });
       toast.success('Evolução excluída');
     },
     onError: () => toast.error('Erro ao excluir evolução'),
@@ -1145,7 +1146,10 @@ export default function PatientProfile() {
             setEvolutionOpen(next);
             if (!next) setEditingEvolution(null);
           }}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patient-evolutions', id] })}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['patient-evolutions', id] });
+            queryClient.invalidateQueries({ queryKey: ['appointments', 'patient', id] });
+          }}
           patientId={id}
           evolution={editingEvolution ?? undefined}
         />

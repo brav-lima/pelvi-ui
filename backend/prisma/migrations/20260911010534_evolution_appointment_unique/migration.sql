@@ -7,7 +7,7 @@ WHERE "appointment_id" IS NOT NULL
     SELECT DISTINCT ON ("appointment_id") "id"
     FROM "evolutions"
     WHERE "appointment_id" IS NOT NULL
-    ORDER BY "appointment_id", "evolution_date" DESC, "created_at" DESC
+    ORDER BY "appointment_id", "evolution_date" DESC, "created_at" DESC, "id" DESC
   );
 
 -- CreateIndex

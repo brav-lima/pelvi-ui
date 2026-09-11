@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { evolutionsApi, appointmentsApi } from '@/lib/api';
+import { evolutionsApi, appointmentsApi, ApiError } from '@/lib/api';
 import type { Evolution } from '@/types/clinic';
 
 const NO_APPOINTMENT = 'none';
@@ -118,9 +118,10 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
       onSuccess();
       onOpenChange(false);
       form.reset();
-    } catch {
-      toast.error(isEditMode ? 'Erro ao atualizar evolução' : 'Erro ao salvar evolução');
-      setError(isEditMode ? 'Erro ao atualizar evolução. Tente novamente.' : 'Erro ao salvar evolução. Tente novamente.');
+    } catch (err) {
+      const conflictMessage = err instanceof ApiError && err.status === 409 ? err.message : undefined;
+      toast.error(conflictMessage ?? (isEditMode ? 'Erro ao atualizar evolução' : 'Erro ao salvar evolução'));
+      setError(conflictMessage ?? (isEditMode ? 'Erro ao atualizar evolução. Tente novamente.' : 'Erro ao salvar evolução. Tente novamente.'));
     } finally {
       setLoading(false);
     }

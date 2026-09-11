@@ -112,8 +112,12 @@ Gerada com `bunx prisma migrate dev --name evolution_appointment_unique` e depoi
    CREATE UNIQUE INDEX "evolutions_appointment_id_key" ON "evolutions"("appointment_id");
    ```
 
-**Pré-deploy em produção**: rodar o `SELECT` de contagem de duplicatas antes do
-`migrate deploy` para dimensionar o impacto e comunicar, se relevante:
+**Pré-merge em produção**: `backend/docker-entrypoint.sh` roda `prisma migrate
+deploy` automaticamente (via `set -e`) no boot do container quando o Coolify
+sobe a nova imagem — não é um passo manual que alguém executa depois do merge.
+Isso significa que o `SELECT` de contagem de duplicatas abaixo precisa ser
+rodado **antes de dar merge na branch**, para dimensionar o impacto e comunicar,
+se relevante, enquanto ainda há tempo de reagir:
 
 ```sql
 SELECT "appointment_id", COUNT(*)
@@ -124,7 +128,19 @@ HAVING COUNT(*) > 1;
 ```
 
 Aplicação em prod: `NODE_ENV=prod bunx prisma migrate deploy` (fluxo padrão do
-projeto).
+projeto, disparado automaticamente pelo `docker-entrypoint.sh` no boot).
+
+**Recuperação em caso de falha do índice único durante o deploy** (ex.: um
+container antigo, ainda de pé durante um rolling deploy, grava um vínculo
+duplicado depois do `SELECT` de checagem e antes do índice ser criado):
+
+```bash
+bunx prisma migrate resolve --rolled-back 20260911010534_evolution_appointment_unique
+```
+
+Em seguida, execute manualmente o `UPDATE` de dedup desta migration (ver
+`migration.sql`) para remover a duplicata remanescente e faça o deploy
+novamente.
 
 ---
 
