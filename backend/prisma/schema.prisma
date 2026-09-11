@@ -265,7 +265,7 @@ model Appointment {
   professional     OrganizationUser  @relation(fields: [professionalId], references: [id])
   procedure        Procedure         @relation(fields: [procedureId], references: [id])
   treatmentPackage TreatmentPackage? @relation(fields: [treatmentPackageId], references: [id])
-  evolutions       Evolution[]
+  evolution        Evolution?
   financialRecords FinancialRecord[]
 
   @@index([organizationId, startAt, endAt, deletedAt])
@@ -357,7 +357,7 @@ model Evolution {
   organizationId String              @map("organization_id")
   patientId      String              @map("patient_id")
   professionalId String              @map("professional_id")
-  appointmentId  String?             @map("appointment_id")
+  appointmentId  String?             @unique @map("appointment_id")
   description    String
   evolutionDate  DateTime            @default(now()) @map("evolution_date")
   legalBasis     SensitiveLegalBasis @default(HEALTH_PROTECTION) @map("legal_basis")
