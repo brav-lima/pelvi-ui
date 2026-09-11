@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +10,23 @@ import {
   Users,
   Plus,
   Pencil,
+  Trash2,
   TrendingUp,
   Loader2,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useHasRole } from '@/components/auth/RoleGuard';
+import { LinkedAppointmentLine } from '@/components/evolutions/LinkedAppointmentLine';
 import { patientsApi, evolutionsApi } from '@/lib/api';
 import { formatCPFMasked } from '@/lib/formatters';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -42,6 +57,18 @@ export default function Evolutions() {
   });
 
   const patient = patients.find((p) => p.id === selectedPatient);
+
+  const canDelete = useHasRole('ADMIN', 'PROFESSIONAL');
+
+  const deleteMutation = useMutation({
+    mutationFn: (evolutionId: string) => evolutionsApi.remove(evolutionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['evolutions', selectedPatient] });
+      queryClient.invalidateQueries({ queryKey: ['appointments', 'patient', selectedPatient] });
+      toast.success('Evolução excluída');
+    },
+    onError: () => toast.error('Erro ao excluir evolução'),
+  });
 
   const getInitials = (name: string) => {
     return name
@@ -177,15 +204,44 @@ export default function Evolutions() {
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
+                            {canDelete && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label="Excluir evolução"
+                                    className="text-muted-foreground hover:text-destructive transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir evolução?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação não pode ser desfeita. A consulta vinculada, se houver,
+                                      voltará a ficar disponível para outra evolução.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      onClick={() => deleteMutation.mutate(evolution.id)}
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                           </div>
                         </div>
                         <p className="text-sm text-foreground leading-relaxed">
                           {evolution.description}
                         </p>
                         {evolution.appointment && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Atendimento: {format(new Date(evolution.appointment.startAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                          </p>
+                          <LinkedAppointmentLine appointment={evolution.appointment} />
                         )}
                       </div>
                     </div>
