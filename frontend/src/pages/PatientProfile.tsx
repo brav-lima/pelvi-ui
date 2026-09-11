@@ -21,7 +21,9 @@ import { ptBR } from 'date-fns/locale';
 import { PatientFormDialog } from '@/components/patients/PatientFormDialog';
 import { AppointmentFormDialog } from '@/components/appointments/AppointmentFormDialog';
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
+import { LinkedAppointmentLine } from '@/components/evolutions/LinkedAppointmentLine';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
+import { useHasRole } from '@/components/auth/RoleGuard';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment, Evolution } from '@/types/clinic';
 import {
@@ -125,6 +127,18 @@ export default function PatientProfile() {
       toast.success('Avaliação perineal excluída');
     },
     onError: () => toast.error('Erro ao excluir avaliação perineal'),
+  });
+
+  const canDeleteEvolution = useHasRole('ADMIN', 'PROFESSIONAL');
+
+  const deleteEvolutionMutation = useMutation({
+    mutationFn: (evolutionId: string) => evolutionsApi.remove(evolutionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient-evolutions', id] });
+      queryClient.invalidateQueries({ queryKey: ['patient-appointments', id] });
+      toast.success('Evolução excluída');
+    },
+    onError: () => toast.error('Erro ao excluir evolução'),
   });
 
   const { data: patient, isLoading, refetch } = useQuery({
@@ -707,19 +721,55 @@ export default function PatientProfile() {
                               <div className="min-w-0 pb-2">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="text-[13.5px] font-medium text-foreground leading-5">Evolução clínica</div>
-                                  <button
-                                    type="button"
-                                    aria-label="Editar evolução"
-                                    onClick={() => {
-                                      setEditingEvolution(evo);
-                                      setEvolutionOpen(true);
-                                    }}
-                                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="flex shrink-0 items-center gap-1">
+                                    <button
+                                      type="button"
+                                      aria-label="Editar evolução"
+                                      onClick={() => {
+                                        setEditingEvolution(evo);
+                                        setEvolutionOpen(true);
+                                      }}
+                                      className="text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    {canDeleteEvolution && (
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <button
+                                            type="button"
+                                            aria-label="Excluir evolução"
+                                            className="text-muted-foreground hover:text-destructive transition-colors"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Excluir evolução?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Esta ação não pode ser desfeita. A consulta vinculada, se houver,
+                                              voltará a ficar disponível para outra evolução.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction
+                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                              onClick={() => deleteEvolutionMutation.mutate(evo.id)}
+                                            >
+                                              Excluir
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="text-[12.5px] text-muted-foreground mt-0.5 leading-[18px]">{evo.description}</div>
+                                {evo.appointment && (
+                                  <LinkedAppointmentLine appointment={evo.appointment} />
+                                )}
                                 {evo.professional?.person?.name && (
                                   <div className="text-[11.5px] text-muted-foreground/60 mt-1">
                                     por <span className="text-muted-foreground">{evo.professional.person.name}</span>

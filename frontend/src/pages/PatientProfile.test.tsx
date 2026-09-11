@@ -3,6 +3,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { role: 'ADMIN' }, clinic: { id: 'c1' } }),
+}));
+
 vi.mock('@/lib/api', () => ({
   patientsApi: { getById: vi.fn(), update: vi.fn() },
   appointmentsApi: { list: vi.fn() },
