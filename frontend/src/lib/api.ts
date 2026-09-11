@@ -302,6 +302,7 @@ export const evolutionsApi = {
     api.post<Evolution>('/evolutions', data),
   update: (id: string, data: { description?: string; evolutionDate?: string; appointmentId?: string | null }) =>
     api.patch<Evolution>(`/evolutions/${id}`, data),
+  remove: (id: string) => api.delete<void>(`/evolutions/${id}`),
 };
 
 export const treatmentPackagesApi = {

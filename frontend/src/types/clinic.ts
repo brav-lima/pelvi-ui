@@ -146,6 +146,7 @@ export interface Appointment {
   professional?: { id: string; person: { name: string } };
   procedure?: { id: string; name: string; durationMinutes: number; price: number };
   treatmentPackage?: { id: string; name: string };
+  evolution?: { id: string } | null;
 }
 
 export interface AgendaBlock {
@@ -200,7 +201,13 @@ export interface Evolution {
   updatedAt: string;
   patient?: { id: string; name: string };
   professional?: { id: string; person: { name: string } };
-  appointment?: { id: string; startAt: string; status: AppointmentStatus } | null;
+  appointment?: {
+    id: string;
+    startAt: string;
+    endAt: string;
+    status: AppointmentStatus;
+    procedure?: { name: string };
+  } | null;
 }
 
 export type TreatmentPackageStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELED';

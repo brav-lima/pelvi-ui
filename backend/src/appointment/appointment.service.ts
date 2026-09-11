@@ -36,6 +36,7 @@ const appointmentIncludes = {
   },
   procedure: { select: { id: true, name: true, durationMinutes: true, price: true } },
   treatmentPackage: { select: { id: true, name: true } },
+  evolution: { select: { id: true } },
 } as const;
 
 @Injectable()

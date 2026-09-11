@@ -1,5 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { EvolutionService } from './evolution.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -19,6 +25,7 @@ describe('EvolutionService', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
       },
       organizationUser: {
         findUnique: jest.fn(),
@@ -66,6 +73,7 @@ describe('EvolutionService', () => {
     it('deve criar evolução vinculada a um agendamento quando appointmentId informado', async () => {
       prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
       prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      prisma.evolution.findFirst.mockResolvedValue(null);
       prisma.evolution.create.mockResolvedValue({ id: 'evo-1' });
 
       await service.create(orgId, personId, {
@@ -96,6 +104,22 @@ describe('EvolutionService', () => {
           appointmentId: 'apt-de-outro-paciente',
         }),
       ).rejects.toThrow(BadRequestException);
+
+      expect(prisma.evolution.create).not.toHaveBeenCalled();
+    });
+
+    it('deve lançar ConflictException quando a consulta já tem outra evolução', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      prisma.evolution.findFirst.mockResolvedValue({ id: 'evo-existente' });
+
+      await expect(
+        service.create(orgId, personId, {
+          patientId: 'patient-1',
+          description: 'Evolução clínica de teste.',
+          appointmentId: 'apt-1',
+        }),
+      ).rejects.toThrow('Este atendimento já possui uma evolução vinculada');
 
       expect(prisma.evolution.create).not.toHaveBeenCalled();
     });
@@ -170,6 +194,25 @@ describe('EvolutionService', () => {
       ).rejects.toThrow(BadRequestException);
 
       expect(prisma.evolution.create).not.toHaveBeenCalled();
+    });
+
+    it('deve converter erro P2002 do Prisma em ConflictException', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      prisma.evolution.findFirst.mockResolvedValue(null);
+      const p2002 = new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+      prisma.evolution.create.mockRejectedValue(p2002);
+
+      await expect(
+        service.create(orgId, personId, {
+          patientId: 'patient-1',
+          description: 'Evolução clínica de teste.',
+          appointmentId: 'apt-1',
+        }),
+      ).rejects.toThrow('Este atendimento já possui uma evolução vinculada');
     });
   });
 
@@ -266,7 +309,9 @@ describe('EvolutionService', () => {
 
     it('deve vincular a um agendamento do mesmo paciente quando appointmentId informado', async () => {
       const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1' };
-      prisma.evolution.findFirst.mockResolvedValue(existing);
+      prisma.evolution.findFirst
+        .mockResolvedValueOnce(existing) // busca da própria evolução
+        .mockResolvedValueOnce(null); // busca 1:1 não encontra vínculo existente
       prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
       prisma.evolution.update.mockResolvedValue({ ...existing, appointmentId: 'apt-1' });
 
@@ -292,6 +337,55 @@ describe('EvolutionService', () => {
       expect(prisma.evolution.update).not.toHaveBeenCalled();
     });
 
+    it('deve lançar ConflictException quando outra evolução usa a consulta', async () => {
+      const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1' };
+      prisma.evolution.findFirst
+        .mockResolvedValueOnce(existing) // busca da própria evolução
+        .mockResolvedValueOnce({ id: 'outra-evo' }); // busca 1:1
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+
+      await expect(
+        service.update(orgId, 'evo-1', { appointmentId: 'apt-1' }),
+      ).rejects.toThrow('Este atendimento já possui uma evolução vinculada');
+
+      expect(prisma.evolution.update).not.toHaveBeenCalled();
+    });
+
+    it('deve permitir manter a consulta já vinculada à própria evolução', async () => {
+      const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1', appointmentId: 'apt-1' };
+      prisma.evolution.findFirst
+        .mockResolvedValueOnce(existing) // busca da própria evolução
+        .mockResolvedValueOnce(null); // busca 1:1 com NOT: { id: 'evo-1' } não acha nada
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      prisma.evolution.update.mockResolvedValue({ ...existing, appointmentId: 'apt-1' });
+
+      await expect(
+        service.update(orgId, 'evo-1', { appointmentId: 'apt-1' }),
+      ).resolves.toBeDefined();
+
+      expect(prisma.evolution.findFirst).toHaveBeenNthCalledWith(2, {
+        where: { appointmentId: 'apt-1', NOT: { id: 'evo-1' } },
+        select: { id: true },
+      });
+    });
+
+    it('deve converter erro P2002 do Prisma em ConflictException', async () => {
+      const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1' };
+      prisma.evolution.findFirst
+        .mockResolvedValueOnce(existing) // busca da própria evolução
+        .mockResolvedValueOnce(null); // busca 1:1 não encontra vínculo existente
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      const p2002 = new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+      prisma.evolution.update.mockRejectedValue(p2002);
+
+      await expect(
+        service.update(orgId, 'evo-1', { appointmentId: 'apt-1' }),
+      ).rejects.toThrow('Este atendimento já possui uma evolução vinculada');
+    });
+
     it('deve desvincular o agendamento quando appointmentId é null', async () => {
       const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1' };
       prisma.evolution.findFirst.mockResolvedValue(existing);
@@ -303,6 +397,27 @@ describe('EvolutionService', () => {
       expect(prisma.evolution.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { appointmentId: null } }),
       );
+    });
+  });
+
+  describe('remove', () => {
+    it('deve excluir a evolução quando ela existe na org', async () => {
+      prisma.evolution.findFirst.mockResolvedValue({ id: 'evo-1' });
+      prisma.evolution.delete = jest.fn().mockResolvedValue({ id: 'evo-1' });
+
+      await service.remove(orgId, 'evo-1');
+
+      expect(prisma.evolution.delete).toHaveBeenCalledWith({ where: { id: 'evo-1' } });
+    });
+
+    it('deve lançar NotFoundException quando a evolução não existe na org', async () => {
+      prisma.evolution.findFirst.mockResolvedValue(null);
+      prisma.evolution.delete = jest.fn();
+
+      await expect(service.remove(orgId, 'evo-x')).rejects.toThrow(
+        'Evolução não encontrada',
+      );
+      expect(prisma.evolution.delete).not.toHaveBeenCalled();
     });
   });
 });
