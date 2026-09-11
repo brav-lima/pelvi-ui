@@ -293,4 +293,45 @@ describe('EvolutionFormDialog', () => {
       expect(screen.getByLabelText(/atendimento relacionado/i)).toHaveValue('apt-1');
     });
   });
+
+  it('esconde consultas que já possuem evolução', async () => {
+    vi.mocked(appointmentsApi.list).mockResolvedValue([
+      { id: 'apt-livre', startAt: '2026-03-10T13:00:00.000Z', status: 'DONE', evolution: null, procedure: { name: 'Livre' } },
+      { id: 'apt-usada', startAt: '2026-03-11T13:00:00.000Z', status: 'DONE', evolution: { id: 'evo-outra' }, procedure: { name: 'Usada' } },
+    ] as never);
+
+    render(
+      <EvolutionFormDialog open onOpenChange={vi.fn()} onSuccess={vi.fn()} patientId="patient-1" />,
+      { wrapper: makeWrapper() },
+    );
+
+    await screen.findByRole('option', { name: /Livre/i });
+    expect(screen.queryByRole('option', { name: /Usada/i })).not.toBeInTheDocument();
+  });
+
+  it('mantém visível a consulta vinculada à evolução em edição', async () => {
+    vi.mocked(appointmentsApi.list).mockResolvedValue([
+      { id: 'apt-livre', startAt: '2026-03-10T13:00:00.000Z', status: 'DONE', evolution: null, procedure: { name: 'Livre' } },
+      { id: 'apt-usada', startAt: '2026-03-11T13:00:00.000Z', status: 'DONE', evolution: { id: 'evo-outra' }, procedure: { name: 'Usada' } },
+    ] as never);
+    const evolutionWithLinkedAppointment: Evolution = {
+      ...existingEvolution,
+      id: 'evo-outra',
+      evolutionDate: '2026-03-11T00:00:00.000Z',
+      appointment: { id: 'apt-usada', startAt: '2026-03-11T13:00:00.000Z', endAt: '2026-03-11T14:00:00.000Z', status: 'DONE' },
+    };
+
+    render(
+      <EvolutionFormDialog
+        open
+        onOpenChange={vi.fn()}
+        onSuccess={vi.fn()}
+        patientId="patient-1"
+        evolution={evolutionWithLinkedAppointment}
+      />,
+      { wrapper: makeWrapper() },
+    );
+
+    await screen.findByRole('option', { name: /Usada/i });
+  });
 });

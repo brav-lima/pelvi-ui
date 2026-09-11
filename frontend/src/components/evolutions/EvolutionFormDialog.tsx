@@ -163,7 +163,14 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
               <SelectContent>
                 <SelectItem value={NO_APPOINTMENT}>Nenhum atendimento vinculado</SelectItem>
                 {appointments
-                  .filter((apt) => apt.status !== 'CANCELED' || apt.id === appointmentId)
+                  .filter((apt) => {
+                    const linkedId =
+                      evolution?.appointment?.id ?? evolution?.appointmentId ?? null;
+                    if (apt.status === 'CANCELED' && apt.id !== appointmentId) return false;
+                    // consultas com evolução some da lista, exceto a desta evolução
+                    if (apt.evolution && apt.id !== linkedId) return false;
+                    return true;
+                  })
                   .map((apt) => (
                     <SelectItem key={apt.id} value={apt.id}>
                       {format(new Date(apt.startAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -173,7 +180,8 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Selecione a qual atendimento esta evolução se refere, especialmente se ela for registrada depois da sessão.
+              Selecione a qual atendimento esta evolução se refere, especialmente se ela for
+              registrada depois da sessão. Atendimentos que já possuem evolução não aparecem na lista.
             </p>
           </div>
 
