@@ -40,6 +40,14 @@
 - Consumes: nada.
 - Produces: coluna `evolutions.appointment_id` com índice único `evolutions_appointment_id_key`; relação Prisma `Appointment.evolution: Evolution?` e `Evolution.appointmentId` marcado `@unique`.
 
+> **RULING (controlador, 2026-09-10):** não existe banco de ambiente baixo — o
+> `.env.dev` aponta para o Neon de produção. **Nenhum `prisma migrate dev` ou
+> comando que toque o banco** é executado nesta sessão. A migração é criada
+> **à mão** (arquivos apenas) e aplicada em prod na promoção da branch via
+> `NODE_ENV=prod bunx prisma migrate deploy` (feito pelo usuário / Coolify).
+> A suíte backend usa Prisma mockado, então `prisma generate` (offline) basta
+> para os tipos do client.
+
 - [ ] **Step 1: Alterar o schema**
 
 Em `backend/prisma/schema.prisma`, model `Evolution`, trocar a linha do campo:
@@ -60,19 +68,31 @@ por:
   evolution        Evolution?
 ```
 
-- [ ] **Step 2: Validar o schema**
+- [ ] **Step 2: Validar o schema (offline)**
 
 Run: `cd backend && bunx prisma validate`
 Expected: `The schema at prisma/schema.prisma is valid 🚀`
 
-- [ ] **Step 3: Gerar a migração (sem aplicar ainda)**
+- [ ] **Step 3: Obter o SQL do diff sem tocar o banco**
 
-Run: `cd backend && bunx prisma migrate dev --name evolution_appointment_unique --create-only`
-Expected: cria a pasta `backend/prisma/migrations/<timestamp>_evolution_appointment_unique/` com `migration.sql` contendo o `CREATE UNIQUE INDEX`.
+Run:
+```bash
+cd backend && bunx prisma migrate diff \
+  --from-migrations ./prisma/migrations \
+  --to-schema-datamodel ./prisma/schema.prisma \
+  --script
+```
+Expected: imprime o SQL do diff — deve conter **apenas**
+`CREATE UNIQUE INDEX "evolutions_appointment_id_key" ON "evolutions"("appointment_id");`
+(a coluna `appointment_id` já existe; só falta o índice). Guardar essa linha.
+Se o diff trouxer algo além do `CREATE UNIQUE INDEX`, **parar e reportar**
+(DONE_WITH_CONCERNS) — não inventar SQL.
 
-- [ ] **Step 4: Editar o `migration.sql` para desvincular duplicatas antes do índice**
+- [ ] **Step 4: Criar a migração à mão**
 
-Abrir o `migration.sql` gerado e inserir, **antes** do `CREATE UNIQUE INDEX`:
+1. Gerar o timestamp: `date -u +%Y%m%d%H%M%S` (formato Prisma `YYYYMMDDHHMMSS`).
+2. Criar a pasta `backend/prisma/migrations/<timestamp>_evolution_appointment_unique/`.
+3. Criar dentro dela o arquivo `migration.sql` com este conteúdo (o `CREATE UNIQUE INDEX` deve ser exatamente a linha obtida no Step 3):
 
 ```sql
 -- Desvincula evoluções duplicadas na mesma consulta (mantém a mais recente).
@@ -86,37 +106,35 @@ WHERE "appointment_id" IS NOT NULL
     WHERE "appointment_id" IS NOT NULL
     ORDER BY "appointment_id", "evolution_date" DESC, "created_at" DESC
   );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "evolutions_appointment_id_key" ON "evolutions"("appointment_id");
 ```
 
-O arquivo final deve ter o `UPDATE` acima seguido do `CREATE UNIQUE INDEX "evolutions_appointment_id_key" ON "evolutions"("appointment_id");` que o Prisma já gerou.
+Não editar `backend/prisma/migrations/migration_lock.toml` (já existe).
 
-- [ ] **Step 5: Aplicar a migração no banco de dev**
+- [ ] **Step 5: Regenerar o Prisma Client (offline)**
 
-Run: `cd backend && bunx prisma migrate dev`
-Expected: `Your database is now in sync with your schema.` e o Prisma Client é regenerado.
+Run: `cd backend && bunx prisma generate`
+Expected: `Generated Prisma Client` — sem conexão ao banco. Agora os tipos do
+client refletem `Appointment.evolution` e `Evolution.appointmentId @unique`.
 
-- [ ] **Step 6: Verificar manualmente o comportamento do dedup**
+- [ ] **Step 6: Conferir que a migração seria aplicável**
 
 Run:
 ```bash
-cd backend && bunx prisma db execute --stdin <<'SQL'
-INSERT INTO "evolutions" (id, organization_id, patient_id, professional_id, appointment_id, description, evolution_date, created_at, updated_at)
-SELECT gen_random_uuid(), organization_id, patient_id, professional_id, appointment_id, 'dup-check', now() - interval '1 day', now() - interval '1 day', now()
-FROM "evolutions" WHERE appointment_id IS NOT NULL LIMIT 1;
-SQL
+cd backend && bunx prisma migrate diff \
+  --from-migrations ./prisma/migrations \
+  --to-schema-datamodel ./prisma/schema.prisma \
+  --script
 ```
-Se o INSERT acima falhar com `duplicate key value violates unique constraint "evolutions_appointment_id_key"`, a constraint está ativa — comportamento correto. Remover qualquer linha `dup-check` que tenha entrado:
-```bash
-cd backend && bunx prisma db execute --stdin <<'SQL'
-DELETE FROM "evolutions" WHERE description = 'dup-check';
-SQL
-```
-Expected: o INSERT é rejeitado pela constraint OU (se o seed não tiver evolução com consulta) não insere nada — em ambos os casos a constraint existe. `bunx prisma migrate status` deve mostrar a migração como aplicada.
+Expected: agora imprime `-- This is an empty migration.` (ou nenhum statement) —
+prova de que a nova pasta de migração cobre todo o gap entre migrations e schema.
 
 - [ ] **Step 7: Rodar a suíte backend para garantir que nada quebrou com a regeneração do client**
 
 Run: `cd backend && bun run test`
-Expected: PASS (a suíte atual não conhece a nova constraint; deve passar inalterada).
+Expected: PASS (a suíte atual usa Prisma mockado e não conhece a nova constraint; deve passar inalterada).
 
 - [ ] **Step 8: Commit**
 
@@ -127,7 +145,9 @@ feat(evolution): vínculo 1:1 com consulta (unique + migração de dedup)
 
 Adiciona @unique em evolutions.appointment_id. A migração desvincula
 evoluções duplicadas na mesma consulta (mantém a mais recente) sem
-apagá-las, e então cria o índice único.
+apagá-las, e então cria o índice único. Migração criada à mão — será
+aplicada em prod via `prisma migrate deploy` na promoção da branch
+(não há ambiente de dev com banco próprio).
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01BjFm3MnLpUHTiUeLC5K4BW
@@ -1136,15 +1156,13 @@ Expected: sem erros. (Não rodar lint no backend — reescreve o repo inteiro.)
 Run: `cd frontend && bun run build`
 Expected: build conclui sem erros de tipo.
 
-- [ ] **Step 5: Smoke manual (opcional, se o stack local estiver de pé)**
+- [ ] **Step 5: Smoke manual — PULAR nesta sessão**
 
-Com `docker compose up` ou `bun run backend:dev` + `bun run frontend:dev`:
-1. Login como Admin (`11111111111` / `123456`), entrar numa clínica.
-2. Abrir um paciente → aba Evoluções → criar evolução vinculada a uma consulta.
-3. Tentar criar outra evolução: a consulta usada não aparece no seletor.
-4. Ver a linha "Atendimento: … — dd/MM/yyyy às HH:mm" + badge de status na timeline (perfil e página de Evoluções).
-5. Excluir a evolução → confirmar → some da lista; a consulta volta a aparecer no seletor.
-6. Login como Recepcionista (`44444444444`) — botão de excluir não aparece (e, se o módulo não estiver no plano, a aba nem aparece).
+O único banco disponível é o de produção (não há ambiente de dev). Subir o
+backend localmente conectaria e escreveria em prod. **Não fazer smoke manual
+com escrita.** A validação nesta sessão é: suítes automatizadas (Steps 1-2),
+lint (Step 3) e build (Step 4). O smoke funcional fica para o usuário após o
+deploy da branch.
 
 - [ ] **Step 6: Bump de versão**
 
