@@ -25,6 +25,7 @@ describe('EvolutionService', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn(),
       },
       organizationUser: {
         findUnique: jest.fn(),
@@ -396,6 +397,27 @@ describe('EvolutionService', () => {
       expect(prisma.evolution.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { appointmentId: null } }),
       );
+    });
+  });
+
+  describe('remove', () => {
+    it('deve excluir a evolução quando ela existe na org', async () => {
+      prisma.evolution.findFirst.mockResolvedValue({ id: 'evo-1' });
+      prisma.evolution.delete = jest.fn().mockResolvedValue({ id: 'evo-1' });
+
+      await service.remove(orgId, 'evo-1');
+
+      expect(prisma.evolution.delete).toHaveBeenCalledWith({ where: { id: 'evo-1' } });
+    });
+
+    it('deve lançar NotFoundException quando a evolução não existe na org', async () => {
+      prisma.evolution.findFirst.mockResolvedValue(null);
+      prisma.evolution.delete = jest.fn();
+
+      await expect(service.remove(orgId, 'evo-x')).rejects.toThrow(
+        'Evolução não encontrada',
+      );
+      expect(prisma.evolution.delete).not.toHaveBeenCalled();
     });
   });
 });

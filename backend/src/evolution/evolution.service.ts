@@ -139,6 +139,19 @@ export class EvolutionService {
     }
   }
 
+  async remove(organizationId: string, id: string): Promise<void> {
+    const existing = await this.prisma.evolution.findFirst({
+      where: { id, organizationId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Evolução não encontrada');
+    }
+
+    await this.prisma.evolution.delete({ where: { id } });
+  }
+
   private async assertAppointmentAvailable(
     organizationId: string,
     patientId: string,
