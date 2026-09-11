@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -24,7 +25,7 @@ export class EvolutionService {
     }
 
     if (dto.appointmentId) {
-      await this.assertAppointmentBelongsToPatient(
+      await this.assertAppointmentAvailable(
         organizationId,
         dto.patientId,
         dto.appointmentId,
@@ -103,10 +104,11 @@ export class EvolutionService {
     }
 
     if (dto.appointmentId) {
-      await this.assertAppointmentBelongsToPatient(
+      await this.assertAppointmentAvailable(
         organizationId,
         existing.patientId,
         dto.appointmentId,
+        id,
       );
     }
 
@@ -128,10 +130,11 @@ export class EvolutionService {
     });
   }
 
-  private async assertAppointmentBelongsToPatient(
+  private async assertAppointmentAvailable(
     organizationId: string,
     patientId: string,
     appointmentId: string,
+    currentEvolutionId?: string,
   ) {
     const appointment = await this.prisma.appointment.findFirst({
       where: { id: appointmentId, organizationId, patientId, deletedAt: null },
@@ -140,6 +143,20 @@ export class EvolutionService {
 
     if (!appointment) {
       throw new BadRequestException('Agendamento não pertence a este paciente');
+    }
+
+    const linked = await this.prisma.evolution.findFirst({
+      where: {
+        appointmentId,
+        ...(currentEvolutionId && { NOT: { id: currentEvolutionId } }),
+      },
+      select: { id: true },
+    });
+
+    if (linked) {
+      throw new ConflictException(
+        'Este atendimento já possui uma evolução vinculada',
+      );
     }
   }
 
