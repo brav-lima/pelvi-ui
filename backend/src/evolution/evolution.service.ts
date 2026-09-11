@@ -50,7 +50,13 @@ export class EvolutionService {
             include: { person: { select: { id: true, name: true } } },
           },
           appointment: {
-            select: { id: true, startAt: true, status: true },
+            select: {
+              id: true,
+              startAt: true,
+              endAt: true,
+              status: true,
+              procedure: { select: { name: true } },
+            },
           },
         },
       });
@@ -68,7 +74,13 @@ export class EvolutionService {
           include: { person: { select: { id: true, name: true } } },
         },
         appointment: {
-          select: { id: true, startAt: true, status: true },
+          select: {
+            id: true,
+            startAt: true,
+            endAt: true,
+            status: true,
+            procedure: { select: { name: true } },
+          },
         },
       },
     });
@@ -83,7 +95,13 @@ export class EvolutionService {
           include: { person: { select: { id: true, name: true } } },
         },
         appointment: {
-          select: { id: true, startAt: true, status: true },
+          select: {
+            id: true,
+            startAt: true,
+            endAt: true,
+            status: true,
+            procedure: { select: { name: true } },
+          },
         },
       },
     });
@@ -130,7 +148,13 @@ export class EvolutionService {
             include: { person: { select: { id: true, name: true } } },
           },
           appointment: {
-            select: { id: true, startAt: true, status: true },
+            select: {
+              id: true,
+              startAt: true,
+              endAt: true,
+              status: true,
+              procedure: { select: { name: true } },
+            },
           },
         },
       });
