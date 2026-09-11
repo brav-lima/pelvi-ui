@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEvolutionDto } from './dto/create-evolution.dto';
 import { UpdateEvolutionDto } from './dto/update-evolution.dto';
@@ -32,26 +33,30 @@ export class EvolutionService {
       );
     }
 
-    return this.prisma.evolution.create({
-      data: {
-        organizationId,
-        patientId: dto.patientId,
-        professionalId: orgUser.id,
-        appointmentId: dto.appointmentId,
-        description: dto.description,
-        evolutionDate: dto.evolutionDate ? new Date(dto.evolutionDate) : new Date(),
-        ...(dto.legalBasis && { legalBasis: dto.legalBasis }),
-        ...(dto.consentId && { consentId: dto.consentId }),
-      },
-      include: {
-        professional: {
-          include: { person: { select: { id: true, name: true } } },
+    try {
+      return await this.prisma.evolution.create({
+        data: {
+          organizationId,
+          patientId: dto.patientId,
+          professionalId: orgUser.id,
+          appointmentId: dto.appointmentId,
+          description: dto.description,
+          evolutionDate: dto.evolutionDate ? new Date(dto.evolutionDate) : new Date(),
+          ...(dto.legalBasis && { legalBasis: dto.legalBasis }),
+          ...(dto.consentId && { consentId: dto.consentId }),
         },
-        appointment: {
-          select: { id: true, startAt: true, status: true },
+        include: {
+          professional: {
+            include: { person: { select: { id: true, name: true } } },
+          },
+          appointment: {
+            select: { id: true, startAt: true, status: true },
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      this.rethrowAppointmentConflict(error);
+    }
   }
 
   async findByPatient(organizationId: string, patientId: string) {
@@ -112,22 +117,26 @@ export class EvolutionService {
       );
     }
 
-    return this.prisma.evolution.update({
-      where: { id },
-      data: {
-        ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.evolutionDate && { evolutionDate: new Date(dto.evolutionDate) }),
-        ...(dto.appointmentId !== undefined && { appointmentId: dto.appointmentId }),
-      },
-      include: {
-        professional: {
-          include: { person: { select: { id: true, name: true } } },
+    try {
+      return await this.prisma.evolution.update({
+        where: { id },
+        data: {
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.evolutionDate && { evolutionDate: new Date(dto.evolutionDate) }),
+          ...(dto.appointmentId !== undefined && { appointmentId: dto.appointmentId }),
         },
-        appointment: {
-          select: { id: true, startAt: true, status: true },
+        include: {
+          professional: {
+            include: { person: { select: { id: true, name: true } } },
+          },
+          appointment: {
+            select: { id: true, startAt: true, status: true },
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      this.rethrowAppointmentConflict(error);
+    }
   }
 
   private async assertAppointmentAvailable(
@@ -158,6 +167,18 @@ export class EvolutionService {
         'Este atendimento já possui uma evolução vinculada',
       );
     }
+  }
+
+  private rethrowAppointmentConflict(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(
+        'Este atendimento já possui uma evolução vinculada',
+      );
+    }
+    throw error;
   }
 
   private assertNotFutureDate(date: string) {

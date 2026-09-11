@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { EvolutionService } from './evolution.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -193,6 +194,25 @@ describe('EvolutionService', () => {
 
       expect(prisma.evolution.create).not.toHaveBeenCalled();
     });
+
+    it('deve converter erro P2002 do Prisma em ConflictException', async () => {
+      prisma.organizationUser.findUnique.mockResolvedValue(mockOrgUser);
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      prisma.evolution.findFirst.mockResolvedValue(null);
+      const p2002 = new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+      prisma.evolution.create.mockRejectedValue(p2002);
+
+      await expect(
+        service.create(orgId, personId, {
+          patientId: 'patient-1',
+          description: 'Evolução clínica de teste.',
+          appointmentId: 'apt-1',
+        }),
+      ).rejects.toThrow('Este atendimento já possui uma evolução vinculada');
+    });
   });
 
   describe('findByPatient', () => {
@@ -346,6 +366,23 @@ describe('EvolutionService', () => {
         where: { appointmentId: 'apt-1', NOT: { id: 'evo-1' } },
         select: { id: true },
       });
+    });
+
+    it('deve converter erro P2002 do Prisma em ConflictException', async () => {
+      const existing = { id: 'evo-1', organizationId: orgId, patientId: 'patient-1' };
+      prisma.evolution.findFirst
+        .mockResolvedValueOnce(existing) // busca da própria evolução
+        .mockResolvedValueOnce(null); // busca 1:1 não encontra vínculo existente
+      prisma.appointment.findFirst.mockResolvedValue({ id: 'apt-1' });
+      const p2002 = new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+      prisma.evolution.update.mockRejectedValue(p2002);
+
+      await expect(
+        service.update(orgId, 'evo-1', { appointmentId: 'apt-1' }),
+      ).rejects.toThrow('Este atendimento já possui uma evolução vinculada');
     });
 
     it('deve desvincular o agendamento quando appointmentId é null', async () => {
