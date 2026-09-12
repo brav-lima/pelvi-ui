@@ -26,7 +26,14 @@
       "Bash(git add *)",
       "Bash(gh project *)",
       "Bash(python3 -c \"import sys,json; items=json.load\\(sys.stdin\\)['items']; [print\\(i.get\\('number','?'\\), i.get\\('title',''\\), '-', i.get\\('status',''\\)\\) for i in items if '27' in str\\(i.get\\('number',''\\)\\)]\")",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(git branch *)",
+      "Bash(bunx vitest *)",
+      "Bash(bunx eslint *)",
+      "Bash(git stash *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "graft"
+  ]
 }
