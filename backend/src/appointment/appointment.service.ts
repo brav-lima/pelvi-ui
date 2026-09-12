@@ -125,7 +125,7 @@ export class AppointmentService {
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
     ).then(async (created) => {
       await this.invalidateAgendaCache(organizationId);
-      await this.scheduleReminder(created.id, dto.patientId, organizationId, startAt);
+      await this.scheduleReminder(created.id, dto.patientId, created.professionalId, organizationId, startAt);
       return created;
     });
   }
@@ -220,6 +220,15 @@ export class AppointmentService {
         include: appointmentIncludes,
       });
       await this.invalidateAgendaCache(organizationId);
+      if (dto.professionalId !== undefined || dto.patientId !== undefined) {
+        await this.rescheduleReminder(
+          id,
+          updated.patientId,
+          updated.professionalId,
+          organizationId,
+          existing.startAt,
+        );
+      }
       return updated;
     }
 
@@ -253,8 +262,8 @@ export class AppointmentService {
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
     ).then(async (updated) => {
       await this.invalidateAgendaCache(organizationId);
-      if (dto.startAt) {
-        await this.rescheduleReminder(id, existing.patientId, organizationId, startAt);
+      if (dto.startAt || dto.professionalId !== undefined || dto.patientId !== undefined) {
+        await this.rescheduleReminder(id, updated.patientId, updated.professionalId, organizationId, startAt);
       }
       return updated;
     });
@@ -411,7 +420,7 @@ export class AppointmentService {
 
     await this.invalidateAgendaCache(organizationId);
     for (const { apt, startAt } of created) {
-      await this.scheduleReminder(apt.id, apt.patientId, organizationId, startAt);
+      await this.scheduleReminder(apt.id, apt.patientId, apt.professionalId, organizationId, startAt);
     }
     return created.map(({ apt }) => apt);
   }
@@ -483,9 +492,9 @@ export class AppointmentService {
     );
 
     await this.invalidateAgendaCache(organizationId);
-    if (newTime) {
+    if (newTime || dto.professionalId !== undefined || dto.patientId !== undefined) {
       for (const apt of updated) {
-        await this.rescheduleReminder(apt.id, apt.patientId, organizationId, apt.startAt);
+        await this.rescheduleReminder(apt.id, apt.patientId, apt.professionalId, organizationId, apt.startAt);
       }
     }
     return updated;
@@ -515,6 +524,7 @@ export class AppointmentService {
   private async scheduleReminder(
     appointmentId: string,
     patientId: string,
+    professionalId: string,
     organizationId: string,
     startAt: Date,
   ): Promise<void> {
@@ -524,7 +534,7 @@ export class AppointmentService {
     try {
       await this.reminderQueue.add(
         'reminder',
-        { appointmentId, patientId, organizationId, startAt: startAt.toISOString() },
+        { appointmentId, patientId, professionalId, organizationId, startAt: startAt.toISOString() },
         { jobId: `reminder-${appointmentId}`, delay },
       );
     } catch (err) {
@@ -542,11 +552,12 @@ export class AppointmentService {
   private async rescheduleReminder(
     appointmentId: string,
     patientId: string,
+    professionalId: string,
     organizationId: string,
     startAt: Date,
   ): Promise<void> {
     await this.cancelReminder(appointmentId);
-    await this.scheduleReminder(appointmentId, patientId, organizationId, startAt);
+    await this.scheduleReminder(appointmentId, patientId, professionalId, organizationId, startAt);
   }
 
   private async cancelReminder(appointmentId: string): Promise<void> {

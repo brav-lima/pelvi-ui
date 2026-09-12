@@ -29,6 +29,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { VersionModule } from './version/version.module';
 import { DocumentModule } from './document/document.module';
 import { TaskModule } from './task/task.module';
+import { DeviceModule } from './device/device.module';
 import { AccessStatusMiddleware } from './auth/middleware/access-status.middleware';
 
 @Module({
@@ -70,13 +71,17 @@ import { AccessStatusMiddleware } from './auth/middleware/access-status.middlewa
     VersionModule,
     DocumentModule,
     TaskModule,
+    DeviceModule,
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(AccessStatusMiddleware)
-      .exclude({ path: 'api/v1/auth/login', method: RequestMethod.POST })
+      .exclude(
+        { path: 'api/v1/auth/login', method: RequestMethod.POST },
+        { path: 'api/v1/auth/mobile-login', method: RequestMethod.POST },
+      )
       .forRoutes('*')
   }
 }

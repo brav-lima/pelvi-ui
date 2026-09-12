@@ -30,7 +30,7 @@ const redisKey = {
   passwordReset: (token: string) => `pwd-reset:${token}`,
 };
 
-interface IssuedTokens {
+export interface IssuedTokens {
   accessToken: string;
   refreshToken: string;
 }

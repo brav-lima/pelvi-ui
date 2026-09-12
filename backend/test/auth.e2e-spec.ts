@@ -111,6 +111,52 @@ describe('Auth (e2e)', () => {
     });
   });
 
+  // ── POST /api/auth/mobile-login ────────────────────────────────────────────────
+
+  describe('POST /api/auth/mobile-login', () => {
+    it('returns tokens in the body without setting cookies for a single-clinic user', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/mobile-login')
+        .send({ cpf: fixtures.singlePersonCpf, password: E2E_PASSWORD })
+        .expect(200);
+
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.refreshToken).toBeDefined();
+      expect(normalizeCookies(res.headers['set-cookie'])).toHaveLength(0);
+    });
+
+    it('returns preAuthToken + org list for a multi-clinic user, no tokens', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/mobile-login')
+        .send({ cpf: fixtures.multiPersonCpf, password: E2E_PASSWORD })
+        .expect(200);
+
+      expect(res.body.preAuthToken).toBeDefined();
+      expect(res.body.accessToken).toBeFalsy();
+      expect(normalizeCookies(res.headers['set-cookie'])).toHaveLength(0);
+    });
+  });
+
+  // ── POST /api/auth/mobile-select-organization ────────────────────────────────
+
+  describe('POST /api/auth/mobile-select-organization', () => {
+    it('returns tokens in the body after selecting an organization', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/mobile-login')
+        .send({ cpf: fixtures.multiPersonCpf, password: E2E_PASSWORD })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/mobile-select-organization')
+        .send({ preAuthToken: login.body.preAuthToken, organizationId: fixtures.org1Id })
+        .expect(200);
+
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.refreshToken).toBeDefined();
+      expect(normalizeCookies(res.headers['set-cookie'])).toHaveLength(0);
+    });
+  });
+
   // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 
   describe('GET /api/auth/me', () => {
@@ -254,6 +300,23 @@ describe('Auth (e2e)', () => {
         .post('/api/auth/refresh')
         .set('Cookie', refreshCookie)
         .expect(401);
+    });
+
+    it('accepts a refreshToken in the body and returns new tokens in the body (mobile)', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/mobile-login')
+        .send({ cpf: fixtures.singlePersonCpf, password: E2E_PASSWORD })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: login.body.refreshToken })
+        .expect(200);
+
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.refreshToken).toBeDefined();
+      expect(res.body.refreshToken).not.toBe(login.body.refreshToken);
+      expect(normalizeCookies(res.headers['set-cookie'])).toHaveLength(0);
     });
   });
 

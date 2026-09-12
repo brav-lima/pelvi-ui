@@ -126,6 +126,36 @@ export class AuthController {
     return body;
   }
 
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('mobile-login')
+  @ApiOperation({
+    summary: 'Login mobile via CPF + senha',
+    description:
+      'Equivalente a /login, mas para o app mobile: os tokens sempre viajam no corpo da ' +
+      'resposta (nunca em cookie). Se o CPF está vinculado a N clínicas, retorna a lista ' +
+      'de organizações e o app deve chamar /mobile-select-organization.',
+  })
+  @ApiResponse({ status: 200, description: 'Login realizado com sucesso' })
+  @ApiResponse({ status: 401, description: 'CPF ou senha inválidos / nenhuma clínica vinculada' })
+  async mobileLogin(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('mobile-select-organization')
+  @ApiOperation({
+    summary: 'Selecionar organização após login multi-clínica (mobile)',
+    description: 'Equivalente a /select-organization, mas retorna os tokens no corpo da resposta.',
+  })
+  @ApiResponse({ status: 200, description: 'Sessão iniciada com sucesso' })
+  @ApiResponse({ status: 401, description: 'Vínculo inválido ou inativo' })
+  async mobileSelectOrganization(@Body() dto: SelectOrganizationDto) {
+    return this.authService.selectOrganization(dto);
+  }
+
   @ApiBearerAuth()
   @Post('switch-organization')
   @HttpCode(HttpStatus.OK)
@@ -170,6 +200,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Refresh token ausente, inválido, revogado ou expirado' })
   async refresh(
     @CurrentRefreshUser() refreshUser: RefreshUser,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const tokens = await this.authService.rotateRefreshToken(
@@ -177,6 +208,13 @@ export class AuthController {
       refreshUser.organizationId,
       refreshUser.jti,
     );
+
+    const hasRefreshCookie = Boolean(req.cookies?.[REFRESH_COOKIE_NAME]);
+    const isMobile = !hasRefreshCookie && Boolean((req.body as { refreshToken?: string } | undefined)?.refreshToken);
+    if (isMobile) {
+      return tokens;
+    }
+
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { ok: true };
   }
