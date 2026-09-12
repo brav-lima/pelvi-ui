@@ -582,7 +582,8 @@ model DeviceToken {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  person Person @relation(fields: [personId], references: [id])
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
+  @@index([personId])
   @@map("device_tokens")
 }
