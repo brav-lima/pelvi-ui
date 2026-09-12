@@ -6,6 +6,7 @@ import { TOKEN_CLEANUP_QUEUE } from './jobs/token-cleanup.job';
 import { ReminderProcessor } from './processors/reminder.processor';
 import { TokenCleanupProcessor } from './processors/token-cleanup.processor';
 import { SchedulerService } from './scheduler.service';
+import { DeviceModule } from '../device/device.module';
 
 const isTest = process.env.NODE_ENV === 'test';
 
@@ -23,6 +24,7 @@ const isTest = process.env.NODE_ENV === 'test';
     }),
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
     BullModule.registerQueue({ name: TOKEN_CLEANUP_QUEUE }),
+    DeviceModule,
   ],
   providers: isTest ? [] : [ReminderProcessor, TokenCleanupProcessor, SchedulerService],
   exports: [BullModule],
