@@ -105,6 +105,7 @@ model Person {
 
   organizationUsers OrganizationUser[]
   refreshTokens     RefreshToken[]
+  deviceTokens      DeviceToken[]
 
   @@map("persons")
 }
@@ -562,4 +563,26 @@ model Task {
   assignedTo   OrganizationUser @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
 
   @@map("tasks")
+}
+
+// ──────────────────────────────────────────────
+// DeviceToken — token de push (Expo) por dispositivo mobile
+// ──────────────────────────────────────────────
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
+model DeviceToken {
+  id            String         @id @default(uuid())
+  personId      String         @map("person_id")
+  expoPushToken String         @unique @map("expo_push_token")
+  platform      DevicePlatform
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@map("device_tokens")
 }
