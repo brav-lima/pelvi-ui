@@ -220,6 +220,15 @@ export class AppointmentService {
         include: appointmentIncludes,
       });
       await this.invalidateAgendaCache(organizationId);
+      if (dto.professionalId !== undefined || dto.patientId !== undefined) {
+        await this.rescheduleReminder(
+          id,
+          updated.patientId,
+          updated.professionalId,
+          organizationId,
+          existing.startAt,
+        );
+      }
       return updated;
     }
 
@@ -253,8 +262,8 @@ export class AppointmentService {
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
     ).then(async (updated) => {
       await this.invalidateAgendaCache(organizationId);
-      if (dto.startAt) {
-        await this.rescheduleReminder(id, existing.patientId, professionalId, organizationId, startAt);
+      if (dto.startAt || dto.professionalId !== undefined || dto.patientId !== undefined) {
+        await this.rescheduleReminder(id, updated.patientId, updated.professionalId, organizationId, startAt);
       }
       return updated;
     });
@@ -483,7 +492,7 @@ export class AppointmentService {
     );
 
     await this.invalidateAgendaCache(organizationId);
-    if (newTime) {
+    if (newTime || dto.professionalId !== undefined || dto.patientId !== undefined) {
       for (const apt of updated) {
         await this.rescheduleReminder(apt.id, apt.patientId, apt.professionalId, organizationId, apt.startAt);
       }

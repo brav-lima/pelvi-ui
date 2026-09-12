@@ -50,7 +50,7 @@ export class AccessStatusMiddleware implements NestMiddleware {
 
   private isLoginPath(req: Request): boolean {
     const path = (req.originalUrl ?? req.url ?? '').split('?')[0]
-    return /\/auth\/login$/.test(path)
+    return /\/auth\/(mobile-)?login$/.test(path)
   }
 
   // Cache do accessStatus (TTL 60s) evita uma query por request; bloqueio de

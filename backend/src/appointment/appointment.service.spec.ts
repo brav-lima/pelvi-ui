@@ -524,6 +524,32 @@ describe('AppointmentService', () => {
       // endAt = 11:00 + 45min = 11:45
       expect(updateCall.data.endAt).toEqual(new Date('2025-06-15T11:45:00Z'));
     });
+
+    it('reagenda o lembrete do BullMQ com o novo profissional ao reatribuir sem mudar horário (early-return path)', async () => {
+      const futureStart = new Date(Date.now() + 3 * 60 * 60 * 1000);
+      const existing = {
+        id: 'apt-1',
+        organizationId: orgId,
+        startAt: futureStart,
+        endAt: new Date(futureStart.getTime() + 60 * 60 * 1000),
+        procedureId: 'proc-1',
+        professionalId: 'prof-1',
+        patientId: 'patient-1',
+      };
+      prisma.appointment.findFirst.mockResolvedValue(existing);
+      prisma.appointment.update.mockResolvedValue({
+        ...existing,
+        professionalId: 'prof-2',
+      });
+
+      await service.update(orgId, 'apt-1', { professionalId: 'prof-2' });
+
+      expect(reminderQueue.add).toHaveBeenCalledWith(
+        'reminder',
+        expect.objectContaining({ professionalId: 'prof-2' }),
+        expect.any(Object),
+      );
+    });
   });
 
   describe('remove', () => {

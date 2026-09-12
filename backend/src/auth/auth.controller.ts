@@ -209,7 +209,8 @@ export class AuthController {
       refreshUser.jti,
     );
 
-    const isMobile = Boolean((req.body as { refreshToken?: string } | undefined)?.refreshToken);
+    const hasRefreshCookie = Boolean(req.cookies?.[REFRESH_COOKIE_NAME]);
+    const isMobile = !hasRefreshCookie && Boolean((req.body as { refreshToken?: string } | undefined)?.refreshToken);
     if (isMobile) {
       return tokens;
     }

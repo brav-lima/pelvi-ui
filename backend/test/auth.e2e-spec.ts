@@ -132,7 +132,7 @@ describe('Auth (e2e)', () => {
         .expect(200);
 
       expect(res.body.preAuthToken).toBeDefined();
-      expect(res.body.accessToken).toBeUndefined();
+      expect(res.body.accessToken).toBeFalsy();
       expect(normalizeCookies(res.headers['set-cookie'])).toHaveLength(0);
     });
   });

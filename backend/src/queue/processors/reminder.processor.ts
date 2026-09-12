@@ -25,7 +25,7 @@ export class ReminderProcessor extends WorkerHost {
         `Reminder: appointment=${appointmentId} patient=${patientId} org=${organizationId} startAt=${startAt}`,
       );
 
-      await this.sendPushReminder(professionalId, patientId, startAt);
+      await this.sendPushReminder(appointmentId, professionalId, patientId, startAt);
 
       // TODO: adicionar outros canais quando disponíveis:
       // - WhatsApp
@@ -43,6 +43,7 @@ export class ReminderProcessor extends WorkerHost {
   }
 
   private async sendPushReminder(
+    appointmentId: string,
     professionalId: string,
     patientId: string,
     startAt: string,
@@ -85,6 +86,7 @@ export class ReminderProcessor extends WorkerHost {
         category: 'queue',
         message: 'push reminder send failed',
         level: 'warning',
+        data: { appointmentId },
       });
       Sentry.captureException(err);
       // best-effort: não relança — falha de push não deve reprocessar o job

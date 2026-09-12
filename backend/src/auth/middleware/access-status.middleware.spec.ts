@@ -67,6 +67,20 @@ describe('AccessStatusMiddleware', () => {
     expect(prisma.organization.findUnique).not.toHaveBeenCalled();
   });
 
+  it('pula checagem no POST /api/v1/auth/mobile-login mesmo com header stale de org bloqueada', async () => {
+    prisma.organization.findUnique.mockResolvedValue({ accessStatus: 'BLOCKED' });
+
+    await middleware.use(
+      makeReq({ method: 'POST', originalUrl: '/api/v1/auth/mobile-login' } as Partial<Request>),
+      res,
+      next,
+    );
+
+    expect(next).toHaveBeenCalled();
+    expect(jwt.verify).not.toHaveBeenCalled();
+    expect(prisma.organization.findUnique).not.toHaveBeenCalled();
+  });
+
   it('usa cache do Redis sem consultar o banco (cache hit)', async () => {
     redis.get.mockResolvedValue('BLOCKED');
 
