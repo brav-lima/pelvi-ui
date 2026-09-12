@@ -200,6 +200,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Refresh token ausente, inválido, revogado ou expirado' })
   async refresh(
     @CurrentRefreshUser() refreshUser: RefreshUser,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const tokens = await this.authService.rotateRefreshToken(
@@ -207,6 +208,12 @@ export class AuthController {
       refreshUser.organizationId,
       refreshUser.jti,
     );
+
+    const isMobile = Boolean((req.body as { refreshToken?: string } | undefined)?.refreshToken);
+    if (isMobile) {
+      return tokens;
+    }
+
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
     return { ok: true };
   }

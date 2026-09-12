@@ -301,6 +301,23 @@ describe('Auth (e2e)', () => {
         .set('Cookie', refreshCookie)
         .expect(401);
     });
+
+    it('accepts a refreshToken in the body and returns new tokens in the body (mobile)', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/mobile-login')
+        .send({ cpf: fixtures.singlePersonCpf, password: E2E_PASSWORD })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: login.body.refreshToken })
+        .expect(200);
+
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.refreshToken).toBeDefined();
+      expect(res.body.refreshToken).not.toBe(login.body.refreshToken);
+      expect(normalizeCookies(res.headers['set-cookie'])).toHaveLength(0);
+    });
   });
 
   // ── POST /api/auth/logout ─────────────────────────────────────────────────────
