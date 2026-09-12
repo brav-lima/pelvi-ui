@@ -225,6 +225,27 @@ describe('AppointmentService', () => {
       });
     });
 
+    it('inclui professionalId no payload do job de lembrete', async () => {
+      prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
+      prisma.appointment.findFirst.mockResolvedValue(null);
+      prisma.appointment.create.mockResolvedValue({ id: 'apt-1', professionalId: 'prof-1' });
+
+      const futureStart = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+
+      await service.create(orgId, {
+        patientId: 'patient-1',
+        professionalId: 'prof-1',
+        procedureId: 'proc-1',
+        startAt: futureStart,
+      });
+
+      expect(reminderQueue.add).toHaveBeenCalledWith(
+        'reminder',
+        expect.objectContaining({ professionalId: 'prof-1' }),
+        expect.any(Object),
+      );
+    });
+
     it('retries on a Prisma P2034 serialization conflict and succeeds once it clears', async () => {
       prisma.procedure.findFirst.mockResolvedValue(mockProcedure);
       prisma.appointment.findFirst.mockResolvedValue(null);
