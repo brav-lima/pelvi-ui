@@ -519,11 +519,13 @@ $transaction: jest.fn((ops) => Promise.all(ops))
 
 **PR flow (current)**: while `staging` is inactive, PRs target `main` directly. When staging is reactivated, restore the PR → `staging` → `main` flow.
 
+> ⚠️ Because there is no staging environment, merging a PR to `main` is the moment a schema migration goes live: Coolify's deploy of `pelvi-api` runs `prisma migrate deploy` automatically on container start (see "Database (Neon)" below). Review migration SQL in the PR diff with that in mind — there is no later gate before it hits prod.
+
 ---
 
 ## Project Management (Linear)
 
-Work is tracked in Linear, team **SouPelvi** (key `SOU`), project **Pelvi Core**. Issue identifiers look like `SOU-5`.
+Work is tracked in Linear, team **SouPelvi** (key `SOU`), project **Sistema** (this repo — pelvi-ui; the team's other projects are **Admin** for pelvi-admin and **Landing Page** for the marketing site). Issue identifiers look like `SOU-5`.
 
 **Commit convention — required for Linear's GitHub integration to auto-link work:**
 
@@ -544,6 +546,7 @@ Two services deployed from the same monorepo on a VPS using Coolify. Currently o
 - **Root directory**: `backend`
 - **Builder**: Dockerfile (`backend/Dockerfile`)
 - **Env vars**: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_API_KEY`, `CORS_ORIGIN`, `PORT`
+- **Startup**: `backend/docker-entrypoint.sh` runs `prisma migrate deploy` before starting the server — every deploy applies pending migrations straight to prod (no staging gate; see "Database (Neon)" below)
 
 ### Frontend (`pelvi-web`)
 - **Root directory**: `frontend`
@@ -560,11 +563,15 @@ Nginx writes startup notices to stderr. Coolify may tag stderr as `error` — th
 
 ## Database (Neon)
 
+> ⚠️ **There is no separate dev/staging database.** `backend/.env.dev` points at the same single Neon `prod` branch used by the live app — there is no lower environment to isolate local work. Every `bunx prisma migrate dev` run locally applies its migration directly to production data. There is no dry-run or safety net: treat every local migration as a prod change, double-check the generated SQL before letting `migrate dev` apply it, and prefer additive/reversible DDL (new nullable columns, `CREATE INDEX`, no destructive drops). For anything long-running or lock-heavy (e.g. an index on a large table), add `CONCURRENTLY` by hand and apply it manually rather than trusting `migrate dev`'s default DDL.
+>
+> **Migrations also run unattended on every deploy.** `backend/docker-entrypoint.sh` runs `prisma migrate deploy` on container start, before the server boots — so merging to `main` triggers Coolify to rebuild `pelvi-api` and apply any pending migration straight to prod with no manual approval step and no staging gate (see "Git Workflow" above). A broken or long-running migration blocks the API from starting.
+
 - **Provider**: Neon (serverless PostgreSQL) — free tier
-- **Branching**: Single `prod` branch in use. Neon branch-per-environment model is not actively used (no staging env running).
-- **Migration path under consideration**: Moving the database to a self-hosted PostgreSQL on a second VPS to improve performance and eliminate free tier constraints.
-- **Env files**: `backend/.env.dev` (local dev, not committed). Use `backend/.env.test.example` as template for test env. Production env vars are injected by Coolify — no `.env.prod` file needed.
-- Migrations: `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod (from `backend/`)
+- **Branching**: Single `prod` branch in use. Neon branch-per-environment model is not actively used (no staging env running) — this is the root cause of the hazard above, not just a deployment detail.
+- **Migration path under consideration**: Moving the database to a self-hosted PostgreSQL on a second VPS to improve performance and eliminate free tier constraints. A proper dev/staging branch or database should be part of that migration — flag it if scoping that work.
+- **Env files**: `backend/.env.dev` (local dev, not committed) — currently the same Neon `prod` URL as production, per the warning above. Use `backend/.env.test.example` as template for test env (a real, separate test DB is required for e2e — see Testing (Backend) → E2E Tests). Production env vars are injected by Coolify — no `.env.prod` file needed.
+- Migrations: `bunx prisma migrate dev` for dev, `NODE_ENV=prod bunx prisma migrate deploy` for prod (from `backend/`) — both currently hit the same database; see warning above.
 
 ### Seed Data
 
