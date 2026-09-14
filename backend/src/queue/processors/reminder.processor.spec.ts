@@ -86,6 +86,15 @@ describe('ReminderProcessor', () => {
     expect(Sentry.captureException).toHaveBeenCalledWith(expect.any(Error));
   });
 
+  it('ignora o job sem relançar quando o payload está incompleto (ex.: job antigo pré-migração de schema)', async () => {
+    const job = makeJob({ ...baseData, professionalId: undefined as unknown as string });
+
+    await expect(processor.process(job)).resolves.toBeUndefined();
+
+    expect(prisma.organizationUser.findUnique).not.toHaveBeenCalled();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
   it('captura exceção no Sentry e relança quando o processamento falha por outro motivo', async () => {
     const job = makeJob(baseData);
 
