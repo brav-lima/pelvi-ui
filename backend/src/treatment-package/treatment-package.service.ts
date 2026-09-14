@@ -76,45 +76,43 @@ export class TreatmentPackageService {
         }
 
         const total = dto.customInstallments.length;
-        for (let i = 0; i < total; i++) {
-          const inst = dto.customInstallments[i];
-          await tx.financialRecord.create({
-            data: {
-              organizationId,
-              patientId: dto.patientId,
-              treatmentPackageId: pkg.id,
-              amount: inst.amount,
-              type: FinancialType.INCOME,
-              paymentMethod: inst.paymentMethod ?? dto.paymentMethod,
-              description:
-                total === 1
-                  ? `Pacote: ${dto.name}`
-                  : `Pacote: ${dto.name} (Parcela ${i + 1}/${total})`,
-              dueDate: new Date(inst.dueDate),
-              installment: total > 1 ? i + 1 : undefined,
-              installmentTotal: total > 1 ? total : undefined,
-            },
-          });
-        }
+        const records: Prisma.FinancialRecordCreateManyInput[] = dto.customInstallments.map(
+          (inst, i) => ({
+            organizationId,
+            patientId: dto.patientId,
+            treatmentPackageId: pkg.id,
+            amount: inst.amount,
+            type: FinancialType.INCOME,
+            paymentMethod: inst.paymentMethod ?? dto.paymentMethod,
+            description:
+              total === 1
+                ? `Pacote: ${dto.name}`
+                : `Pacote: ${dto.name} (Parcela ${i + 1}/${total})`,
+            dueDate: new Date(inst.dueDate),
+            installment: total > 1 ? i + 1 : undefined,
+            installmentTotal: total > 1 ? total : undefined,
+          }),
+        );
+
+        await tx.financialRecord.createMany({ data: records });
       } else {
         // Fixed mode: equal installments with optional down payment
         const downPaymentAmt = dto.downPayment ?? 0;
         const hasDownPayment = downPaymentAmt > 0;
+        const records: Prisma.FinancialRecordCreateManyInput[] = [];
 
         if (hasDownPayment) {
-          await tx.financialRecord.create({
-            data: {
-              organizationId,
-              patientId: dto.patientId,
-              treatmentPackageId: pkg.id,
-              amount: downPaymentAmt,
-              type: FinancialType.INCOME,
-              paymentMethod: dto.paymentMethod,
-              description: `Pacote: ${dto.name} (Entrada)`,
-              dueDate: dto.downPaymentDueDate
-                ? new Date(dto.downPaymentDueDate)
-                : new Date(),
-            },
+          records.push({
+            organizationId,
+            patientId: dto.patientId,
+            treatmentPackageId: pkg.id,
+            amount: downPaymentAmt,
+            type: FinancialType.INCOME,
+            paymentMethod: dto.paymentMethod,
+            description: `Pacote: ${dto.name} (Entrada)`,
+            dueDate: dto.downPaymentDueDate
+              ? new Date(dto.downPaymentDueDate)
+              : new Date(),
           });
         }
 
@@ -123,17 +121,15 @@ export class TreatmentPackageService {
           : dto.totalPrice;
 
         if (installments <= 1 && !hasDownPayment) {
-          await tx.financialRecord.create({
-            data: {
-              organizationId,
-              patientId: dto.patientId,
-              treatmentPackageId: pkg.id,
-              amount: dto.totalPrice,
-              type: FinancialType.INCOME,
-              paymentMethod: dto.paymentMethod,
-              description: `Pacote: ${dto.name}`,
-              dueDate: firstDueDate,
-            },
+          records.push({
+            organizationId,
+            patientId: dto.patientId,
+            treatmentPackageId: pkg.id,
+            amount: dto.totalPrice,
+            type: FinancialType.INCOME,
+            paymentMethod: dto.paymentMethod,
+            description: `Pacote: ${dto.name}`,
+            dueDate: firstDueDate,
           });
         } else if (remainingAmount > 0) {
           const baseAmount =
@@ -156,25 +152,25 @@ export class TreatmentPackageService {
             const amount = isLast ? baseAmount + remainder : baseAmount;
             const label = labelStart + i;
 
-            await tx.financialRecord.create({
-              data: {
-                organizationId,
-                patientId: dto.patientId,
-                treatmentPackageId: pkg.id,
-                amount,
-                type: FinancialType.INCOME,
-                paymentMethod: dto.paymentMethod,
-                description:
-                  installments === 1 && !hasDownPayment
-                    ? `Pacote: ${dto.name}`
-                    : `Pacote: ${dto.name} (Parcela ${label}/${labelTotal})`,
-                dueDate,
-                installment: label,
-                installmentTotal: labelTotal,
-              },
+            records.push({
+              organizationId,
+              patientId: dto.patientId,
+              treatmentPackageId: pkg.id,
+              amount,
+              type: FinancialType.INCOME,
+              paymentMethod: dto.paymentMethod,
+              description:
+                installments === 1 && !hasDownPayment
+                  ? `Pacote: ${dto.name}`
+                  : `Pacote: ${dto.name} (Parcela ${label}/${labelTotal})`,
+              dueDate,
+              installment: label,
+              installmentTotal: labelTotal,
             });
           }
         }
+
+        await tx.financialRecord.createMany({ data: records });
       }
 
       // 4. Return with includes

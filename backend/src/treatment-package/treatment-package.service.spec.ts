@@ -42,7 +42,7 @@ describe('TreatmentPackageService', () => {
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       financialRecord: {
-        create: jest.fn().mockResolvedValue({ id: 'fin-1' }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
 
@@ -108,8 +108,9 @@ describe('TreatmentPackageService', () => {
           data: [{ treatmentPackageId: mockPkg.id, procedureId: 'proc-1' }],
         }),
       );
-      // Pagamento único — create chamado 1x
-      expect(txMock.financialRecord.create).toHaveBeenCalledTimes(1);
+      // Pagamento único — 1 registro no createMany
+      expect(txMock.financialRecord.createMany).toHaveBeenCalledTimes(1);
+      expect(txMock.financialRecord.createMany.mock.calls[0][0].data).toHaveLength(1);
     });
 
     it('deve criar N registros financeiros quando installments > 1', async () => {
@@ -117,7 +118,8 @@ describe('TreatmentPackageService', () => {
 
       await service.create(orgId, { ...baseDto, installments: 3, totalPrice: 300 });
 
-      expect(txMock.financialRecord.create).toHaveBeenCalledTimes(3);
+      expect(txMock.financialRecord.createMany).toHaveBeenCalledTimes(1);
+      expect(txMock.financialRecord.createMany.mock.calls[0][0].data).toHaveLength(3);
     });
 
     it('deve distribuir corretamente o resto na última parcela', async () => {
@@ -126,10 +128,10 @@ describe('TreatmentPackageService', () => {
       // R$100 em 3 parcelas: 33.33 + 33.33 + 33.34
       await service.create(orgId, { ...baseDto, installments: 3, totalPrice: 100 });
 
-      const calls = txMock.financialRecord.create.mock.calls;
-      expect(calls[0][0].data.amount).toBeCloseTo(33.33, 2);
-      expect(calls[1][0].data.amount).toBeCloseTo(33.33, 2);
-      expect(calls[2][0].data.amount).toBeCloseTo(33.34, 2);
+      const records = txMock.financialRecord.createMany.mock.calls[0][0].data;
+      expect(records[0].amount).toBeCloseTo(33.33, 2);
+      expect(records[1].amount).toBeCloseTo(33.33, 2);
+      expect(records[2].amount).toBeCloseTo(33.34, 2);
     });
 
     it('deve formatar a descrição de cada parcela', async () => {
@@ -137,9 +139,9 @@ describe('TreatmentPackageService', () => {
 
       await service.create(orgId, { ...baseDto, installments: 2 });
 
-      const calls = txMock.financialRecord.create.mock.calls;
-      expect(calls[0][0].data.description).toContain('Parcela 1/2');
-      expect(calls[1][0].data.description).toContain('Parcela 2/2');
+      const records = txMock.financialRecord.createMany.mock.calls[0][0].data;
+      expect(records[0].description).toContain('Parcela 1/2');
+      expect(records[1].description).toContain('Parcela 2/2');
     });
   });
 

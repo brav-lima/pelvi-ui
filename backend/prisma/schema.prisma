@@ -439,6 +439,7 @@ model FinancialRecord {
 
   @@index([organizationId, createdAt, deletedAt])
   @@index([organizationId, status, type, deletedAt])
+  @@index([organizationId, dueDate, deletedAt])
   @@map("financial_records")
 }
 
