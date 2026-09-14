@@ -20,6 +20,13 @@ export class ReminderProcessor extends WorkerHost {
   async process(job: Job<ReminderJobData>): Promise<void> {
     const { appointmentId, patientId, organizationId, professionalId, startAt } = job.data;
 
+    if (!appointmentId || !patientId || !organizationId || !professionalId || !startAt) {
+      this.logger.warn(
+        `Reminder job com payload incompleto (provavelmente enfileirado antes de um formato de dado mais novo), ignorando: ${JSON.stringify(job.data)}`,
+      );
+      return;
+    }
+
     try {
       this.logger.log(
         `Reminder: appointment=${appointmentId} patient=${patientId} org=${organizationId} startAt=${startAt}`,
