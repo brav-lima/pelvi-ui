@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -140,12 +140,12 @@ export function EvolutionFormDialog({ open, onOpenChange, onSuccess, patientId, 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="evolutionDate">Data da evolução *</Label>
-            <Input
+            <DatePicker
               id="evolutionDate"
-              type="date"
-              max={format(new Date(), 'yyyy-MM-dd')}
+              value={form.watch('evolutionDate') || undefined}
+              onChange={(value) => form.setValue('evolutionDate', value, { shouldValidate: true })}
+              maxDate={new Date()}
               error={!!form.formState.errors.evolutionDate}
-              {...form.register('evolutionDate')}
             />
             {form.formState.errors.evolutionDate && (
               <p className="text-sm text-destructive">{form.formState.errors.evolutionDate.message}</p>
