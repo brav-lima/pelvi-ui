@@ -11,7 +11,7 @@ Sentry.init({
   environment: import.meta.env.MODE,
   integrations: [
     browserTracingIntegration(),
-    replayIntegration({ maskAllText: false, blockAllMedia: false }),
+    replayIntegration({ maskAllText: true, blockAllMedia: true }),
   ],
   tracesSampleRate: 0.1,
   replaysSessionSampleRate: 0.1,
