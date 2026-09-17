@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -316,10 +317,10 @@ export function FinancialFormDialog({ open, onOpenChange, onSuccess }: Financial
               <Label htmlFor="dueDate">
                 {isInstallment ? '1º Vencimento' : 'Vencimento'}
               </Label>
-              <Input
+              <DatePicker
                 id="dueDate"
-                type="date"
-                {...form.register('dueDate')}
+                value={watchDueDate || undefined}
+                onChange={(value) => form.setValue('dueDate', value)}
               />
             </div>
 

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -204,7 +205,11 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, mode
             {mode !== 'quick' && (
               <div className="space-y-2">
                 <Label htmlFor="birthDate">Data de Nascimento</Label>
-                <Input id="birthDate" type="date" {...form.register('birthDate')} />
+                <DatePicker
+                  id="birthDate"
+                  value={form.watch('birthDate') || undefined}
+                  onChange={(value) => form.setValue('birthDate', value)}
+                />
               </div>
             )}
           </div>

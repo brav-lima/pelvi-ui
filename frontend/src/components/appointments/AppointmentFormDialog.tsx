@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -536,12 +537,11 @@ export function AppointmentFormDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date">Data *</Label>
-              <Input
+              <DatePicker
                 id="date"
-                type="date"
+                value={form.watch('date') || undefined}
+                onChange={(value) => form.setValue('date', value, { shouldValidate: true })}
                 error={!!form.formState.errors.date}
-                aria-describedby={form.formState.errors.date ? 'date-error' : undefined}
-                {...form.register('date')}
               />
               {form.formState.errors.date && (
                 <p id="date-error" className="text-sm text-destructive">{form.formState.errors.date.message}</p>

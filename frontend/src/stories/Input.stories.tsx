@@ -89,10 +89,6 @@ export const Types: Story = {
         <Input id="password" type="password" autoComplete="current-password" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="date">Data</Label>
-        <Input id="date" type="date" />
-      </div>
-      <div className="space-y-2">
         <Label htmlFor="search">Buscar</Label>
         <Input id="search" type="search" placeholder="Buscar paciente..." />
       </div>

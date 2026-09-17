@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -446,11 +447,11 @@ export function TreatmentPackageFormDialog({
 
                 <div className="space-y-2">
                   <Label htmlFor="downPaymentDueDate">Vencimento Entrada</Label>
-                  <Input
+                  <DatePicker
                     id="downPaymentDueDate"
-                    type="date"
                     disabled={!hasDownPayment}
-                    {...form.register('downPaymentDueDate')}
+                    value={form.watch('downPaymentDueDate') || undefined}
+                    onChange={(value) => form.setValue('downPaymentDueDate', value)}
                   />
                 </div>
               </div>
@@ -463,7 +464,11 @@ export function TreatmentPackageFormDialog({
                       : '1º Vencimento'
                     : 'Vencimento'}
                 </Label>
-                <Input id="dueDate" type="date" {...form.register('dueDate')} />
+                <DatePicker
+                  id="dueDate"
+                  value={form.watch('dueDate') || undefined}
+                  onChange={(value) => form.setValue('dueDate', value)}
+                />
               </div>
 
               {/* Fixed preview */}
@@ -535,9 +540,11 @@ export function TreatmentPackageFormDialog({
                       {idx === 0 && (
                         <span className="text-xs text-muted-foreground">Vencimento</span>
                       )}
-                      <Input
-                        type="date"
-                        {...form.register(`customInstallments.${idx}.dueDate`)}
+                      <DatePicker
+                        value={form.watch(`customInstallments.${idx}.dueDate`) || undefined}
+                        onChange={(value) =>
+                          form.setValue(`customInstallments.${idx}.dueDate`, value)
+                        }
                       />
                     </div>
 

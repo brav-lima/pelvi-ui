@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
@@ -181,7 +182,11 @@ export function TaskFormDialog({ open, onOpenChange, task, onSuccess }: TaskForm
 
             <div className="space-y-1.5">
               <Label htmlFor="dueDate">Prazo</Label>
-              <Input id="dueDate" type="date" {...register('dueDate')} />
+              <DatePicker
+                id="dueDate"
+                value={watch('dueDate') || undefined}
+                onChange={(value) => setValue('dueDate', value)}
+              />
             </div>
           </div>
 

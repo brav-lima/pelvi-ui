@@ -44,6 +44,21 @@ vi.mock('@/components/ui/input', () => ({
   ),
 }));
 
+// Stubbed as a native date input: the DatePicker's own calendar/popover
+// behavior is covered by date-picker.test.tsx; here we only need a simple
+// way to drive the "evolutionDate" field value.
+vi.mock('@/components/ui/date-picker', () => ({
+  DatePicker: ({
+    id,
+    value,
+    onChange,
+  }: {
+    id?: string;
+    value?: string;
+    onChange: (value: string) => void;
+  }) => <input id={id} type="date" value={value ?? ''} onChange={(e) => onChange(e.target.value)} />,
+}));
+
 vi.mock('@/components/ui/label', () => ({
   Label: ({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) => (
     <label htmlFor={htmlFor}>{children}</label>
