@@ -26,6 +26,20 @@ describe('DatePicker', () => {
     await waitFor(() => expect(screen.queryByRole('grid')).not.toBeInTheDocument());
   });
 
+  it('permite pular para outro mês/ano escolhendo nos seletores da competência, em vez de clicar em avançar/voltar repetidamente', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<DatePicker value="2026-03-05" onChange={onChange} />);
+
+    await user.click(screen.getByRole('button', { name: '05/03/2026' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: /selecionar o mês/i }), 'janeiro');
+    await user.selectOptions(screen.getByRole('combobox', { name: /selecionar o ano/i }), '2027');
+
+    await user.click(await screen.findByRole('button', { name: /15 de janeiro de 2027/ }));
+
+    expect(onChange).toHaveBeenCalledWith('2027-01-15');
+  });
+
   it('não chama onChange ao clicar em um dia depois de maxDate', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

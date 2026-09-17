@@ -46,7 +46,6 @@ export const Erro: Story = {
 };
 
 export const Desabilitado: Story = {
-  name: "Desabilitado",
   render: () => <Controlled value="2026-03-05" disabled />,
 };
 
