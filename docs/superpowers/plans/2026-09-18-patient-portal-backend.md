@@ -3164,7 +3164,7 @@ git commit -m "feat(patient-portal): add consent accept/decline"
 
 **Interfaces:**
 - Consumes: `PrismaService`, `PatientAccountLinkService`.
-- Produces: `PatientTreatmentPlanService.getForPatient`, `.upsertFeatures`, `PatientTreatmentPlanFeatures`, `GET/PUT /patient-portal/patients/:patientId/{portal,plan}`.
+- Produces: `PatientTreatmentPlanService.getForPatient`, `.upsertFeatures`, `PatientTreatmentPlanFeatures`, `GET/PUT /patient-portal/patients/:patientId/{portal,plan}`. The `portal` response — `{ linkId, linkStatus, invitedAt, confirmedAt, features }` — is the contract the Web plan's "Portal da paciente" section reads (`linkId` is what its resend action needs).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3321,10 +3321,14 @@ export class PatientTreatmentPlanController {
   @Get(':patientId/portal')
   @ApiOperation({ summary: 'Status do vínculo e plano de tratamento da paciente' })
   async getPortalStatus(@OrgId() orgId: string, @Param('patientId') patientId: string) {
-    const link = await this.links.findByPatientId(patientId);
+    const rawLink = await this.links.findByPatientId(patientId);
+    const link = rawLink && rawLink.organizationId === orgId ? rawLink : null;
     const features = await this.plans.getForPatient(orgId, patientId);
     return {
-      linkStatus: link && link.organizationId === orgId ? link.status : null,
+      linkId: link?.id ?? null,
+      linkStatus: link?.status ?? null,
+      invitedAt: link?.invitedAt ?? null,
+      confirmedAt: link?.confirmedAt ?? null,
       features,
     };
   }
