@@ -3669,8 +3669,127 @@ git commit -m "feat(patient-portal): add ficha/appointments endpoints and finish
 
 ---
 
+## Task 16: Session-restoration endpoint (`GET /patient-portal/auth/me`)
+
+Caught while drafting the Mobile plan: on app restart, the mobile client only
+has stored tokens, not the structured login/select-link response — it needs a
+server call to rebuild `activeLink`/`organizations`/`pendingConsents` (mirrors
+how the professional app already calls `GET /auth/me`). It's also how the
+mobile app refreshes `pendingConsents` after an accept/decline, since those
+endpoints don't return an updated session themselves.
+
+**Files:**
+- Modify: `src/patient-portal/patient-auth.service.ts`
+- Modify: `src/patient-portal/patient-auth.service.spec.ts`
+- Modify: `src/patient-portal/patient-auth.controller.ts`
+
+**Interfaces:**
+- Produces: `PatientAuthService.getSession(patient: PatientJwtPayload)`, `GET /patient-portal/auth/me` — consumed by the Mobile plan's `authApi.me()`.
+
+- [ ] **Step 1: Add the failing test**
+
+```typescript
+// src/patient-portal/patient-auth.service.spec.ts — add this describe block
+// at the end of the file, before the final closing `});`
+describe('getSession', () => {
+  it('retorna patientId/organizationId do payload e listas frescas do banco', async () => {
+    links.findAllByAccountId.mockResolvedValue([
+      { id: 'link-1', patientId: 'patient-1', organizationId: 'org-1', status: 'ACTIVE', invitedAt: new Date() },
+      { id: 'link-2', patientId: 'patient-2', organizationId: 'org-2', status: 'PENDING_CONSENT', invitedAt: new Date() },
+    ]);
+
+    const result = await service.getSession({
+      sub: 'acc-1', scope: 'patient', linkId: 'link-1', patientId: 'patient-1', organizationId: 'org-1', jti: 'jti-1',
+    });
+
+    expect(result.patientId).toBe('patient-1');
+    expect(result.organizationId).toBe('org-1');
+    expect(result.organizations).toHaveLength(1);
+    expect(result.pendingConsents).toHaveLength(1);
+  });
+
+  it('retorna patientId/organizationId nulos para uma sessão só-de-consentimento', async () => {
+    links.findAllByAccountId.mockResolvedValue([]);
+
+    const result = await service.getSession({ sub: 'acc-1', scope: 'patient-consent', jti: 'jti-1' });
+
+    expect(result.patientId).toBeNull();
+    expect(result.organizationId).toBeNull();
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx jest src/patient-portal/patient-auth.service.spec.ts`
+Expected: FAIL — `service.getSession is not a function`.
+
+- [ ] **Step 3: Add the method to `PatientAuthService`**
+
+```typescript
+// src/patient-portal/patient-auth.service.ts — add this public method to the
+// PatientAuthService class, after selectLink() and before the rotateRefreshToken/
+// logout methods added in Task 12
+  async getSession(patient: PatientJwtPayload): Promise<{
+    patientId: string | null;
+    organizationId: string | null;
+    organizations: PatientOrganizationSummary[];
+    pendingConsents: PatientPendingConsentSummary[];
+  }> {
+    const allLinks = await this.links.findAllByAccountId(patient.sub);
+    const activeLinks = allLinks.filter((link) => link.status === 'ACTIVE');
+    const pendingLinks = allLinks.filter((link) => link.status === 'PENDING_CONSENT');
+
+    return {
+      patientId: patient.patientId ?? null,
+      organizationId: patient.organizationId ?? null,
+      organizations: await this.toOrganizationSummaries(activeLinks),
+      pendingConsents: await this.toPendingConsentSummaries(pendingLinks),
+    };
+  }
+```
+
+- [ ] **Step 4: Add the endpoint to `PatientAuthController`**
+
+```typescript
+// src/patient-portal/patient-auth.controller.ts — add this import and method
+import { CurrentPatient } from './decorators/current-patient.decorator';
+// ...
+  @ApiBearerAuth()
+  @Public()
+  @UseGuards(PatientJwtAuthGuard)
+  @Get('me')
+  @ApiOperation({ summary: 'Sessão atual: vínculo ativo, clínicas e consentimentos pendentes' })
+  async me(@CurrentPatient() patient: PatientJwtPayload) {
+    return this.authService.getSession(patient);
+  }
+```
+
+Also add `Get` to the existing `@nestjs/common` import list in that file, next
+to `Body`, `Controller`, `HttpCode`, `HttpStatus`, `Post`, `UseGuards`.
+
+Note: this endpoint intentionally accepts **either** token scope (`patient`
+or `patient-consent`) — no `@RequireFullPatientSession()` — since a
+consent-only session also needs to refresh its `pendingConsents` list (e.g.
+after declining one of several, or after the clinic resends one).
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `npx jest src/patient-portal/patient-auth.service.spec.ts`
+Expected: PASS (16 tests).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/patient-portal/patient-auth.service.ts src/patient-portal/patient-auth.service.spec.ts \
+  src/patient-portal/patient-auth.controller.ts
+git commit -m "feat(patient-portal): add GET /patient-portal/auth/me for session restoration"
+```
+
+---
+
 ## Self-Review Notes
 
-- **Spec coverage:** login (Task 11), select-link/multi-clinic (Task 11), refresh/logout (Task 12), first-invite email + activation (Tasks 4, 9, 10), multi-clinic consent + audit + resend (Tasks 7, 9, 13), treatment plan flags (Task 14), mobile-facing ficha/appointments (Task 15), module isolation via `*LookupService` (Tasks 2, 3), soft references (Task 1 — no `@relation` on any patient-portal model), mutual token exclusion (Task 8). The web page (`/paciente/ativar-conta`) and the "Portal da paciente" UI are out of scope for this plan — they belong to the Web plan, which calls the endpoints built here.
+- **Spec coverage:** login (Task 11), select-link/multi-clinic (Task 11), refresh/logout (Task 12), first-invite email + activation (Tasks 4, 9, 10), multi-clinic consent + audit + resend (Tasks 7, 9, 13), treatment plan flags (Task 14), mobile-facing ficha/appointments (Task 15), session restoration (Task 16), module isolation via `*LookupService` (Tasks 2, 3), soft references (Task 1 — no `@relation` on any patient-portal model), mutual token exclusion (Task 8). The web page (`/paciente/ativar-conta`) and the "Portal da paciente" UI are out of scope for this plan — they belong to the Web plan, which calls the endpoints built here.
 - **Placeholder scan:** no TBD/TODO; every step has runnable code.
-- **Type consistency:** `PatientJwtPayload`, `PatientAccountLinkSummary`, `PatientAccountSummary`, `PatientTreatmentPlanFeatures`, `PatientLookupResult` and `AppointmentLookupResult` are defined once (Tasks 2, 3, 5, 6, 8, 14) and reused with the same field names in every later task.
+- **Type consistency:** `PatientJwtPayload`, `PatientAccountLinkSummary`, `PatientAccountSummary`, `PatientTreatmentPlanFeatures`, `PatientLookupResult` and `AppointmentLookupResult` are defined once (Tasks 2, 3, 5, 6, 8, 14) and reused with the same field names in every later task. `PatientOrganizationSummary`/`PatientPendingConsentSummary` (Task 11) are reused as-is by Task 16.
