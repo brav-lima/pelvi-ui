@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../auth/decorators/public.decorator';
@@ -68,5 +68,14 @@ export class PatientAuthController {
   async logout(@CurrentPatient() patient: PatientJwtPayload, @Body() dto: PatientLogoutDto) {
     await this.authService.logout(dto.refreshToken, patient.jti);
     return { message: 'Sessão encerrada' };
+  }
+
+  @ApiBearerAuth()
+  @Public()
+  @UseGuards(PatientJwtAuthGuard)
+  @Get('me')
+  @ApiOperation({ summary: 'Sessão atual: vínculo ativo, clínicas e consentimentos pendentes' })
+  async me(@CurrentPatient() patient: PatientJwtPayload) {
+    return this.authService.getSession(patient);
   }
 }

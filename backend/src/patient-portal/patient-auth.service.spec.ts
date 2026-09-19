@@ -203,4 +203,31 @@ describe('PatientAuthService', () => {
       expect(redis.set).toHaveBeenCalledWith('patient-blacklist:access-jti-1', '1', expect.any(Number));
     });
   });
+
+  describe('getSession', () => {
+    it('retorna patientId/organizationId do payload e listas frescas do banco', async () => {
+      links.findAllByAccountId.mockResolvedValue([
+        { id: 'link-1', patientId: 'patient-1', organizationId: 'org-1', status: 'ACTIVE', invitedAt: new Date() },
+        { id: 'link-2', patientId: 'patient-2', organizationId: 'org-2', status: 'PENDING_CONSENT', invitedAt: new Date() },
+      ]);
+
+      const result = await service.getSession({
+        sub: 'acc-1', scope: 'patient', linkId: 'link-1', patientId: 'patient-1', organizationId: 'org-1', jti: 'jti-1',
+      });
+
+      expect(result.patientId).toBe('patient-1');
+      expect(result.organizationId).toBe('org-1');
+      expect(result.organizations).toHaveLength(1);
+      expect(result.pendingConsents).toHaveLength(1);
+    });
+
+    it('retorna patientId/organizationId nulos para uma sessão só-de-consentimento', async () => {
+      links.findAllByAccountId.mockResolvedValue([]);
+
+      const result = await service.getSession({ sub: 'acc-1', scope: 'patient-consent', jti: 'jti-1' });
+
+      expect(result.patientId).toBeNull();
+      expect(result.organizationId).toBeNull();
+    });
+  });
 });

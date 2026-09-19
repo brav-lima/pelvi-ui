@@ -134,6 +134,24 @@ export class PatientAuthService {
     };
   }
 
+  async getSession(patient: PatientJwtPayload): Promise<{
+    patientId: string | null;
+    organizationId: string | null;
+    organizations: PatientOrganizationSummary[];
+    pendingConsents: PatientPendingConsentSummary[];
+  }> {
+    const allLinks = await this.links.findAllByAccountId(patient.sub);
+    const activeLinks = allLinks.filter((link) => link.status === 'ACTIVE');
+    const pendingLinks = allLinks.filter((link) => link.status === 'PENDING_CONSENT');
+
+    return {
+      patientId: patient.patientId ?? null,
+      organizationId: patient.organizationId ?? null,
+      organizations: await this.toOrganizationSummaries(activeLinks),
+      pendingConsents: await this.toPendingConsentSummaries(pendingLinks),
+    };
+  }
+
   async rotateRefreshToken(
     accountId: string,
     linkId: string,
