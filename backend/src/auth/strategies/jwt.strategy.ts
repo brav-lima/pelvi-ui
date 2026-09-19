@@ -31,6 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
+    // Tokens da paciente carregam `scope` — nunca são válidos para rotas
+    // profissionais, mesmo assinados com o mesmo segredo.
+    if ('scope' in payload) {
+      throw new UnauthorizedException('Token inválido para este contexto');
+    }
+
     try {
       if (payload.jti && await this.redis.exists(`blacklist:${payload.jti}`)) {
         throw new UnauthorizedException('Token revogado');
