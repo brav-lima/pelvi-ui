@@ -12,7 +12,7 @@ import { RedisService } from '../redis/redis.service';
 describe('PatientInviteService', () => {
   let service: PatientInviteService;
   let patientLookup: { findById: jest.Mock };
-  let accounts: { findByCpf: jest.Mock; createPending: jest.Mock };
+  let accounts: { findByCpf: jest.Mock; createPending: jest.Mock; findById: jest.Mock };
   let links: { findByPatientId: jest.Mock; findById: jest.Mock; create: jest.Mock; updateStatus: jest.Mock };
   let audits: { record: jest.Mock };
   let emailService: { sendPatientInvite: jest.Mock };
@@ -21,7 +21,7 @@ describe('PatientInviteService', () => {
 
   beforeEach(async () => {
     patientLookup = { findById: jest.fn() };
-    accounts = { findByCpf: jest.fn(), createPending: jest.fn() };
+    accounts = { findByCpf: jest.fn(), createPending: jest.fn(), findById: jest.fn() };
     links = {
       findByPatientId: jest.fn(),
       findById: jest.fn(),
@@ -130,19 +130,24 @@ describe('PatientInviteService', () => {
   });
 
   describe('resend', () => {
+    const patient = {
+      id: 'patient-1', name: 'Maria Silva', cpf: '12345678901', email: 'maria@email.com',
+      phone: null, birthDate: null, organizationId: 'org-1', organizationName: 'Clínica A',
+    };
+
     it('rejeita quando o vínculo não existe ou é de outra organização', async () => {
       links.findById.mockResolvedValue(null);
 
       await expect(service.resend('person-1', 'org-1', 'link-1')).rejects.toThrow(NotFoundException);
     });
 
-    it('rejeita quando o vínculo não está recusado', async () => {
+    it('rejeita quando o vínculo está ativo', async () => {
       links.findById.mockResolvedValue({ id: 'link-1', organizationId: 'org-1', status: 'ACTIVE' });
 
       await expect(service.resend('person-1', 'org-1', 'link-1')).rejects.toThrow(ConflictException);
     });
 
-    it('volta o vínculo para PENDING_CONSENT e grava audit RESENT', async () => {
+    it('vínculo recusado: volta para PENDING_CONSENT e grava audit RESENT, sem enviar e-mail', async () => {
       links.findById.mockResolvedValue({ id: 'link-1', organizationId: 'org-1', status: 'DECLINED' });
 
       await service.resend('person-1', 'org-1', 'link-1');
@@ -151,6 +156,52 @@ describe('PatientInviteService', () => {
       expect(audits.record).toHaveBeenCalledWith({
         patientAccountLinkId: 'link-1', action: 'RESENT', actorType: 'PROFESSIONAL', actorId: 'person-1',
       });
+      expect(emailService.sendPatientInvite).not.toHaveBeenCalled();
+    });
+
+    it('vínculo pendente com conta ainda não ativada: reenvia o e-mail com um novo token e grava audit RESENT', async () => {
+      links.findById.mockResolvedValue({
+        id: 'link-1', organizationId: 'org-1', status: 'PENDING_CONSENT', patientAccountId: 'acc-1', patientId: 'patient-1',
+      });
+      accounts.findById.mockResolvedValue({ id: 'acc-1', cpf: '12345678901', activatedAt: null });
+      patientLookup.findById.mockResolvedValue(patient);
+
+      await service.resend('person-1', 'org-1', 'link-1');
+
+      expect(redis.setJson).toHaveBeenCalledWith(
+        expect.stringMatching(/^patient-invite:/),
+        { patientAccountId: 'acc-1', linkId: 'link-1' },
+        60 * 60 * 24 * 7,
+      );
+      expect(emailService.sendPatientInvite).toHaveBeenCalledWith(
+        'maria@email.com', 'Maria Silva', 'Clínica A',
+        expect.stringContaining('/paciente/ativar-conta?token='),
+      );
+      expect(audits.record).toHaveBeenCalledWith({
+        patientAccountLinkId: 'link-1', action: 'RESENT', actorType: 'PROFESSIONAL', actorId: 'person-1',
+      });
+      expect(links.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('vínculo pendente com conta já ativada: rejeita, pois não há convite por e-mail a reenviar', async () => {
+      links.findById.mockResolvedValue({
+        id: 'link-1', organizationId: 'org-1', status: 'PENDING_CONSENT', patientAccountId: 'acc-1', patientId: 'patient-1',
+      });
+      accounts.findById.mockResolvedValue({ id: 'acc-1', cpf: '12345678901', activatedAt: new Date() });
+
+      await expect(service.resend('person-1', 'org-1', 'link-1')).rejects.toThrow(ConflictException);
+      expect(emailService.sendPatientInvite).not.toHaveBeenCalled();
+    });
+
+    it('vínculo pendente com conta não ativada mas paciente sem e-mail: rejeita', async () => {
+      links.findById.mockResolvedValue({
+        id: 'link-1', organizationId: 'org-1', status: 'PENDING_CONSENT', patientAccountId: 'acc-1', patientId: 'patient-1',
+      });
+      accounts.findById.mockResolvedValue({ id: 'acc-1', cpf: '12345678901', activatedAt: null });
+      patientLookup.findById.mockResolvedValue({ ...patient, email: null });
+
+      await expect(service.resend('person-1', 'org-1', 'link-1')).rejects.toThrow(BadRequestException);
+      expect(emailService.sendPatientInvite).not.toHaveBeenCalled();
     });
   });
 });

@@ -67,6 +67,39 @@ describe('PatientPortalCard', () => {
     renderCard({ patientCpf: '12345678901' });
 
     expect(await screen.findByText(/pendente desde 10\/09\/2026/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reenviar convite/i })).not.toBeInTheDocument();
+  });
+
+  it('PENDING_CONSENT com conta ainda não ativada: mostra botão para reenviar convite por e-mail', async () => {
+    vi.mocked(patientPortalApi.getPortalStatus).mockResolvedValue({
+      ...noLink,
+      linkId: 'link-1',
+      linkStatus: 'PENDING_CONSENT',
+      invitedAt: '2026-09-10T12:00:00Z',
+      accountActivated: false,
+    } as any);
+    vi.mocked(patientPortalApi.resendConsent).mockResolvedValue({ message: 'Convite reenviado' });
+    renderCard({ patientCpf: '12345678901' });
+
+    const button = await screen.findByRole('button', { name: /reenviar convite/i });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(patientPortalApi.resendConsent).toHaveBeenCalledWith('link-1'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Convite reenviado'));
+  });
+
+  it('PENDING_CONSENT com conta já ativada: não mostra botão de reenvio (não há e-mail pendente)', async () => {
+    vi.mocked(patientPortalApi.getPortalStatus).mockResolvedValue({
+      ...noLink,
+      linkId: 'link-1',
+      linkStatus: 'PENDING_CONSENT',
+      invitedAt: '2026-09-10T12:00:00Z',
+      accountActivated: true,
+    } as any);
+    renderCard({ patientCpf: '12345678901' });
+
+    expect(await screen.findByText(/pendente desde 10\/09\/2026/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reenviar convite/i })).not.toBeInTheDocument();
   });
 
   it('DECLINED: mostra a data de recusa e reenvia ao clicar', async () => {
