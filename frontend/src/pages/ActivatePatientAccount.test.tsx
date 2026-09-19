@@ -44,6 +44,18 @@ describe('ActivatePatientAccount page', () => {
     expect(patientPortalApi.activate).not.toHaveBeenCalled();
   });
 
+  it('exibe erro se a senha tem menos de 6 caracteres', async () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'abc12' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: 'abc12' } });
+    fireEvent.click(screen.getByRole('button', { name: /ativar conta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/no mínimo 6 caracteres/i);
+    });
+    expect(patientPortalApi.activate).not.toHaveBeenCalled();
+  });
+
   it('chama patientPortalApi.activate com o token da URL e a senha', async () => {
     vi.mocked(patientPortalApi.activate).mockResolvedValue({ message: 'ok' } as any);
     renderPage('meu-token-valido');

@@ -22,6 +22,11 @@ export default function ActivatePatientAccount() {
     e.preventDefault();
     setError('');
 
+    if (password.length < 6) {
+      setError('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('As senhas não coincidem.');
       return;
