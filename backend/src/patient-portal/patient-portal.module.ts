@@ -8,6 +8,7 @@ import { PatientAccountService } from './patient-account.service';
 import { PatientAccountLinkService } from './patient-account-link.service';
 import { PatientConsentAuditService } from './patient-consent-audit.service';
 import { PatientJwtStrategy } from './strategies/patient-jwt.strategy';
+import { PatientJwtRefreshStrategy } from './strategies/patient-jwt-refresh.strategy';
 import { PatientInviteService } from './patient-invite.service';
 import { PatientInviteController } from './patient-invite.controller';
 import { PatientActivationService } from './patient-activation.service';
@@ -30,6 +31,7 @@ import { PatientAuthService } from './patient-auth.service';
     PatientAccountLinkService,
     PatientConsentAuditService,
     PatientJwtStrategy,
+    PatientJwtRefreshStrategy,
     PatientInviteService,
     PatientActivationService,
     PatientAuthService,

@@ -1,5 +1,5 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../auth/decorators/public.decorator';
 import { PatientActivationService } from './patient-activation.service';
@@ -7,6 +7,13 @@ import { PatientAuthService } from './patient-auth.service';
 import { PatientActivateDto } from './dto/patient-activate.dto';
 import { PatientLoginDto } from './dto/patient-login.dto';
 import { PatientSelectLinkDto } from './dto/patient-select-link.dto';
+import { PatientLogoutDto } from './dto/patient-logout.dto';
+import { PatientJwtAuthGuard } from './guards/patient-jwt-auth.guard';
+import { PatientJwtRefreshGuard } from './guards/patient-jwt-refresh.guard';
+import { CurrentPatient } from './decorators/current-patient.decorator';
+import { CurrentPatientRefreshUser } from './decorators/current-patient-refresh-user.decorator';
+import type { PatientRefreshUser } from './decorators/current-patient-refresh-user.decorator';
+import type { PatientJwtPayload } from './strategies/patient-jwt.strategy';
 
 @ApiTags('Patient Portal - Auth')
 @Controller('patient-portal/auth')
@@ -41,5 +48,25 @@ export class PatientAuthController {
   async activate(@Body() dto: PatientActivateDto) {
     await this.activationService.activate(dto.token, dto.password);
     return { message: 'Conta ativada com sucesso' };
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PatientJwtRefreshGuard)
+  @Post('refresh')
+  @ApiOperation({ summary: 'Renovar o access token via refresh token' })
+  async refresh(@CurrentPatientRefreshUser() refreshUser: PatientRefreshUser) {
+    return this.authService.rotateRefreshToken(refreshUser.accountId, refreshUser.linkId, refreshUser.jti);
+  }
+
+  @ApiBearerAuth()
+  @Public()
+  @UseGuards(PatientJwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('logout')
+  @ApiOperation({ summary: 'Encerrar a sessão da paciente' })
+  async logout(@CurrentPatient() patient: PatientJwtPayload, @Body() dto: PatientLogoutDto) {
+    await this.authService.logout(dto.refreshToken, patient.jti);
+    return { message: 'Sessão encerrada' };
   }
 }

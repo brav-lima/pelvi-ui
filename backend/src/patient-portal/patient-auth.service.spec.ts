@@ -140,4 +140,67 @@ describe('PatientAuthService', () => {
       expect(result.patientId).toBe('patient-1');
     });
   });
+
+  describe('rotateRefreshToken', () => {
+    it('rejeita quando o hash não existe no Redis', async () => {
+      redis.get.mockResolvedValue(null);
+
+      await expect(service.rotateRefreshToken('acc-1', 'link-1', 'jti-1')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('rejeita quando o token pertence a outra conta', async () => {
+      redis.get.mockResolvedValue('outra-conta');
+
+      await expect(service.rotateRefreshToken('acc-1', 'link-1', 'jti-1')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('rejeita e apaga o token quando o vínculo não está mais ativo', async () => {
+      redis.get.mockResolvedValue('acc-1');
+      links.findById.mockResolvedValue({ id: 'link-1', patientAccountId: 'acc-1', status: 'DECLINED' });
+
+      await expect(service.rotateRefreshToken('acc-1', 'link-1', 'jti-1')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(redis.del).toHaveBeenCalledWith(expect.stringMatching(/^patient-refresh:/));
+    });
+
+    it('revoga o token consumido e emite novo par no caminho feliz', async () => {
+      redis.get.mockResolvedValue('acc-1');
+      links.findById.mockResolvedValue({
+        id: 'link-1', patientAccountId: 'acc-1', patientId: 'patient-1',
+        organizationId: 'org-1', status: 'ACTIVE',
+      });
+
+      const result = await service.rotateRefreshToken('acc-1', 'link-1', 'jti-1');
+
+      expect(redis.del).toHaveBeenCalledWith(expect.stringMatching(/^patient-refresh:/));
+      expect(result.accessToken).toBe('mock-token');
+      expect(result.refreshToken).toBe('mock-token');
+    });
+  });
+
+  describe('logout', () => {
+    it('revoga o refresh token e coloca o access jti na blacklist', async () => {
+      jwtService.verify.mockReturnValue({ jti: 'refresh-jti-1' });
+
+      await service.logout('some-refresh-token', 'access-jti-1');
+
+      expect(redis.del).toHaveBeenCalledWith(expect.stringMatching(/^patient-refresh:/));
+      expect(redis.set).toHaveBeenCalledWith('patient-blacklist:access-jti-1', '1', expect.any(Number));
+    });
+
+    it('ainda coloca o access jti na blacklist quando o refresh token é inválido', async () => {
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('expired');
+      });
+
+      await service.logout('invalid-refresh-token', 'access-jti-1');
+
+      expect(redis.set).toHaveBeenCalledWith('patient-blacklist:access-jti-1', '1', expect.any(Number));
+    });
+  });
 });

@@ -134,6 +134,41 @@ export class PatientAuthService {
     };
   }
 
+  async rotateRefreshToken(
+    accountId: string,
+    linkId: string,
+    jti: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const tokenHash = this.hashJti(jti);
+    const storedAccountId = await this.redis.get(patientRedisKey.refresh(tokenHash));
+
+    if (!storedAccountId || storedAccountId !== accountId) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const link = await this.links.findById(linkId);
+    if (!link || link.status !== 'ACTIVE' || link.patientAccountId !== accountId) {
+      await this.redis.del(patientRedisKey.refresh(tokenHash));
+      throw new UnauthorizedException('Vínculo inválido ou inativo');
+    }
+
+    await this.redis.del(patientRedisKey.refresh(tokenHash));
+    return this.issueSessionTokens(accountId, link);
+  }
+
+  async logout(refreshToken: string, accessJti: string): Promise<void> {
+    try {
+      const payload = this.jwtService.verify<{ jti: string }>(refreshToken, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
+      await this.redis.del(patientRedisKey.refresh(this.hashJti(payload.jti)));
+    } catch {
+      // refresh token já inválido/expirado — segue para revogar o access token
+    }
+
+    await this.redis.set(patientRedisKey.blacklist(accessJti), '1', ACCESS_TTL_SECONDS);
+  }
+
   protected async toOrganizationSummaries(
     links: PatientAccountLinkSummary[],
   ): Promise<PatientOrganizationSummary[]> {
