@@ -16,6 +16,8 @@ import { PatientAuthController } from './patient-auth.controller';
 import { PatientAuthService } from './patient-auth.service';
 import { PatientConsentService } from './patient-consent.service';
 import { PatientConsentController } from './patient-consent.controller';
+import { PatientTreatmentPlanService } from './patient-treatment-plan.service';
+import { PatientTreatmentPlanController } from './patient-treatment-plan.controller';
 
 @Module({
   imports: [
@@ -27,7 +29,12 @@ import { PatientConsentController } from './patient-consent.controller';
     PatientModule,
     EmailModule,
   ],
-  controllers: [PatientInviteController, PatientAuthController, PatientConsentController],
+  controllers: [
+    PatientInviteController,
+    PatientAuthController,
+    PatientConsentController,
+    PatientTreatmentPlanController,
+  ],
   providers: [
     PatientAccountService,
     PatientAccountLinkService,
@@ -38,6 +45,7 @@ import { PatientConsentController } from './patient-consent.controller';
     PatientActivationService,
     PatientAuthService,
     PatientConsentService,
+    PatientTreatmentPlanService,
   ],
 })
 export class PatientPortalModule {}
