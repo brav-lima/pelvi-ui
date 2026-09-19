@@ -117,4 +117,50 @@ describe('PatientPortalCard', () => {
     );
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Plano atualizado'));
   });
+
+  it('ACTIVE: desabilita os switches enquanto a mutação de atualização está pendente', async () => {
+    vi.mocked(patientPortalApi.getPortalStatus).mockResolvedValue({
+      linkId: 'link-1',
+      linkStatus: 'ACTIVE',
+      invitedAt: '2026-09-01T12:00:00Z',
+      confirmedAt: '2026-09-02T12:00:00Z',
+      features: { diarioMiccional: false, diarioEvacuatorio: false, cronometros: false },
+    } as any);
+
+    let resolveUpdate: (v: any) => void;
+    vi.mocked(patientPortalApi.updatePlan).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpdate = resolve;
+        }),
+    );
+
+    renderCard({ patientCpf: '12345678901' });
+
+    expect(await screen.findByText(/vinculada desde 02\/09\/2026/i)).toBeInTheDocument();
+    const diarioMiccional = screen.getByLabelText('Diário miccional') as HTMLButtonElement;
+    const diarioEvacuatorio = screen.getByLabelText('Diário evacuatório') as HTMLButtonElement;
+    const cronometros = screen.getByLabelText('Cronômetros') as HTMLButtonElement;
+
+    expect(diarioMiccional).not.toBeDisabled();
+
+    fireEvent.click(diarioMiccional);
+
+    // Todos os switches devem estar desabilitados enquanto a mutação está pendente
+    await waitFor(() => {
+      expect(diarioMiccional).toBeDisabled();
+      expect(diarioEvacuatorio).toBeDisabled();
+      expect(cronometros).toBeDisabled();
+    });
+
+    // Resolver a promise para simular sucesso da mutação
+    resolveUpdate!({ diarioMiccional: true, diarioEvacuatorio: false, cronometros: false });
+
+    // Após a mutação completar, os switches devem estar habilitados novamente
+    await waitFor(() => {
+      expect(diarioMiccional).not.toBeDisabled();
+      expect(diarioEvacuatorio).not.toBeDisabled();
+      expect(cronometros).not.toBeDisabled();
+    });
+  });
 });

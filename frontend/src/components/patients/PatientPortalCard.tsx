@@ -116,6 +116,7 @@ export function PatientPortalCard({ patientId, patientCpf }: PatientPortalCardPr
                   <Switch
                     id={`plan-${key}`}
                     checked={data.features[key]}
+                    disabled={updatePlanMutation.isPending}
                     onCheckedChange={(checked) =>
                       updatePlanMutation.mutate({ ...data.features, [key]: checked })
                     }
