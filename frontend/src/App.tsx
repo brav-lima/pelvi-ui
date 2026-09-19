@@ -32,6 +32,7 @@ const Tasks = lazy(() => import("./pages/Tasks"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ActivatePatientAccount = lazy(() => import("./pages/ActivatePatientAccount"));
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
                   <Route path="/select-clinic" element={<SelectClinic />} />
                   <Route path="/esqueci-senha" element={<ForgotPassword />} />
                   <Route path="/redefinir-senha" element={<ResetPassword />} />
+                  <Route path="/paciente/ativar-conta" element={<ActivatePatientAccount />} />
 
                   <Route element={<MainLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
