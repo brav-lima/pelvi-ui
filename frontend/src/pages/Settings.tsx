@@ -40,6 +40,7 @@ const FEATURE_LABELS: Record<string, string> = {
   MULTI_CLINIC:         'Multi-Clínica',
   PRIORITY_SUPPORT:     'Suporte Prioritário',
   DOCUMENTS:            'Módulo de Documentos',
+  PATIENT_PORTAL:       'Portal da Paciente',
 };
 
 function formatCurrency(value: number) {

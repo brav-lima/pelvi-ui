@@ -100,6 +100,7 @@ export default function PatientProfile() {
   const hasEvolutions = useFeature('EVOLUTIONS');
   const hasPackages   = useFeature('TREATMENT_PACKAGES');
   const hasFinancial  = useFeature('FINANCIAL_BASIC');
+  const hasPatientPortal = useFeature('PATIENT_PORTAL');
 
   const [editOpen, setEditOpen] = useState(false);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
@@ -1130,7 +1131,9 @@ export default function PatientProfile() {
               )}
             </Card>
 
-            <PatientPortalCard patientId={id!} patientCpf={patient.cpf} />
+            {hasPatientPortal && (
+              <PatientPortalCard patientId={id!} patientCpf={patient.cpf} />
+            )}
           </div>
         </div>
       </Tabs>
