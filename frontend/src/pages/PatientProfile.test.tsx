@@ -23,6 +23,7 @@ vi.mock('@/components/patients/PatientFormDialog', () => ({ PatientFormDialog: (
 vi.mock('@/components/appointments/AppointmentFormDialog', () => ({ AppointmentFormDialog: () => null }));
 vi.mock('@/components/evolutions/EvolutionFormDialog', () => ({ EvolutionFormDialog: () => null }));
 vi.mock('@/components/treatment-packages/TreatmentPackageFormDialog', () => ({ TreatmentPackageFormDialog: () => null }));
+vi.mock('@/components/patients/PatientPortalCard', () => ({ PatientPortalCard: () => null }));
 
 import PatientProfile from './PatientProfile';
 import { patientsApi, appointmentsApi, anamnesisApi, evolutionsApi, treatmentPackagesApi, financialApi, perinealAssessmentsApi } from '@/lib/api';

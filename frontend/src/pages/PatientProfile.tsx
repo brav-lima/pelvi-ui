@@ -23,6 +23,7 @@ import { AppointmentFormDialog } from '@/components/appointments/AppointmentForm
 import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog';
 import { LinkedAppointmentLine } from '@/components/evolutions/LinkedAppointmentLine';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
+import { PatientPortalCard } from '@/components/patients/PatientPortalCard';
 import { useHasRole } from '@/components/auth/RoleGuard';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment, Evolution } from '@/types/clinic';
@@ -1128,6 +1129,8 @@ export default function PatientProfile() {
                 </div>
               )}
             </Card>
+
+            <PatientPortalCard patientId={id!} patientCpf={patient.cpf} />
           </div>
         </div>
       </Tabs>
