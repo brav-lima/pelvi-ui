@@ -24,6 +24,7 @@ import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog
 import { LinkedAppointmentLine } from '@/components/evolutions/LinkedAppointmentLine';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
 import { PatientPortalCard } from '@/components/patients/PatientPortalCard';
+import { FeatureGate } from '@/components/auth/FeatureGate';
 import { useHasRole } from '@/components/auth/RoleGuard';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment, Evolution } from '@/types/clinic';
@@ -1130,7 +1131,9 @@ export default function PatientProfile() {
               )}
             </Card>
 
-            <PatientPortalCard patientId={id!} patientCpf={patient.cpf} />
+            <FeatureGate feature="PATIENT_PORTAL">
+              <PatientPortalCard patientId={id!} patientCpf={patient.cpf} />
+            </FeatureGate>
           </div>
         </div>
       </Tabs>
