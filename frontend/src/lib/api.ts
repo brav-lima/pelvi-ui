@@ -27,6 +27,8 @@ import type {
   Task,
   TaskStatus,
   TaskPriority,
+  PatientPortalInfo,
+  PatientTreatmentPlanFeatures,
 } from '@/types/clinic';
 
 export const API_BASE_URL =
@@ -120,6 +122,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
@@ -483,4 +487,21 @@ export const subscriptionApi = {
   getPlans: () => api.get<Plan[]>('/subscription/plans'),
   changePlan: (planId: string) => api.patch<{ ok: boolean; planId: string; planName: string }>('/subscription/plan', { planId }),
   cancel: () => api.post<{ ok: boolean; endDate: string }>('/subscription/cancel', {}),
+};
+
+export const patientPortalApi = {
+  invite: (patientId: string) =>
+    api.post<{ message: string }>(`/patient-portal/patients/${patientId}/invite`, {}),
+
+  resendConsent: (linkId: string) =>
+    api.post<{ message: string }>(`/patient-portal/links/${linkId}/resend`, {}),
+
+  getPortalStatus: (patientId: string) =>
+    api.get<PatientPortalInfo>(`/patient-portal/patients/${patientId}/portal`),
+
+  updatePlan: (patientId: string, features: PatientTreatmentPlanFeatures) =>
+    api.put<PatientTreatmentPlanFeatures>(`/patient-portal/patients/${patientId}/plan`, { features }),
+
+  activate: (token: string, password: string) =>
+    api.post<{ message: string }>('/patient-portal/auth/activate', { token, password }),
 };

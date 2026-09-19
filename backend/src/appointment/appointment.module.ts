@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { AppointmentController } from './appointment.controller';
 import { AppointmentService } from './appointment.service';
+import { AppointmentLookupService } from './appointment-lookup.service';
 import { TreatmentPackageModule } from '../treatment-package/treatment-package.module';
 import { REMINDER_QUEUE } from '../queue/jobs/reminder.job';
 
@@ -11,6 +12,7 @@ import { REMINDER_QUEUE } from '../queue/jobs/reminder.job';
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
   ],
   controllers: [AppointmentController],
-  providers: [AppointmentService],
+  providers: [AppointmentService, AppointmentLookupService],
+  exports: [AppointmentLookupService],
 })
 export class AppointmentModule {}
