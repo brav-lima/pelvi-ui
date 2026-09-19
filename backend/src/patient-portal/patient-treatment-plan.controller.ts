@@ -3,10 +3,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 import { PatientAccountLinkService } from './patient-account-link.service';
 import { PatientTreatmentPlanService } from './patient-treatment-plan.service';
 import { UpdatePatientTreatmentPlanDto } from './dto/update-patient-treatment-plan.dto';
 
+@RequireFeature('PATIENT_PORTAL')
 @ApiBearerAuth()
 @ApiTags('Patient Portal - Plano de tratamento')
 @Controller('patient-portal/patients')
