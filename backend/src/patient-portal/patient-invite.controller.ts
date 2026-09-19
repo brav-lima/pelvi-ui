@@ -3,10 +3,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OrgId } from '../auth/decorators/org-id.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 import { PatientInviteService } from './patient-invite.service';
 
 @ApiBearerAuth()
 @ApiTags('Patient Portal - Convites')
+@RequireFeature('PATIENT_PORTAL')
 @Controller('patient-portal')
 export class PatientInviteController {
   constructor(private readonly inviteService: PatientInviteService) {}
