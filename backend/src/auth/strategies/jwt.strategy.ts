@@ -31,6 +31,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<JwtPayload> {
+    // Assinatura positiva de token profissional: deve ter organizationId e role,
+    // e não pode carregar `scope`/`type` (usados por tokens de paciente e de
+    // pré-autenticação, todos assinados com o mesmo segredo). Rejeitar por
+    // ausência de marcadores profissionais, não apenas por presença de
+    // marcadores conhecidos de outros tipos de token.
+    if ('scope' in payload || 'type' in payload || !payload.organizationId || !payload.role) {
+      throw new UnauthorizedException('Token inválido para este contexto');
+    }
+
     try {
       if (payload.jti && await this.redis.exists(`blacklist:${payload.jti}`)) {
         throw new UnauthorizedException('Token revogado');

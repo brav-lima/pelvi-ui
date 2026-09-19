@@ -392,3 +392,19 @@ export interface Task {
     person: { id: string; name: string };
   };
 }
+
+export type PatientPortalLinkStatus = 'PENDING_CONSENT' | 'ACTIVE' | 'DECLINED';
+
+export interface PatientTreatmentPlanFeatures {
+  diarioMiccional: boolean;
+  diarioEvacuatorio: boolean;
+  cronometros: boolean;
+}
+
+export interface PatientPortalInfo {
+  linkId: string | null;
+  linkStatus: PatientPortalLinkStatus | null;
+  invitedAt: string | null;
+  confirmedAt: string | null;
+  features: PatientTreatmentPlanFeatures;
+}
