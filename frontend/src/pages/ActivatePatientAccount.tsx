@@ -5,7 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { patientPortalApi } from '@/lib/api';
 import { appVersion } from '@/lib/version';
-import { Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, CalendarCheck, NotebookPen, TrendingUp } from 'lucide-react';
+
+const PATIENT_APP_HIGHLIGHTS = [
+  { icon: CalendarCheck, label: 'Consultas e agenda da sua clínica' },
+  { icon: NotebookPen, label: 'Diário miccional e evacuatório' },
+  { icon: TrendingUp, label: 'Evolução do seu tratamento' },
+];
 
 export default function ActivatePatientAccount() {
   const [searchParams] = useSearchParams();
@@ -80,7 +86,7 @@ export default function ActivatePatientAccount() {
             <span>Pelvi</span>
           </div>
           <div className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-white/55">
-            Gestão clínica
+            App da paciente
           </div>
         </div>
       </div>
@@ -89,8 +95,18 @@ export default function ActivatePatientAccount() {
           className="text-[36px] leading-[44px] font-semibold text-white max-w-[380px]"
           style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.022em' }}
         >
-          Cuidando de quem cuida do assoalho pélvico.
+          Seu tratamento, sempre por perto.
         </h2>
+        <ul className="mt-6 flex flex-col gap-3">
+          {PATIENT_APP_HIGHLIGHTS.map(({ icon: Icon, label }) => (
+            <li key={label} className="flex items-center gap-2.5 text-[13.5px] text-white/80">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10 shrink-0">
+                <Icon className="w-3.5 h-3.5" />
+              </span>
+              {label}
+            </li>
+          ))}
+        </ul>
       </div>
       <div className="mt-7 flex justify-between text-[11px] text-white/45">
         <span>© 2026 Sou Pelvi · Todos os direitos reservados</span>
@@ -146,7 +162,8 @@ export default function ActivatePatientAccount() {
                   Ative sua conta
                 </h1>
                 <p className="text-[13.5px] text-muted-foreground mt-1.5">
-                  Defina uma senha com no mínimo 6 caracteres para acessar o app Sou Pelvi.
+                  Sua clínica te convidou para acompanhar seu tratamento pelo app Sou Pelvi.
+                  Defina uma senha com no mínimo 6 caracteres para continuar.
                 </p>
               </div>
 
