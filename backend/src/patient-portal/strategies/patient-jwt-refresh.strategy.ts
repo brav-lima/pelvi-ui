@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -24,6 +24,9 @@ export class PatientJwtRefreshStrategy extends PassportStrategy(Strategy, 'patie
   }
 
   validate(payload: PatientJwtRefreshPayload) {
+    if (payload.scope !== 'patient' || payload.type !== 'patient-refresh') {
+      throw new UnauthorizedException('Token inválido para este contexto');
+    }
     return { accountId: payload.sub, linkId: payload.linkId, jti: payload.jti };
   }
 }

@@ -47,4 +47,22 @@ describe('JwtStrategy', () => {
 
     await expect(strategy.validate(patientPayload)).rejects.toThrow(UnauthorizedException);
   });
+
+  it('rejeita um token de pré-autenticação de paciente (carrega scope e type, sem organizationId/role)', async () => {
+    const preAuthPayload = { sub: 'account-1', scope: 'patient-preauth', type: 'patient-pre-auth' } as any;
+
+    await expect(strategy.validate(preAuthPayload)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejeita um payload sem organizationId mesmo que não carregue scope/type', async () => {
+    const payload = { sub: 'person-1', role: 'ADMIN', jti: 'jti-1' } as any;
+
+    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejeita um payload sem role mesmo que não carregue scope/type', async () => {
+    const payload = { sub: 'person-1', organizationId: 'org-1', jti: 'jti-1' } as any;
+
+    await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
+  });
 });

@@ -51,4 +51,12 @@ describe('PatientJwtStrategy', () => {
 
     await expect(strategy.validate(professionalPayload)).rejects.toThrow(UnauthorizedException);
   });
+
+  it('rejeita um scope fora da allowlist (ex.: pré-autenticação ou valor desconhecido)', async () => {
+    const preAuthPayload = { sub: 'account-1', scope: 'patient-preauth', jti: 'jti-1' } as any;
+    const unknownScopePayload = { sub: 'account-1', scope: 'something-else', jti: 'jti-1' } as any;
+
+    await expect(strategy.validate(preAuthPayload)).rejects.toThrow(UnauthorizedException);
+    await expect(strategy.validate(unknownScopePayload)).rejects.toThrow(UnauthorizedException);
+  });
 });

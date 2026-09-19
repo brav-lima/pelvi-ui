@@ -216,13 +216,16 @@ export class PatientAuthService {
   }
 
   protected issuePreAuthToken(accountId: string): string {
-    return this.jwtService.sign({ sub: accountId, type: 'patient-pre-auth' }, { expiresIn: '5m' });
+    return this.jwtService.sign(
+      { sub: accountId, scope: 'patient-preauth', type: 'patient-pre-auth' },
+      { expiresIn: '5m' },
+    );
   }
 
   protected verifyPreAuthToken(token: string): string {
     try {
-      const payload = this.jwtService.verify<{ sub?: string; type?: string }>(token);
-      if (!payload.sub || payload.type !== 'patient-pre-auth') {
+      const payload = this.jwtService.verify<{ sub?: string; scope?: string; type?: string }>(token);
+      if (!payload.sub || payload.scope !== 'patient-preauth' || payload.type !== 'patient-pre-auth') {
         throw new UnauthorizedException('Token de pré-autenticação inválido');
       }
       return payload.sub;

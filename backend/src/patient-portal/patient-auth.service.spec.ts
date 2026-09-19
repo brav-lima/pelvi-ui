@@ -27,7 +27,7 @@ describe('PatientAuthService', () => {
     patientLookup = { findById: jest.fn().mockResolvedValue({ organizationName: 'Clínica A' }) };
     jwtService = {
       sign: jest.fn().mockReturnValue('mock-token'),
-      verify: jest.fn().mockReturnValue({ sub: 'acc-1', type: 'patient-pre-auth' }),
+      verify: jest.fn().mockReturnValue({ sub: 'acc-1', scope: 'patient-preauth', type: 'patient-pre-auth' }),
     };
     config = { getOrThrow: jest.fn().mockReturnValue('refresh-secret') };
     redis = { set: jest.fn(), get: jest.fn(), del: jest.fn() };
@@ -115,12 +115,26 @@ describe('PatientAuthService', () => {
       expect(result.preAuthToken).toBe('mock-token');
       expect(result.organizations).toHaveLength(2);
       expect(redis.set).not.toHaveBeenCalled();
+      // O pre-auth token precisa carregar `scope: 'patient-preauth'` para ser
+      // identificado positivamente e rejeitado pela guarda de rotas
+      // profissionais (JwtStrategy) — não deve ser aceito só por não ter
+      // `scope` algum.
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'patient-preauth', type: 'patient-pre-auth' }),
+        { expiresIn: '5m' },
+      );
     });
   });
 
   describe('selectLink', () => {
     it('rejeita vínculo inválido ou de outra conta', async () => {
       links.findById.mockResolvedValue({ id: 'link-1', patientAccountId: 'acc-2', status: 'ACTIVE' });
+
+      await expect(service.selectLink('pre-auth-token', 'link-1')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rejeita um pre-auth token sem o claim scope esperado', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'acc-1', type: 'patient-pre-auth' });
 
       await expect(service.selectLink('pre-auth-token', 'link-1')).rejects.toThrow(UnauthorizedException);
     });

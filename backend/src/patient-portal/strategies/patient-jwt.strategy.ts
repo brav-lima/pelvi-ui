@@ -30,9 +30,10 @@ export class PatientJwtStrategy extends PassportStrategy(Strategy, 'patient-jwt'
   }
 
   async validate(payload: PatientJwtPayload): Promise<PatientJwtPayload> {
-    // Tokens profissionais não carregam `scope` — nunca são válidos aqui,
-    // mesmo assinados com o mesmo segredo.
-    if (!payload.scope) {
+    // Allowlist positiva dos únicos escopos de sessão de paciente válidos.
+    // Tokens profissionais não carregam `scope`, e o token de pré-autenticação
+    // usa `scope: 'patient-preauth'` — nenhum dos dois deve passar aqui.
+    if (payload.scope !== 'patient' && payload.scope !== 'patient-consent') {
       throw new UnauthorizedException('Token inválido para este contexto');
     }
 
