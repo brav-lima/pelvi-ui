@@ -12,6 +12,7 @@ import { PatientInviteService } from './patient-invite.service';
 import { PatientInviteController } from './patient-invite.controller';
 import { PatientActivationService } from './patient-activation.service';
 import { PatientAuthController } from './patient-auth.controller';
+import { PatientAuthService } from './patient-auth.service';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PatientAuthController } from './patient-auth.controller';
     PatientJwtStrategy,
     PatientInviteService,
     PatientActivationService,
+    PatientAuthService,
   ],
 })
 export class PatientPortalModule {}
