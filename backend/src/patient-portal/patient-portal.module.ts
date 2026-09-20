@@ -19,6 +19,9 @@ import { PatientTreatmentPlanService } from './patient-treatment-plan.service';
 import { PatientTreatmentPlanController } from './patient-treatment-plan.controller';
 import { PatientMeService } from './patient-me.service';
 import { PatientMeController } from './patient-me.controller';
+import { VoidingDiaryService } from './voiding-diary.service';
+import { VoidingDiaryController } from './voiding-diary.controller';
+import { PatientTreatmentPlanFeatureGuard } from './guards/patient-treatment-plan-feature.guard';
 import { PatientJwtStrategy } from './strategies/patient-jwt.strategy';
 import { PatientJwtRefreshStrategy } from './strategies/patient-jwt-refresh.strategy';
 
@@ -39,6 +42,7 @@ import { PatientJwtRefreshStrategy } from './strategies/patient-jwt-refresh.stra
     PatientConsentController,
     PatientTreatmentPlanController,
     PatientMeController,
+    VoidingDiaryController,
   ],
   providers: [
     PatientAccountService,
@@ -52,6 +56,8 @@ import { PatientJwtRefreshStrategy } from './strategies/patient-jwt-refresh.stra
     PatientConsentService,
     PatientTreatmentPlanService,
     PatientMeService,
+    VoidingDiaryService,
+    PatientTreatmentPlanFeatureGuard,
   ],
 })
 export class PatientPortalModule {}
