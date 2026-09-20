@@ -61,6 +61,28 @@ describe('VoidingDiaryService', () => {
       });
       expect(result).toEqual({ id: 'entry-1' });
     });
+
+    it('força leakageAmount para null quando hadLeakage é false, mesmo que informado', async () => {
+      const recordedAt = new Date('2026-09-20T10:00:00.000Z');
+      prisma.voidingDiaryEntry.create.mockResolvedValue({ id: 'entry-1' });
+
+      await service.create('org-1', 'patient-1', {
+        recordedAt,
+        urineVolumeMl: 250,
+        voidingDurationSeconds: 30,
+        fluidIntakeMl: null,
+        hadLeakage: false,
+        leakageAmount: 'LARGE',
+        changedPad: false,
+      });
+
+      expect(prisma.voidingDiaryEntry.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          hadLeakage: false,
+          leakageAmount: null,
+        }),
+      });
+    });
   });
 
   describe('findAllForPatient', () => {
@@ -89,6 +111,40 @@ describe('VoidingDiaryService', () => {
           patientId: 'patient-1',
           deletedAt: null,
           recordedAt: { gte: from, lte: to },
+        },
+        orderBy: { recordedAt: 'asc' },
+      });
+    });
+
+    it('aplica somente o limite inferior quando apenas "from" é informado', async () => {
+      prisma.voidingDiaryEntry.findMany.mockResolvedValue([]);
+      const from = new Date('2026-09-01T00:00:00.000Z');
+
+      await service.findAllForPatient('org-1', 'patient-1', from, undefined);
+
+      expect(prisma.voidingDiaryEntry.findMany).toHaveBeenCalledWith({
+        where: {
+          organizationId: 'org-1',
+          patientId: 'patient-1',
+          deletedAt: null,
+          recordedAt: { gte: from },
+        },
+        orderBy: { recordedAt: 'asc' },
+      });
+    });
+
+    it('aplica somente o limite superior quando apenas "to" é informado', async () => {
+      prisma.voidingDiaryEntry.findMany.mockResolvedValue([]);
+      const to = new Date('2026-09-30T23:59:59.999Z');
+
+      await service.findAllForPatient('org-1', 'patient-1', undefined, to);
+
+      expect(prisma.voidingDiaryEntry.findMany).toHaveBeenCalledWith({
+        where: {
+          organizationId: 'org-1',
+          patientId: 'patient-1',
+          deletedAt: null,
+          recordedAt: { lte: to },
         },
         orderBy: { recordedAt: 'asc' },
       });

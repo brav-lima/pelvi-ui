@@ -22,7 +22,12 @@ export class VoidingDiaryService {
     data: CreateVoidingDiaryEntryData,
   ): Promise<VoidingDiaryEntry> {
     return this.prisma.voidingDiaryEntry.create({
-      data: { organizationId, patientId, ...data },
+      data: {
+        organizationId,
+        patientId,
+        ...data,
+        leakageAmount: data.hadLeakage ? data.leakageAmount : null,
+      },
     });
   }
 
@@ -32,12 +37,20 @@ export class VoidingDiaryService {
     from?: Date,
     to?: Date,
   ): Promise<VoidingDiaryEntry[]> {
+    const recordedAtFilter =
+      from || to
+        ? {
+            ...(from ? { gte: from } : {}),
+            ...(to ? { lte: to } : {}),
+          }
+        : undefined;
+
     return this.prisma.voidingDiaryEntry.findMany({
       where: {
         organizationId,
         patientId,
         deletedAt: null,
-        ...(from && to ? { recordedAt: { gte: from, lte: to } } : {}),
+        ...(recordedAtFilter ? { recordedAt: recordedAtFilter } : {}),
       },
       orderBy: { recordedAt: 'asc' },
     });

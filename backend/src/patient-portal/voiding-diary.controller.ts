@@ -8,6 +8,7 @@ import { PatientJwtAuthGuard } from './guards/patient-jwt-auth.guard';
 import { PatientScopeGuard } from './guards/patient-scope.guard';
 import { PatientTreatmentPlanFeatureGuard } from './guards/patient-treatment-plan-feature.guard';
 import { CreateVoidingDiaryEntryDto } from './dto/create-voiding-diary-entry.dto';
+import { QueryVoidingDiaryEntriesDto } from './dto/query-voiding-diary-entries.dto';
 import { VoidingDiaryService } from './voiding-diary.service';
 import type { PatientJwtPayload } from './strategies/patient-jwt.strategy';
 
@@ -37,16 +38,12 @@ export class VoidingDiaryController {
 
   @Get('entries')
   @ApiOperation({ summary: 'Listar os registros do diário miccional da paciente' })
-  async findAll(
-    @CurrentPatient() patient: PatientJwtPayload,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  async findAll(@CurrentPatient() patient: PatientJwtPayload, @Query() query: QueryVoidingDiaryEntriesDto) {
     return this.diary.findAllForPatient(
       patient.organizationId as string,
       patient.patientId as string,
-      from ? new Date(from) : undefined,
-      to ? new Date(to) : undefined,
+      query.from,
+      query.to,
     );
   }
 

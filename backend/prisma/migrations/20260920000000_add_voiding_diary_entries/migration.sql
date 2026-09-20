@@ -21,4 +21,4 @@ CREATE TABLE "voiding_diary_entries" (
 );
 
 -- CreateIndex
-CREATE INDEX "voiding_diary_entries_organization_id_patient_id_recorded_at_idx" ON "voiding_diary_entries"("organization_id", "patient_id", "recorded_at");
+CREATE INDEX "voiding_diary_entries_organization_id_patient_id_recorded_a_idx" ON "voiding_diary_entries"("organization_id", "patient_id", "recorded_at");
