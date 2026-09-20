@@ -45,6 +45,12 @@ enum PlanStatus {
   CANCELED
 }
 
+enum VoidingLeakageAmount {
+  SMALL
+  MODERATE
+  LARGE
+}
+
 model Organization {
   id                  String             @id @default(uuid())
   name                String
@@ -664,4 +670,27 @@ model PatientTreatmentPlan {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("patient_treatment_plans")
+}
+
+// ──────────────────────────────────────────────
+// VoidingDiaryEntry (Diário miccional — registro da paciente)
+// ──────────────────────────────────────────────
+
+model VoidingDiaryEntry {
+  id                     String                @id @default(uuid())
+  patientId              String                @map("patient_id")
+  organizationId         String                @map("organization_id")
+  recordedAt             DateTime              @map("recorded_at")
+  urineVolumeMl          Int?                  @map("urine_volume_ml")
+  voidingDurationSeconds Int?                  @map("voiding_duration_seconds")
+  fluidIntakeMl          Int?                  @map("fluid_intake_ml")
+  hadLeakage             Boolean               @default(false) @map("had_leakage")
+  leakageAmount          VoidingLeakageAmount? @map("leakage_amount")
+  changedPad             Boolean               @default(false) @map("changed_pad")
+  deletedAt              DateTime?             @map("deleted_at")
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+
+  @@index([organizationId, patientId, recordedAt])
+  @@map("voiding_diary_entries")
 }
