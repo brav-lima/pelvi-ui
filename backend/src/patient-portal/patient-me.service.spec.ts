@@ -4,17 +4,20 @@ import { PatientMeService } from './patient-me.service';
 import { PatientAccountLinkService } from './patient-account-link.service';
 import { PatientLookupService } from '../patient/patient-lookup.service';
 import { AppointmentLookupService } from '../appointment/appointment-lookup.service';
+import { PatientTreatmentPlanService } from './patient-treatment-plan.service';
 
 describe('PatientMeService', () => {
   let service: PatientMeService;
   let links: { findAllByAccountId: jest.Mock };
   let patientLookup: { findById: jest.Mock };
   let appointmentLookup: { findUpcomingByPatientId: jest.Mock };
+  let plans: { getForPatient: jest.Mock };
 
   beforeEach(async () => {
     links = { findAllByAccountId: jest.fn() };
     patientLookup = { findById: jest.fn() };
     appointmentLookup = { findUpcomingByPatientId: jest.fn() };
+    plans = { getForPatient: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -22,6 +25,7 @@ describe('PatientMeService', () => {
         { provide: PatientAccountLinkService, useValue: links },
         { provide: PatientLookupService, useValue: patientLookup },
         { provide: AppointmentLookupService, useValue: appointmentLookup },
+        { provide: PatientTreatmentPlanService, useValue: plans },
       ],
     }).compile();
 
@@ -73,6 +77,17 @@ describe('PatientMeService', () => {
 
       expect(result).toEqual([{ id: 'appt-1' }]);
       expect(appointmentLookup.findUpcomingByPatientId).toHaveBeenCalledWith('org-1', 'patient-1');
+    });
+  });
+
+  describe('getFeatures', () => {
+    it('delega para o PatientTreatmentPlanService', async () => {
+      plans.getForPatient.mockResolvedValue({ diarioMiccional: true, diarioEvacuatorio: false, cronometros: false });
+
+      const result = await service.getFeatures('org-1', 'patient-1');
+
+      expect(result).toEqual({ diarioMiccional: true, diarioEvacuatorio: false, cronometros: false });
+      expect(plans.getForPatient).toHaveBeenCalledWith('org-1', 'patient-1');
     });
   });
 });
