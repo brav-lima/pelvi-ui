@@ -31,4 +31,10 @@ export class PatientMeController {
       patient.patientId as string,
     );
   }
+
+  @Get('features')
+  @ApiOperation({ summary: 'Recursos do portal habilitados para a paciente logada' })
+  async features(@CurrentPatient() patient: PatientJwtPayload) {
+    return this.meService.getFeatures(patient.organizationId as string, patient.patientId as string);
+  }
 }

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentLookupService, AppointmentLookupResult } from '../appointment/appointment-lookup.service';
 import { PatientLookupService } from '../patient/patient-lookup.service';
 import { PatientAccountLinkService } from './patient-account-link.service';
+import { PatientTreatmentPlanFeatures, PatientTreatmentPlanService } from './patient-treatment-plan.service';
 
 export interface PatientClinicSummary {
   organizationId: string;
@@ -22,6 +23,7 @@ export class PatientMeService {
     private readonly links: PatientAccountLinkService,
     private readonly patientLookup: PatientLookupService,
     private readonly appointmentLookup: AppointmentLookupService,
+    private readonly plans: PatientTreatmentPlanService,
   ) {}
 
   async getFicha(patientAccountId: string, patientId: string): Promise<PatientFicha> {
@@ -49,6 +51,10 @@ export class PatientMeService {
 
   async getAppointments(organizationId: string, patientId: string): Promise<AppointmentLookupResult[]> {
     return this.appointmentLookup.findUpcomingByPatientId(organizationId, patientId);
+  }
+
+  async getFeatures(organizationId: string, patientId: string): Promise<PatientTreatmentPlanFeatures> {
+    return this.plans.getForPatient(organizationId, patientId);
   }
 }
 
