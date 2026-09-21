@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeviceService } from './device.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -48,5 +49,13 @@ describe('DeviceService', () => {
     expect(prisma.deviceToken.deleteMany).toHaveBeenCalledWith({
       where: { expoPushToken: 'ExponentPushToken[abc]', personId: 'person-1' },
     });
+  });
+
+  it('rejeita expoPushToken com formato inválido sem consultar o banco', async () => {
+    await expect(service.remove('person-1', "'; DROP TABLE devices; --")).rejects.toThrow(
+      BadRequestException,
+    );
+
+    expect(prisma.deviceToken.deleteMany).not.toHaveBeenCalled();
   });
 });
