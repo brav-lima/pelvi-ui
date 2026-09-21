@@ -24,7 +24,6 @@ import { EvolutionFormDialog } from '@/components/evolutions/EvolutionFormDialog
 import { LinkedAppointmentLine } from '@/components/evolutions/LinkedAppointmentLine';
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
 import { PatientPortalCard } from '@/components/patients/PatientPortalCard';
-import { FeatureGate } from '@/components/auth/FeatureGate';
 import { useHasRole } from '@/components/auth/RoleGuard';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment, Evolution } from '@/types/clinic';
@@ -101,6 +100,7 @@ export default function PatientProfile() {
   const hasEvolutions = useFeature('EVOLUTIONS');
   const hasPackages   = useFeature('TREATMENT_PACKAGES');
   const hasFinancial  = useFeature('FINANCIAL_BASIC');
+  const hasPatientPortal = useFeature('PATIENT_PORTAL');
 
   const [editOpen, setEditOpen] = useState(false);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
@@ -1131,9 +1131,9 @@ export default function PatientProfile() {
               )}
             </Card>
 
-            <FeatureGate feature="PATIENT_PORTAL">
+            {hasPatientPortal && (
               <PatientPortalCard patientId={id!} patientCpf={patient.cpf} />
-            </FeatureGate>
+            )}
           </div>
         </div>
       </Tabs>

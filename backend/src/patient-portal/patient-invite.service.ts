@@ -57,19 +57,12 @@ export class PatientInviteService {
     });
 
     if (isNewAccount) {
-      const token = crypto.randomBytes(32).toString('hex');
-      await this.redis.setJson(
-        `patient-invite:${token}`,
-        { patientAccountId: account.id, linkId: link.id },
-        INVITE_TOKEN_TTL_SECONDS,
-      );
-      const appUrl = this.config.getOrThrow<string>('APP_URL');
-      const activateUrl = `${appUrl}/paciente/ativar-conta?token=${token}`;
-      await this.emailService.sendPatientInvite(
+      await this.sendActivationEmail(
+        account.id,
+        link.id,
         patient.email as string,
         patient.name,
         patient.organizationName,
-        activateUrl,
       );
     }
   }
@@ -79,16 +72,63 @@ export class PatientInviteService {
     if (!link || link.organizationId !== organizationId) {
       throw new NotFoundException('Vínculo não encontrado');
     }
-    if (link.status !== 'DECLINED') {
-      throw new ConflictException('Só é possível reenviar um vínculo recusado');
+
+    if (link.status === 'DECLINED') {
+      await this.links.updateStatus(linkId, 'PENDING_CONSENT');
+      await this.audits.record({
+        patientAccountLinkId: linkId,
+        action: 'RESENT',
+        actorType: 'PROFESSIONAL',
+        actorId: actorPersonId,
+      });
+      return;
     }
 
-    await this.links.updateStatus(linkId, 'PENDING_CONSENT');
-    await this.audits.record({
-      patientAccountLinkId: linkId,
-      action: 'RESENT',
-      actorType: 'PROFESSIONAL',
-      actorId: actorPersonId,
-    });
+    if (link.status === 'PENDING_CONSENT') {
+      const account = await this.accounts.findById(link.patientAccountId);
+      if (!account || account.activatedAt) {
+        throw new ConflictException('Não há convite por e-mail pendente para reenviar');
+      }
+
+      const patient = await this.patientLookup.findById(link.patientId);
+      if (!patient || !patient.email) {
+        throw new BadRequestException('Paciente não tem e-mail cadastrado');
+      }
+
+      await this.sendActivationEmail(
+        account.id,
+        link.id,
+        patient.email,
+        patient.name,
+        patient.organizationName,
+      );
+      await this.audits.record({
+        patientAccountLinkId: linkId,
+        action: 'RESENT',
+        actorType: 'PROFESSIONAL',
+        actorId: actorPersonId,
+      });
+      return;
+    }
+
+    throw new ConflictException('Só é possível reenviar um convite pendente ou recusado');
+  }
+
+  private async sendActivationEmail(
+    patientAccountId: string,
+    linkId: string,
+    email: string,
+    patientName: string,
+    organizationName: string,
+  ): Promise<void> {
+    const token = crypto.randomBytes(32).toString('hex');
+    await this.redis.setJson(
+      `patient-invite:${token}`,
+      { patientAccountId, linkId },
+      INVITE_TOKEN_TTL_SECONDS,
+    );
+    const appUrl = this.config.getOrThrow<string>('APP_URL');
+    const activateUrl = `${appUrl}/paciente/ativar-conta?token=${token}`;
+    await this.emailService.sendPatientInvite(email, patientName, organizationName, activateUrl);
   }
 }

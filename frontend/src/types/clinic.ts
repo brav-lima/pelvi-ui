@@ -407,5 +407,6 @@ export interface PatientPortalInfo {
   linkStatus: PatientPortalLinkStatus | null;
   invitedAt: string | null;
   confirmedAt: string | null;
+  accountActivated: boolean | null;
   features: PatientTreatmentPlanFeatures;
 }

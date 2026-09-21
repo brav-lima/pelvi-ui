@@ -9,6 +9,7 @@ import { PatientInviteService } from './patient-invite.service';
 @RequireFeature('PATIENT_PORTAL')
 @ApiBearerAuth()
 @ApiTags('Patient Portal - Convites')
+@RequireFeature('PATIENT_PORTAL')
 @Controller('patient-portal')
 export class PatientInviteController {
   constructor(private readonly inviteService: PatientInviteService) {}

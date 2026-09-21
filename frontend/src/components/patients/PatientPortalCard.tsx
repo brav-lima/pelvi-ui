@@ -84,10 +84,22 @@ export function PatientPortalCard({ patientId, patientCpf }: PatientPortalCardPr
             )}
           </div>
         ) : data.linkStatus === 'PENDING_CONSENT' ? (
-          <p className="text-[13px] text-muted-foreground">
-            Convite/solicitação pendente desde{' '}
-            {data.invitedAt && format(new Date(data.invitedAt), 'dd/MM/yyyy')}
-          </p>
+          <div className="flex flex-col gap-2">
+            <p className="text-[13px] text-muted-foreground">
+              Convite/solicitação pendente desde{' '}
+              {data.invitedAt && format(new Date(data.invitedAt), 'dd/MM/yyyy')}
+            </p>
+            {data.accountActivated === false && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => data.linkId && resendMutation.mutate(data.linkId)}
+                loading={resendMutation.isPending}
+              >
+                Reenviar convite
+              </Button>
+            )}
+          </div>
         ) : data.linkStatus === 'DECLINED' ? (
           <div className="flex flex-col gap-2">
             <p className="text-[13px] text-muted-foreground">
