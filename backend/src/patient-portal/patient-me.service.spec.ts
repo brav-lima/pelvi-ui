@@ -61,7 +61,7 @@ describe('PatientMeService', () => {
 
       expect(result).toEqual({
         name: 'Maria Silva',
-        cpfMasked: '123.***.***-01',
+        cpfMasked: '***.456.789-**',
         phone: '11999998888',
         birthDate: new Date('1990-01-01'),
         clinics: [{ organizationId: 'org-1', organizationName: 'Clínica A' }],
