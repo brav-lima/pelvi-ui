@@ -9,6 +9,7 @@ import { PatientAccountService } from './patient-account.service';
 import { PatientTreatmentPlanService } from './patient-treatment-plan.service';
 import { UpdatePatientTreatmentPlanDto } from './dto/update-patient-treatment-plan.dto';
 
+@RequireFeature('PATIENT_PORTAL')
 @ApiBearerAuth()
 @ApiTags('Patient Portal - Plano de tratamento')
 @RequireFeature('PATIENT_PORTAL')

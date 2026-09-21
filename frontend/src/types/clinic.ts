@@ -315,7 +315,8 @@ export type PlanFeature =
   | 'MULTI_PROFESSIONAL'
   | 'MULTI_CLINIC'
   | 'PRIORITY_SUPPORT'
-  | 'DOCUMENTS';
+  | 'DOCUMENTS'
+  | 'PATIENT_PORTAL';
 
 export type PlanStatusLocal = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
 

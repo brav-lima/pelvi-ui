@@ -6,6 +6,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { RequireFeature } from '../subscription/decorators/require-feature.decorator';
 import { PatientInviteService } from './patient-invite.service';
 
+@RequireFeature('PATIENT_PORTAL')
 @ApiBearerAuth()
 @ApiTags('Patient Portal - Convites')
 @RequireFeature('PATIENT_PORTAL')
