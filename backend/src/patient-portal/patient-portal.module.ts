@@ -21,6 +21,8 @@ import { PatientMeService } from './patient-me.service';
 import { PatientMeController } from './patient-me.controller';
 import { VoidingDiaryService } from './voiding-diary.service';
 import { VoidingDiaryController } from './voiding-diary.controller';
+import { BowelDiaryService } from './bowel-diary.service';
+import { BowelDiaryController } from './bowel-diary.controller';
 import { PatientTreatmentPlanFeatureGuard } from './guards/patient-treatment-plan-feature.guard';
 import { PatientJwtStrategy } from './strategies/patient-jwt.strategy';
 import { PatientJwtRefreshStrategy } from './strategies/patient-jwt-refresh.strategy';
@@ -43,6 +45,7 @@ import { PatientJwtRefreshStrategy } from './strategies/patient-jwt-refresh.stra
     PatientTreatmentPlanController,
     PatientMeController,
     VoidingDiaryController,
+    BowelDiaryController,
   ],
   providers: [
     PatientAccountService,
@@ -57,6 +60,7 @@ import { PatientJwtRefreshStrategy } from './strategies/patient-jwt-refresh.stra
     PatientTreatmentPlanService,
     PatientMeService,
     VoidingDiaryService,
+    BowelDiaryService,
     PatientTreatmentPlanFeatureGuard,
   ],
 })
