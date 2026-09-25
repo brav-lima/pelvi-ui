@@ -3,6 +3,7 @@ import {
   maskCPF,
   maskPhone,
   maskCurrency,
+  maskDate,
   parseCurrency,
   formatCPF,
   formatCPFMasked,
@@ -76,6 +77,26 @@ describe('maskCurrency', () => {
 
   it('handles empty string', () => {
     expect(maskCurrency('')).toBe('');
+  });
+});
+
+// ── maskDate ──────────────────────────────────────────────────────────────────
+
+describe('maskDate', () => {
+  it('formats date progressively as digits are typed', () => {
+    expect(maskDate('0')).toBe('0');
+    expect(maskDate('05')).toBe('05');
+    expect(maskDate('053')).toBe('05/3');
+    expect(maskDate('0503')).toBe('05/03');
+    expect(maskDate('05032026')).toBe('05/03/2026');
+  });
+
+  it('strips non-digit characters', () => {
+    expect(maskDate('05/03/2026')).toBe('05/03/2026');
+  });
+
+  it('caps at 8 digits ignoring extras', () => {
+    expect(maskDate('050320269999')).toBe('05/03/2026');
   });
 });
 
