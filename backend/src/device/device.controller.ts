@@ -2,6 +2,7 @@ import { Body, Controller, Delete, HttpCode, HttpStatus, Param, Post } from '@ne
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DeviceService } from './device.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
+import { RemoveDeviceParamDto } from './dto/remove-device-param.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
@@ -19,7 +20,7 @@ export class DeviceController {
 
   @Delete(':expoPushToken')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@CurrentUser() user: JwtPayload, @Param('expoPushToken') expoPushToken: string) {
-    return this.deviceService.remove(user.sub, expoPushToken);
+  remove(@CurrentUser() user: JwtPayload, @Param() params: RemoveDeviceParamDto) {
+    return this.deviceService.remove(user.sub, params.expoPushToken);
   }
 }
