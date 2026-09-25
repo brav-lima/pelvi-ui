@@ -15,6 +15,13 @@ export function maskPhone(value: string): string {
   return numbers.replace(/(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
 }
 
+export function maskDate(value: string): string {
+  const numbers = value.replace(/\D/g, '').slice(0, 8);
+  return numbers
+    .replace(/(\d{2})(\d)/, '$1/$2')
+    .replace(/(\d{2})(\d{1,4})$/, '$1/$2');
+}
+
 export function maskCurrency(value: string): string {
   // Allow only digits and one comma/dot for decimal
   const clean = value.replace(/[^\d,]/g, '');
