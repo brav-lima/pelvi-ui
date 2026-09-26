@@ -1,10 +1,11 @@
+# syntax=docker/dockerfile:1
 # Stage 1: Build
 FROM node:20-slim AS build
 RUN npm install -g bun
 
 WORKDIR /app
 COPY package.json bun.lock ./
-RUN bun install
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 
 COPY prisma ./prisma/
 RUN bunx prisma generate
