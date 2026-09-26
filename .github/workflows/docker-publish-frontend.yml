@@ -69,5 +69,5 @@ jobs:
 
       - name: Trigger Coolify redeploy
         run: |
-          curl --fail --silent --show-error -X GET "${{ secrets.COOLIFY_WEBHOOK_FRONTEND }}" \
+          curl --fail --silent --show-error -X POST "${{ secrets.COOLIFY_WEBHOOK_FRONTEND }}" \
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
