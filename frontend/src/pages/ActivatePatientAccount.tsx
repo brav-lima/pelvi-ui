@@ -68,22 +68,17 @@ export default function ActivatePatientAccount() {
     >
       <div className="flex items-center gap-2.5">
         <div
-          className="flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm text-white shrink-0"
-          style={{
-            background: 'rgba(255,255,255,0.12)',
-            fontFamily: 'var(--font-display)',
-            letterSpacing: '-0.02em',
-          }}
+          className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+          style={{ background: 'rgba(255,255,255,0.12)' }}
         >
-          P
+          <img src="/brand/icon-white.png" alt="soupelvi" className="w-[18px] h-[18px] object-contain" />
         </div>
         <div>
           <div
             className="font-semibold text-[15px] leading-5 text-white"
             style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.012em' }}
           >
-            <span className="opacity-50">Sou</span>{' '}
-            <span>Pelvi</span>
+            <span className="opacity-50">sou</span><span>pelvi</span>
           </div>
           <div className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-white/55">
             App da paciente
@@ -109,7 +104,7 @@ export default function ActivatePatientAccount() {
         </ul>
       </div>
       <div className="mt-7 flex justify-between text-[11px] text-white/45">
-        <span>© 2026 Sou Pelvi · Todos os direitos reservados</span>
+        <span>© 2026 soupelvi · Todos os direitos reservados</span>
         <span>v{appVersion}</span>
       </div>
     </div>
@@ -148,7 +143,7 @@ export default function ActivatePatientAccount() {
                   Conta ativada!
                 </h1>
                 <p className="text-[13.5px] text-muted-foreground mt-2">
-                  Sua senha foi definida. Baixe o app Sou Pelvi e entre com seu CPF.
+                  Sua senha foi definida. Baixe o app soupelvi e entre com seu CPF.
                 </p>
               </div>
             </div>
@@ -162,7 +157,7 @@ export default function ActivatePatientAccount() {
                   Ative sua conta
                 </h1>
                 <p className="text-[13.5px] text-muted-foreground mt-1.5">
-                  Sua clínica te convidou para acompanhar seu tratamento pelo app Sou Pelvi.
+                  Sua clínica te convidou para acompanhar seu tratamento pelo app soupelvi.
                   Defina uma senha com no mínimo 6 caracteres para continuar.
                 </p>
               </div>

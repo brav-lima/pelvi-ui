@@ -63,23 +63,20 @@ export function Sidebar({ mobile, onNavigate }: SidebarProps) {
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-5 py-[18px] border-b border-sidebar-border">
         <div
-          className="flex items-center justify-center w-8 h-8 rounded-lg text-white font-bold text-sm shrink-0"
+          className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
           style={{
             background: 'hsl(var(--primary))',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.18)',
-            fontFamily: 'var(--font-display)',
-            letterSpacing: '-0.02em',
           }}
         >
-          P
+          <img src="/brand/icon-white.png" alt="soupelvi" className="w-[18px] h-[18px] object-contain" />
         </div>
         <div className="flex flex-col leading-none">
           <span
             className="font-semibold text-[15px] text-sidebar-foreground leading-5"
             style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.012em' }}
           >
-            <span className="opacity-50">Sou</span>{' '}
-            <span className="text-primary">Pelvi</span>
+            <span className="opacity-50">sou</span><span className="text-primary">pelvi</span>
           </span>
           <span
             className="text-[10.5px] mt-0.5 font-medium uppercase tracking-[0.06em]"

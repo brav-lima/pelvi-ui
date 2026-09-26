@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, ChevronRight, Stethoscope } from 'lucide-react';
+import { Building2, ChevronRight } from 'lucide-react';
 import { formatDocument } from '@/lib/formatters';
 
 export default function SelectClinic() {
@@ -36,11 +36,10 @@ export default function SelectClinic() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
-            <Stethoscope className="w-8 h-8 text-primary-foreground" />
+            <img src="/brand/icon-white.png" alt="soupelvi" className="w-9 h-9 object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">
-            <span className="font-medium opacity-50">Sou</span>{' '}
-            <span className="text-primary">Pelvi</span>
+            <span className="font-medium opacity-50">sou</span><span className="text-primary">pelvi</span>
           </h1>
         </div>
 

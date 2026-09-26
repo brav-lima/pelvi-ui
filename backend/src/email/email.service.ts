@@ -26,7 +26,7 @@ export class EmailService {
         id: this.passwordResetTemplateId,
         variables: {
           first_name: firstName,
-          company_name: 'Sou Pelvi',
+          company_name: 'soupelvi',
           reset_password_url: resetUrl,
         },
       },
@@ -51,7 +51,7 @@ export class EmailService {
         id: this.patientInviteTemplateId,
         variables: {
           first_name: firstName,
-          company_name: 'Sou Pelvi',
+          company_name: 'soupelvi',
           organization_name: organizationName,
           activate_url: activateUrl,
         },
