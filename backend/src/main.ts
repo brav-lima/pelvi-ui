@@ -90,7 +90,7 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== 'production') {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('soupelvi API')
-      .setDescription('API do sistema de gestão de clínicas')
+      .setDescription('API do soupelvi - Gestão para Fisioterapia Pélvica')
       .setVersion('1.0')
       .addBearerAuth()
       .build();
