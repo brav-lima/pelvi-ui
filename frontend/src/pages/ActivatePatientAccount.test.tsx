@@ -80,7 +80,7 @@ describe('ActivatePatientAccount page', () => {
     await waitFor(() => {
       expect(screen.getByText(/conta ativada/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/baixe o app sou pelvi/i)).toBeInTheDocument();
+    expect(screen.getByText(/baixe o app soupelvi/i)).toBeInTheDocument();
   });
 
   it('exibe erro quando o token é inválido ou expirado (400 da API)', async () => {

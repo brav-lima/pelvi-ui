@@ -50,7 +50,7 @@ describe('EmailService', () => {
         id: 'tpl-invite',
         variables: {
           first_name: 'Maria',
-          company_name: 'Sou Pelvi',
+          company_name: 'soupelvi',
           organization_name: 'Clínica A',
           activate_url: 'https://app.soupelvi.com/paciente/ativar-conta?token=abc',
         },

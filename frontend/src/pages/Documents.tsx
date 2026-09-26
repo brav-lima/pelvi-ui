@@ -272,7 +272,7 @@ export default function Documents() {
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="w-4 h-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Padrão Pelvi
+                  Padrão soupelvi
                 </h2>
               </div>
               <DocumentList

@@ -53,22 +53,17 @@ export default function Login() {
         {/* Logo */}
         <div className="flex items-center gap-2.5">
           <div
-            className="flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm text-white shrink-0"
-            style={{
-              background: 'rgba(255,255,255,0.12)',
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '-0.02em',
-            }}
+            className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+            style={{ background: 'rgba(255,255,255,0.12)' }}
           >
-            P
+            <img src="/brand/icon-white.png" alt="soupelvi" className="w-[18px] h-[18px] object-contain" />
           </div>
           <div>
             <div
               className="font-semibold text-[15px] leading-5 text-white"
               style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.012em' }}
             >
-              <span className="opacity-50">Sou</span>{' '}
-              <span>Pelvi</span>
+              <span className="opacity-50">sou</span><span>pelvi</span>
             </div>
             <div className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-white/55">
               Gestão clínica
@@ -88,7 +83,7 @@ export default function Login() {
 
         {/* Footer */}
         <div className="mt-7 flex justify-between text-[11px] text-white/45">
-          <span>© 2026 Sou Pelvi · Todos os direitos reservados</span>
+          <span>© 2026 soupelvi · Todos os direitos reservados</span>
           <span>v{appVersion}</span>
         </div>
       </div>
@@ -99,10 +94,10 @@ export default function Login() {
           {/* Mobile logo */}
           <div className="flex flex-col items-center mb-2 md:hidden">
             <div
-              className="flex items-center justify-center w-12 h-12 rounded-xl text-white font-bold text-lg mb-3"
-              style={{ background: 'hsl(var(--primary))', fontFamily: 'var(--font-display)' }}
+              className="flex items-center justify-center w-12 h-12 rounded-xl mb-3"
+              style={{ background: 'hsl(var(--primary))' }}
             >
-              P
+              <img src="/brand/icon-white.png" alt="soupelvi" className="w-[26px] h-[26px] object-contain" />
             </div>
             <p className="text-muted-foreground text-sm">Gestão clínica</p>
           </div>

@@ -89,7 +89,7 @@ async function bootstrap() {
 
   if (process.env.NODE_ENV !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('Pelvi API')
+      .setTitle('soupelvi API')
       .setDescription('API do sistema de gestão de clínicas')
       .setVersion('1.0')
       .addBearerAuth()
