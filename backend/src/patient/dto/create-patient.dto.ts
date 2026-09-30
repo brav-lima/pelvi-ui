@@ -1,12 +1,15 @@
 import {
   IsDateString,
   IsEmail,
+  IsIn,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
   registerDecorator,
   ValidationOptions,
 } from 'class-validator';
+import { MARITAL_STATUSES, MaritalStatus } from '../marital-status';
 
 function validateCpf(cpf: string): boolean {
   if (!/^\d{11}$/.test(cpf)) return false;
@@ -60,6 +63,15 @@ export class CreatePatientDto {
   @IsOptional()
   @IsString()
   gender?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  occupation?: string;
+
+  @IsOptional()
+  @IsIn(MARITAL_STATUSES, { message: 'Estado civil inválido' })
+  maritalStatus?: MaritalStatus;
 
   @IsOptional()
   @IsString()

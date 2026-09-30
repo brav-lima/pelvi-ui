@@ -79,6 +79,24 @@ describe('PatientService', () => {
       expect(result).toEqual(createdPatient);
     });
 
+    it('create deve repassar profissão e estado civil', async () => {
+      prisma.patient.create.mockResolvedValue({ id: 'p1' });
+
+      await service.create(orgA, {
+        name: 'Maria',
+        occupation: 'Professora',
+        maritalStatus: 'MARRIED',
+      });
+
+      expect(prisma.patient.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          organizationId: orgA,
+          occupation: 'Professora',
+          maritalStatus: 'MARRIED',
+        }),
+      });
+    });
+
     it('update deve verificar organizationId antes de atualizar', async () => {
       prisma.patient.findFirst.mockResolvedValue(null);
 
