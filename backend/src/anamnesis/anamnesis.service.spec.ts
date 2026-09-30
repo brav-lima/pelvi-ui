@@ -44,7 +44,7 @@ describe('AnamnesisService', () => {
         findMany: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
-        delete: jest.fn(),
+        deleteMany: jest.fn(),
       },
       organizationUser: { findUnique: jest.fn() },
       patient: { findFirst: jest.fn() },
@@ -241,7 +241,13 @@ describe('AnamnesisService', () => {
 
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(tx.anamnesisRevision.create).toHaveBeenCalledWith({
-        data: { organizationId: orgId, anamnesisId: 'ana-1', professionalId: 'ou-1', data: before },
+        data: {
+          organizationId: orgId,
+          anamnesisId: 'ana-1',
+          professionalId: 'ou-1',
+          data: before,
+          assessmentDate: null,
+        },
       });
       const updateArg = tx.anamnesis.update.mock.calls[0][0];
       expect(updateArg.data).not.toHaveProperty('status');
@@ -251,11 +257,22 @@ describe('AnamnesisService', () => {
     });
 
     it('alterar só a data da avaliação de uma anamnese finalizada também gera revisão', async () => {
-      setRecord(record({ status: AnamnesisStatus.COMPLETED }));
+      const oldDate = new Date('2026-06-01');
+      const current = record({ status: AnamnesisStatus.COMPLETED, assessmentDate: oldDate });
+      setRecord(current);
 
       await service.update(orgId, personId, 'ana-1', { assessmentDate: '2026-07-01' });
 
       expect(tx.anamnesisRevision.create).toHaveBeenCalledTimes(1);
+      expect(tx.anamnesisRevision.create).toHaveBeenCalledWith({
+        data: {
+          organizationId: orgId,
+          anamnesisId: 'ana-1',
+          professionalId: 'ou-1',
+          data: current.data,
+          assessmentDate: oldDate,
+        },
+      });
       expect(tx.anamnesis.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { assessmentDate: new Date('2026-07-01') } }),
       );
@@ -347,6 +364,7 @@ describe('AnamnesisService', () => {
           anamnesisId: 'ana-1',
           professionalId: 'ou-1',
           data: fresh.data,
+          assessmentDate: null,
         },
       });
       expect(tx.anamnesis.update).toHaveBeenCalledWith(
@@ -432,26 +450,47 @@ describe('AnamnesisService', () => {
   });
 
   describe('remove', () => {
-    it('exclui rascunho', async () => {
+    const deleteWhere = {
+      id: 'ana-1',
+      organizationId: orgId,
+      status: AnamnesisStatus.DRAFT,
+      type: { not: null },
+    };
+
+    it('exclui rascunho tipado via deleteMany escopado (org, DRAFT, type não nulo)', async () => {
       prisma.anamnesis.findFirst.mockResolvedValue(record());
-      prisma.anamnesis.delete.mockResolvedValue({ id: 'ana-1' });
+      prisma.anamnesis.deleteMany.mockResolvedValue({ count: 1 });
 
       await service.remove(orgId, 'ana-1');
 
-      expect(prisma.anamnesis.delete).toHaveBeenCalledWith({ where: { id: 'ana-1' } });
+      expect(prisma.anamnesis.deleteMany).toHaveBeenCalledWith({ where: deleteWhere });
     });
 
-    it('não exclui anamnese finalizada (nem legado backfilled) → 409', async () => {
+    it('não exclui anamnese finalizada → 409', async () => {
       prisma.anamnesis.findFirst.mockResolvedValue(record({ status: AnamnesisStatus.COMPLETED }));
 
       await expect(service.remove(orgId, 'ana-1')).rejects.toThrow(ConflictException);
-      expect(prisma.anamnesis.delete).not.toHaveBeenCalled();
+      expect(prisma.anamnesis.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('não exclui legado (type null) mesmo em DRAFT → 409', async () => {
+      prisma.anamnesis.findFirst.mockResolvedValue(record({ type: null }));
+
+      await expect(service.remove(orgId, 'ana-1')).rejects.toThrow(ConflictException);
+      expect(prisma.anamnesis.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('finalização concorrente (deleteMany count 0) → 409', async () => {
+      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      prisma.anamnesis.deleteMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.remove(orgId, 'ana-1')).rejects.toThrow(ConflictException);
     });
 
     it('lança NotFoundException quando não existe na org', async () => {
       prisma.anamnesis.findFirst.mockResolvedValue(null);
       await expect(service.remove(orgId, 'ana-x')).rejects.toThrow(NotFoundException);
-      expect(prisma.anamnesis.delete).not.toHaveBeenCalled();
+      expect(prisma.anamnesis.deleteMany).not.toHaveBeenCalled();
     });
   });
 });

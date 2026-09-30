@@ -274,7 +274,7 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 | `procedure` | `/api/procedures` | Clinic services CRUD (name, duration, price) |
 | `appointment` | `/api/appointments` | Schedule CRUD, conflict detection, status changes |
 | `agenda-block` | `/api/agenda-blocks` | Non-appointment agenda reservations (block a professional's time slot) |
-| `anamnesis` | `/api/anamneses` | Patient anamnesis (flexible JSON structure); tipos, status DRAFT/COMPLETED, merge por seção, revisões em `anamnesis_revisions`, legado (`type = null`) somente leitura, DELETE só de rascunho |
+| `anamnesis` | `/api/anamneses` | Patient anamnesis (flexible JSON structure); tipos, status DRAFT/COMPLETED, merge por seção, revisões em `anamnesis_revisions` (snapshot de `data` + `assessmentDate` anteriores), legado (`type = null`) somente leitura e nunca excluível, DELETE só de rascunho tipado |
 | `perineal-assessment` | `/api/perineal-assessments` | Pelvic floor clinical evaluation (flexible JSON data) |
 | `evolution` | `/api/evolutions` | Clinical evolution notes (timeline) |
 | `treatment-package` | `/api/treatment-packages` | Session packages with procedure links |

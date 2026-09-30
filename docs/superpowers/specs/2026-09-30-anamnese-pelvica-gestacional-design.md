@@ -18,7 +18,7 @@ Princípio: *o SOUPELVI organiza o prontuário; a metodologia pertence à profis
 | Tema | Decisão |
 |------|---------|
 | Anamnese simplificada atual | Substituída para novos registros. Registros existentes permanecem no banco **sem migração** e são exibidos somente-leitura como "Formato anterior". |
-| Versionamento | Snapshot em `anamnesis_revisions` a cada edição de anamnese já finalizada. Rascunhos não geram revisão. Sem UI de versões no MVP. |
+| Versionamento | Snapshot (`data` + `assessmentDate` anteriores) em `anamnesis_revisions` a cada edição de anamnese já finalizada. Rascunhos não geram revisão. Sem UI de versões no MVP. |
 | Definição dos formulários | Config versionada no código (não em tabela). |
 | Profissão e estado civil | Passam a fazer parte do **cadastro do paciente** (`Patient.occupation`, `Patient.maritalStatus`), reutilizados pela anamnese. |
 | Exclusão | Anamnese `DRAFT` pode ser excluída; `COMPLETED` **não** (somente edição, com revisão). |
@@ -60,6 +60,7 @@ model AnamnesisRevision {
   anamnesisId    String   @map("anamnesis_id")
   professionalId String   @map("professional_id") // quem fez a edição
   data           Json
+  assessmentDate DateTime? @map("assessment_date") // data da avaliação antes da edição
   createdAt      DateTime @default(now()) @map("created_at")
 
   anamnesis Anamnesis @relation(fields: [anamnesisId], references: [id])
@@ -73,7 +74,7 @@ model AnamnesisRevision {
 
 **Cadastro do paciente:** `occupation` e `maritalStatus` são colunas nullable (aditivas, sem backfill). Para manter a coluna `marital_status` livre de validação rígida no banco, o conjunto de valores é validado no DTO (`@IsIn`), não por enum Prisma — evita migration a cada novo valor. Afeta: `schema.prisma`, `create-patient.dto.ts`, `update-patient.dto.ts`, `patient.service.ts` (select/shape de retorno), `types/clinic.ts` (`Patient`), `PatientFormDialog.tsx` (novos campos) e exibição em `PatientProfile.tsx`.
 
-**Remoção de anamnese:** `DELETE /anamneses/:id` só é permitido para `status = DRAFT`; em `COMPLETED` retorna `409 Conflict` ("anamnese finalizada não pode ser excluída; edite o registro"). Como rascunhos não geram revisões, não há revisões a apagar. O botão de excluir na UI fica oculto para `COMPLETED`.
+**Remoção de anamnese:** `DELETE /anamneses/:id` só é permitido para `status = DRAFT` com `type` não nulo (registros legados, `type = null`, nunca são excluíveis e aparecem como "Finalizada" na UI, mesmo que gravados depois do backfill com `status = DRAFT` por default); a exclusão é `deleteMany` condicional (DRAFT, type não nulo) para não apagar um registro finalizado concorrentemente. Em `COMPLETED`/legado retorna `409 Conflict` ("anamnese finalizada não pode ser excluída; edite o registro"). Como rascunhos não geram revisões, não há revisões a apagar. O botão de excluir na UI fica oculto para `COMPLETED`.
 
 ### Forma do `data` (tipos novos)
 

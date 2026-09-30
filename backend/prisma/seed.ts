@@ -412,6 +412,7 @@ async function main() {
       organizationId: clinicA.id,
       patientId: patients[0].id,
       professionalId: orgUserProf1.id,
+      status: 'COMPLETED', // legacy-shaped (no type): must never appear as a deletable draft
       data: {
         queixaPrincipal: 'Dor no ombro direito há 3 meses',
         historico: 'Pratica musculação 3x por semana',
@@ -428,6 +429,7 @@ async function main() {
       organizationId: clinicA.id,
       patientId: patients[2].id,
       professionalId: orgUserProf2.id,
+      status: 'COMPLETED', // legacy-shaped (no type): must never appear as a deletable draft
       data: {
         queixaPrincipal: 'Ansiedade e dificuldade para dormir',
         historico: 'Trabalha em ambiente de alta pressão',

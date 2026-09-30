@@ -24,6 +24,7 @@ CREATE TABLE "anamnesis_revisions" (
     "anamnesis_id" TEXT NOT NULL,
     "professional_id" TEXT NOT NULL,
     "data" JSONB NOT NULL,
+    "assessment_date" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "anamnesis_revisions_pkey" PRIMARY KEY ("id")

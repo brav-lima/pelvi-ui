@@ -131,6 +131,7 @@ export class AnamnesisService {
             anamnesisId: id,
             professionalId: orgUser.id,
             data: (existing.data ?? {}) as Prisma.InputJsonValue,
+            assessmentDate: existing.assessmentDate ?? null,
           },
         });
       }
@@ -164,14 +165,25 @@ export class AnamnesisService {
 
   async remove(organizationId: string, id: string) {
     const existing = await this.findById(organizationId, id);
+    const message = 'Anamnese em formato anterior ou finalizada não pode ser excluída';
 
-    if (existing.status === AnamnesisStatus.COMPLETED) {
-      throw new ConflictException(
-        'Anamnese finalizada não pode ser excluída. Edite o registro.',
-      );
+    if (existing.type === null || existing.status === AnamnesisStatus.COMPLETED) {
+      throw new ConflictException(message);
     }
 
-    return this.prisma.anamnesis.delete({ where: { id } });
+    // Re-check the guard atomically: a concurrent finalize must not let a COMPLETED row be deleted.
+    const { count } = await this.prisma.anamnesis.deleteMany({
+      where: {
+        id,
+        organizationId,
+        status: AnamnesisStatus.DRAFT,
+        type: { not: null },
+      },
+    });
+    if (count === 0) {
+      throw new ConflictException(message);
+    }
+    return existing;
   }
 
   private async resolveOrgUser(organizationId: string, personId: string) {

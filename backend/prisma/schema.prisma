@@ -372,6 +372,7 @@ model AnamnesisRevision {
   anamnesisId    String   @map("anamnesis_id")
   professionalId String   @map("professional_id") // OrganizationUser.id of the editor
   data           Json
+  assessmentDate DateTime? @map("assessment_date") // data da avaliação ANTES da edição
   createdAt      DateTime @default(now()) @map("created_at")
 
   anamnesis Anamnesis @relation(fields: [anamnesisId], references: [id])
