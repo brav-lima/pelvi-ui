@@ -69,8 +69,21 @@ describe('normalizeAnamnesisData', () => {
   it.each(['constructor', '__proto__', 'toString', 'hasOwnProperty'])(
     'rejeita id de seção "%s" (chave do protótipo de Object)',
     (id) => {
-      const sections = JSON.parse(`{"${id}": "x"}`);
-      expect(() => normalizeAnamnesisData(GENERAL, { sections })).toThrow(BadRequestException);
+      // Test with string value: should fail (but might hide the guard defect via type check)
+      const sectionsWithString = JSON.parse(`{"${id}": "x"}`);
+      expect(() => normalizeAnamnesisData(GENERAL, { sections: sectionsWithString })).toThrow(
+        BadRequestException,
+      );
+
+      // Test with object value: must fail at membership guard (not type check)
+      // This discriminates the guard: without it, {} would pass structured validation
+      const sectionsWithObject = JSON.parse(`{"${id}": {}}`);
+      expect(() => normalizeAnamnesisData(GENERAL, { sections: sectionsWithObject })).toThrow(
+        /Seção desconhecida/,
+      );
+      expect(() => normalizeAnamnesisData(PREGNANCY, { sections: sectionsWithObject })).toThrow(
+        /Seção desconhecida/,
+      );
     },
   );
 
