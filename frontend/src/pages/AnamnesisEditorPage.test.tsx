@@ -264,6 +264,84 @@ describe('AnamnesisEditorPage', () => {
     });
   });
 
+  describe('edições durante o salvamento', () => {
+    const deferred = <T,>() => {
+      let resolve!: (v: T) => void;
+      const promise = new Promise<T>((r) => { resolve = r; });
+      return { promise, resolve };
+    };
+
+    it('edição feita com o salvamento em andamento mantém "Alterações não salvas" e é salva depois', async () => {
+      vi.mocked(anamnesisApi.getById).mockResolvedValue(existing());
+      const first = deferred<Anamnesis>();
+      vi.mocked(anamnesisApi.update)
+        .mockReturnValueOnce(first.promise)
+        .mockResolvedValueOnce(existing());
+      renderPage('/patients/patient-1/anamnesis/anam-1');
+
+      const field = await screen.findByLabelText('Queixa principal');
+      fireEvent.change(field, { target: { value: 'primeira' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
+      await waitFor(() => expect(anamnesisApi.update).toHaveBeenCalledTimes(1));
+
+      fireEvent.change(field, { target: { value: 'primeira e segunda' } });
+      first.resolve(existing());
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar rascunho' })).toBeEnabled());
+      expect(screen.getByText('Alterações não salvas')).toBeInTheDocument();
+      expect(screen.queryByText(/Salvo às/)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
+      await waitFor(() => expect(anamnesisApi.update).toHaveBeenCalledTimes(2));
+      expect(vi.mocked(anamnesisApi.update).mock.calls[1][1].data).toEqual({
+        sections: { chiefComplaint: 'primeira e segunda' },
+      });
+      expect(await screen.findByText(/Salvo às/)).toBeInTheDocument();
+    });
+
+    it('controle: sem edições durante o salvamento, o indicador mostra "Salvo às"', async () => {
+      vi.mocked(anamnesisApi.getById).mockResolvedValue(existing());
+      const first = deferred<Anamnesis>();
+      vi.mocked(anamnesisApi.update).mockReturnValueOnce(first.promise);
+      renderPage('/patients/patient-1/anamnesis/anam-1');
+
+      fireEvent.change(await screen.findByLabelText('Queixa principal'), { target: { value: 'x' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
+      await waitFor(() => expect(anamnesisApi.update).toHaveBeenCalledTimes(1));
+      first.resolve(existing());
+
+      expect(await screen.findByText(/Salvo às/)).toBeInTheDocument();
+      expect(screen.queryByText('Alterações não salvas')).not.toBeInTheDocument();
+    });
+  });
+
+  it('criar e navegar (/new -> /:anamnesisId, rotas separadas) preserva o texto digitado', async () => {
+    vi.mocked(anamnesisApi.create).mockResolvedValue({ id: 'anam-1', status: 'DRAFT' } as Anamnesis);
+    vi.mocked(anamnesisApi.getById).mockResolvedValue(
+      existing({ data: { sections: { chiefComplaint: 'Texto digitado' } } }),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/patients/patient-1/anamnesis/new?type=PELVIC_GENERAL']}>
+          <Routes>
+            <Route path="/patients/:patientId/anamnesis/new" element={<AnamnesisEditorPage />} />
+            <Route path="/patients/:patientId/anamnesis/:anamnesisId" element={<AnamnesisEditorPage />} />
+            <Route path="/patients/:patientId" element={<div>PERFIL DO PACIENTE</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Queixa principal'), { target: { value: 'Texto digitado' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
+
+    await waitFor(() => expect(anamnesisApi.create).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(anamnesisApi.getById).toHaveBeenCalledWith('anam-1'));
+    expect(await screen.findByLabelText('Queixa principal')).toHaveValue('Texto digitado');
+    expect(anamnesisApi.create).toHaveBeenCalledTimes(1);
+  });
+
   it('esconde o atalho "Avaliação perineal" quando a feature está inativa', async () => {
     features.PERINEAL_ASSESSMENT = false;
     renderPage('/patients/patient-1/anamnesis/new?type=PELVIC_GENERAL');

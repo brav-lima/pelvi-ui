@@ -40,6 +40,11 @@ const VALID_TYPES: AnamnesisType[] = ['PELVIC_GENERAL', 'PREGNANCY'];
 const parseType = (raw: string | null): AnamnesisType | null =>
   VALID_TYPES.includes(raw as AnamnesisType) ? (raw as AnamnesisType) : null;
 
+interface SaveRequest {
+  finalize: boolean;
+  version: number;
+}
+
 export default function AnamnesisEditorPage() {
   const { patientId, anamnesisId } = useParams();
   const [searchParams] = useSearchParams();
@@ -56,6 +61,12 @@ export default function AnamnesisEditorPage() {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const hydratedId = useRef<string | null>(null);
+  // Bumped on every user edit; a save only clears `dirty` if nothing changed while it was in flight.
+  const editVersion = useRef(0);
+  const markDirty = () => {
+    editVersion.current += 1;
+    setDirty(true);
+  };
 
   const hasPerineal = useFeature('PERINEAL_ASSESSMENT');
   const hasEvolutions = useFeature('EVOLUTIONS');
@@ -91,7 +102,7 @@ export default function AnamnesisEditorPage() {
     setAssessmentDate(existing.assessmentDate ? existing.assessmentDate.slice(0, 10) : todayIso());
   }, [existing]);
 
-  const persist = async (finalize: boolean): Promise<Anamnesis> => {
+  const persist = async ({ finalize }: SaveRequest): Promise<Anamnesis> => {
     const content = { sections };
     if (!effectiveId) {
       const created = await anamnesisApi.create({
@@ -113,10 +124,10 @@ export default function AnamnesisEditorPage() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: (finalize: boolean) => persist(finalize),
-    onSuccess: (result) => {
+    mutationFn: (request: SaveRequest) => persist(request),
+    onSuccess: (result, request) => {
       if (result.status) setSavedStatus(result.status);
-      setDirty(false);
+      if (editVersion.current === request.version) setDirty(false);
       setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ['patient-anamneses', patientId] });
       queryClient.invalidateQueries({ queryKey: ['anamnesis', result.id] });
@@ -124,14 +135,16 @@ export default function AnamnesisEditorPage() {
     onError: () => toast.error('Erro ao salvar anamnese', { id: 'anamnesis-save-error' }),
   });
 
+  const saveRequest = (finalize: boolean): SaveRequest => ({ finalize, version: editVersion.current });
+
   const handleSave = () =>
-    saveMutation.mutate(false, {
+    saveMutation.mutate(saveRequest(false), {
       onSuccess: () => toast.success(status === 'COMPLETED' ? 'Alterações salvas' : 'Rascunho salvo'),
     });
 
   const handleFinalize = async () => {
     try {
-      await saveMutation.mutateAsync(true);
+      await saveMutation.mutateAsync(saveRequest(true));
       toast.success('Anamnese finalizada');
       navigate(`/patients/${patientId}`);
     } catch {
@@ -141,7 +154,7 @@ export default function AnamnesisEditorPage() {
 
   useAutosave({
     enabled: !!type && !isLegacy && status === 'DRAFT' && dirty && !saveMutation.isPending,
-    onSave: () => saveMutation.mutate(false),
+    onSave: () => saveMutation.mutate(saveRequest(false)),
   });
   useUnsavedChangesGuard(dirty, setPendingPath);
 
@@ -149,7 +162,7 @@ export default function AnamnesisEditorPage() {
 
   const setSection = (id: string, value: unknown) => {
     setSections((prev) => ({ ...prev, [id]: value }));
-    setDirty(true);
+    markDirty();
   };
 
   const handleUltrasoundChange = (next: UltrasoundData) => {
@@ -164,12 +177,12 @@ export default function AnamnesisEditorPage() {
         }),
       };
     });
-    setDirty(true);
+    markDirty();
   };
 
   const handleAssessmentDateChange = (value: string) => {
     setAssessmentDate(value);
-    setDirty(true);
+    markDirty();
     if (type === 'PREGNANCY') {
       setSections((prev) =>
         prev.gestationalData === undefined
