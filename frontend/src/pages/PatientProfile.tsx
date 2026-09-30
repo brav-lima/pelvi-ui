@@ -9,7 +9,7 @@ import {
   ArrowLeft, Edit, Eye, Phone, Mail, MapPin, Calendar,
   TrendingUp, Plus, Loader2, CheckCircle, XCircle,
   CalendarCheck, Package, DollarSign, Wallet,
-  ClipboardList, Stethoscope, FileText, User, Trash2, Pencil,
+  ClipboardList, Stethoscope, FileText, User, Trash2, Pencil, Briefcase,
 } from 'lucide-react';
 import {
   patientsApi, appointmentsApi, anamnesisApi, evolutionsApi,
@@ -25,6 +25,7 @@ import { LinkedAppointmentLine } from '@/components/evolutions/LinkedAppointment
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
 import { PatientPortalCard } from '@/components/patients/PatientPortalCard';
 import { useHasRole } from '@/components/auth/RoleGuard';
+import { describeOccupationAndMaritalStatus } from '@/lib/marital-status';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment, Evolution } from '@/types/clinic';
 import {
@@ -382,6 +383,12 @@ export default function PatientProfile() {
               <div className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
                 <FileText className="w-3.5 h-3.5 shrink-0" />
                 <span className="font-mono">{formatCPFMasked(patient.cpf)}</span>
+              </div>
+            )}
+            {describeOccupationAndMaritalStatus(patient) && (
+              <div className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                <Briefcase className="w-3.5 h-3.5 shrink-0" />
+                <span>{describeOccupationAndMaritalStatus(patient)}</span>
               </div>
             )}
           </div>
