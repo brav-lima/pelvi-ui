@@ -1,4 +1,5 @@
 import {
+  ValidateIf,
   IsDateString,
   IsEnum,
   IsObject,
@@ -15,11 +16,11 @@ export class CreateAnamnesisDto {
   @IsEnum(AnamnesisType, { message: 'Tipo de anamnese inválido' })
   type: AnamnesisType;
 
-  @IsOptional()
+  @ValidateIf((o) => o.assessmentDate !== undefined)
   @IsDateString({}, { message: 'Data da avaliação inválida' })
   assessmentDate?: string;
 
-  @IsOptional()
+  @ValidateIf((o) => o.data !== undefined)
   @IsObject({ message: 'Dados da anamnese devem ser um objeto JSON' })
   data?: Record<string, unknown>;
 

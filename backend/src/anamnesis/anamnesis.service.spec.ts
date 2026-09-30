@@ -27,9 +27,15 @@ describe('AnamnesisService', () => {
     ...over,
   });
 
+  const setRecord = (row: unknown) => {
+    prisma.anamnesis.findFirst.mockResolvedValue(row);
+    tx.anamnesis.findFirst.mockResolvedValue(row);
+  };
+
   beforeEach(async () => {
     tx = {
-      anamnesis: { update: jest.fn().mockResolvedValue({ id: 'ana-1' }) },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      anamnesis: { findFirst: jest.fn(), update: jest.fn().mockResolvedValue({ id: 'ana-1' }) },
       anamnesisRevision: { create: jest.fn().mockResolvedValue({}) },
     };
     prisma = {
@@ -180,7 +186,7 @@ describe('AnamnesisService', () => {
     });
 
     it('faz merge por seção preservando seções não enviadas (rascunho não gera revisão)', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      setRecord(record());
 
       await service.update(orgId, personId, 'ana-1', {
         data: { sections: { chiefComplaint: 'Dor intensa' } },
@@ -196,7 +202,7 @@ describe('AnamnesisService', () => {
     });
 
     it('string vazia sobrescreve o texto anterior (limpar um campo)', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      setRecord(record());
 
       await service.update(orgId, personId, 'ana-1', { data: { sections: { chiefComplaint: '' } } });
 
@@ -208,7 +214,7 @@ describe('AnamnesisService', () => {
     });
 
     it('finalizar define status COMPLETED e completedAt', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      setRecord(record());
 
       await service.update(orgId, personId, 'ana-1', { status: AnamnesisStatus.COMPLETED });
 
@@ -225,7 +231,7 @@ describe('AnamnesisService', () => {
 
     it('editar anamnese finalizada grava revisão com o data anterior e o editor, antes do update', async () => {
       const before = { sections: { chiefComplaint: 'Dor', currentHistory: 'Há 2 meses' } };
-      prisma.anamnesis.findFirst.mockResolvedValue(
+      setRecord(
         record({ status: AnamnesisStatus.COMPLETED, data: before }),
       );
 
@@ -245,7 +251,7 @@ describe('AnamnesisService', () => {
     });
 
     it('alterar só a data da avaliação de uma anamnese finalizada também gera revisão', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(record({ status: AnamnesisStatus.COMPLETED }));
+      setRecord(record({ status: AnamnesisStatus.COMPLETED }));
 
       await service.update(orgId, personId, 'ana-1', { assessmentDate: '2026-07-01' });
 
@@ -257,18 +263,126 @@ describe('AnamnesisService', () => {
 
     it('PATCH sem mudança real numa anamnese finalizada não cria revisão nem atualiza', async () => {
       const existing = record({ status: AnamnesisStatus.COMPLETED });
-      prisma.anamnesis.findFirst.mockResolvedValue(existing);
+      setRecord(existing);
 
       const result = await service.update(orgId, personId, 'ana-1', {
         status: AnamnesisStatus.COMPLETED,
       });
 
       expect(result).toBe(existing);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(tx.anamnesisRevision.create).not.toHaveBeenCalled();
+      expect(tx.anamnesis.update).not.toHaveBeenCalled();
+    });
+
+    it('COMPLETED + data idêntico → sem revisão nem update', async () => {
+      setRecord(record({ status: AnamnesisStatus.COMPLETED }));
+
+      await service.update(orgId, personId, 'ana-1', {
+        data: { sections: { chiefComplaint: 'Dor', currentHistory: 'Há 2 meses' } },
+      });
+
+      expect(tx.anamnesisRevision.create).not.toHaveBeenCalled();
+      expect(tx.anamnesis.update).not.toHaveBeenCalled();
+    });
+
+    it('COMPLETED + assessmentDate idêntica → sem revisão nem update', async () => {
+      setRecord(
+        record({ status: AnamnesisStatus.COMPLETED, assessmentDate: new Date('2026-07-01') }),
+      );
+
+      await service.update(orgId, personId, 'ana-1', { assessmentDate: '2026-07-01' });
+
+      expect(tx.anamnesisRevision.create).not.toHaveBeenCalled();
+      expect(tx.anamnesis.update).not.toHaveBeenCalled();
+    });
+
+    it('COMPLETED + uma seção alterada → cria revisão', async () => {
+      setRecord(record({ status: AnamnesisStatus.COMPLETED }));
+
+      await service.update(orgId, personId, 'ana-1', {
+        data: { sections: { chiefComplaint: 'Outra' } },
+      });
+
+      expect(tx.anamnesisRevision.create).toHaveBeenCalledTimes(1);
+      expect(tx.anamnesis.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('DRAFT + data idêntico → sem revisão e sem update', async () => {
+      setRecord(record());
+
+      await service.update(orgId, personId, 'ana-1', {
+        data: { sections: { chiefComplaint: 'Dor' } },
+      });
+
+      expect(tx.anamnesisRevision.create).not.toHaveBeenCalled();
+      expect(tx.anamnesis.update).not.toHaveBeenCalled();
+    });
+
+    it('bloqueia a linha (FOR UPDATE) e usa a releitura dentro da transação para merge e revisão', async () => {
+      const stale = record({
+        status: AnamnesisStatus.COMPLETED,
+        data: { sections: { chiefComplaint: 'Velho' } },
+      });
+      const fresh = record({
+        status: AnamnesisStatus.COMPLETED,
+        data: { sections: { chiefComplaint: 'Novo', healthHistory: 'HP' } },
+      });
+      prisma.anamnesis.findFirst.mockResolvedValue(stale);
+      tx.anamnesis.findFirst.mockResolvedValue(fresh);
+
+      await service.update(orgId, personId, 'ana-1', {
+        data: { sections: { currentHistory: 'X' } },
+      });
+
+      expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.anamnesis.findFirst.mock.invocationCallOrder[0],
+      );
+      expect(tx.anamnesis.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'ana-1', organizationId: orgId } }),
+      );
+      expect(tx.anamnesisRevision.create).toHaveBeenCalledWith({
+        data: {
+          organizationId: orgId,
+          anamnesisId: 'ana-1',
+          professionalId: 'ou-1',
+          data: fresh.data,
+        },
+      });
+      expect(tx.anamnesis.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            data: {
+              sections: { chiefComplaint: 'Novo', healthHistory: 'HP', currentHistory: 'X' },
+            },
+          },
+        }),
+      );
+    });
+
+    it('releitura dentro da transação sem registro → 404 sem escrever', async () => {
+      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      tx.anamnesis.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(orgId, personId, 'ana-1', { data: { sections: { chiefComplaint: 'x' } } }),
+      ).rejects.toThrow(NotFoundException);
+      expect(tx.anamnesis.update).not.toHaveBeenCalled();
+    });
+
+    it('reabrir detectado só na releitura (finalizada por outro writer) → 400 sem escrever', async () => {
+      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      tx.anamnesis.findFirst.mockResolvedValue(record({ status: AnamnesisStatus.COMPLETED }));
+
+      await expect(
+        service.update(orgId, personId, 'ana-1', { status: AnamnesisStatus.DRAFT }),
+      ).rejects.toThrow(BadRequestException);
+      expect(tx.anamnesis.update).not.toHaveBeenCalled();
+      expect(tx.anamnesisRevision.create).not.toHaveBeenCalled();
     });
 
     it('não permite reabrir anamnese finalizada como rascunho', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(record({ status: AnamnesisStatus.COMPLETED }));
+      setRecord(record({ status: AnamnesisStatus.COMPLETED }));
 
       await expect(
         service.update(orgId, personId, 'ana-1', { status: AnamnesisStatus.DRAFT }),
@@ -277,7 +391,7 @@ describe('AnamnesisService', () => {
     });
 
     it('registro legado (type null) é somente leitura → 409', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(
+      setRecord(
         record({ type: null, status: AnamnesisStatus.COMPLETED, data: { queixaPrincipal: {} } }),
       );
 
@@ -288,7 +402,7 @@ describe('AnamnesisService', () => {
     });
 
     it('rejeita seção desconhecida sem abrir transação', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      setRecord(record());
 
       await expect(
         service.update(orgId, personId, 'ana-1', { data: { sections: { foo: 'x' } } }),
@@ -297,7 +411,7 @@ describe('AnamnesisService', () => {
     });
 
     it('lança NotFoundException quando a anamnese não existe na org (tenant isolation)', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(null);
+      setRecord(null);
 
       await expect(
         service.update(orgId, personId, 'ana-outra', { data: { sections: {} } }),
@@ -308,7 +422,7 @@ describe('AnamnesisService', () => {
     });
 
     it('lança ForbiddenException quando o orgUser está inativo', async () => {
-      prisma.anamnesis.findFirst.mockResolvedValue(record());
+      setRecord(record());
       prisma.organizationUser.findUnique.mockResolvedValue({ ...mockOrgUser, active: false });
 
       await expect(

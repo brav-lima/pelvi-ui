@@ -1,16 +1,16 @@
-import { IsDateString, IsEnum, IsObject, IsOptional } from 'class-validator';
+import { ValidateIf, IsDateString, IsEnum, IsObject, IsOptional } from 'class-validator';
 import { AnamnesisStatus } from '@prisma/client';
 
 export class UpdateAnamnesisDto {
-  @IsOptional()
+  @ValidateIf((o) => o.data !== undefined)
   @IsObject({ message: 'Dados da anamnese devem ser um objeto JSON' })
   data?: Record<string, unknown>;
 
-  @IsOptional()
+  @ValidateIf((o) => o.assessmentDate !== undefined)
   @IsDateString({}, { message: 'Data da avaliação inválida' })
   assessmentDate?: string;
 
-  @IsOptional()
+  @ValidateIf((o) => o.status !== undefined)
   @IsEnum(AnamnesisStatus, { message: 'Status inválido' })
   status?: AnamnesisStatus;
 }
