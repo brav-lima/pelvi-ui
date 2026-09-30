@@ -105,7 +105,7 @@ describe('AnamnesisTab', () => {
     expect(onOpen).toHaveBeenCalledWith('old');
   });
 
-  it('legado ainda em rascunho continua tratado como legado (Visualizar) e pode ser excluído', () => {
+  it('legado com status DRAFT (criado após o backfill) é somente leitura: sem excluir e nunca "Rascunho"', () => {
     render(
       <AnamnesisTab
         {...noop}
@@ -115,7 +115,9 @@ describe('AnamnesisTab', () => {
     const card = screen.getByTestId('anamnesis-old-draft');
     expect(within(card).getByText('Formato anterior')).toBeInTheDocument();
     expect(within(card).getByRole('button', { name: 'Visualizar' })).toBeInTheDocument();
-    expect(within(card).getByRole('button', { name: 'Excluir' })).toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument();
+    expect(within(card).getByText('Finalizada')).toBeInTheDocument();
+    expect(within(card).queryByText('Rascunho')).not.toBeInTheDocument();
   });
 
   it('gestacional mostra o resumo obstétrico', () => {

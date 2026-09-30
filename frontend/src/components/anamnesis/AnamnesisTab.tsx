@@ -79,7 +79,9 @@ export function AnamnesisTab({
           <div className="space-y-6">
             {anamneses.map((a) => {
               const isLegacy = a.type === null;
-              const canDelete = a.status !== 'COMPLETED';
+              // Legacy rows (type null) are preserved clinical history: never deletable, always shown as finalized.
+              const isFinalized = isLegacy || a.status === 'COMPLETED';
+              const canDelete = !isLegacy && a.status !== 'COMPLETED';
               return (
                 <div key={a.id} data-testid={`anamnesis-${a.id}`} className="border border-border rounded-lg p-4">
                   <div className="flex items-start justify-between gap-3 mb-3">
@@ -90,12 +92,12 @@ export function AnamnesisTab({
                         </span>
                         <span
                           className={
-                            a.status === 'COMPLETED'
+                            isFinalized
                               ? 'text-[11px] font-medium rounded-full px-2 py-0.5 bg-primary/10 text-primary'
                               : 'text-[11px] font-medium rounded-full px-2 py-0.5 bg-secondary text-muted-foreground'
                           }
                         >
-                          {a.status === 'COMPLETED' ? 'Finalizada' : 'Rascunho'}
+                          {isFinalized ? 'Finalizada' : 'Rascunho'}
                         </span>
                       </div>
                       <p className="text-[12.5px] text-muted-foreground">

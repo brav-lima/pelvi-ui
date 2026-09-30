@@ -78,10 +78,13 @@ export default function AnamnesisEditorPage() {
     enabled: !!patientId,
   });
 
-  const { data: existing, isLoading: loadingExisting } = useQuery({
+  // Always refetch on mount and hydrate only from that fresh copy: a cached (stale) record would
+  // otherwise seed the form and the next PATCH would overwrite newer server content.
+  const { data: existing, isLoading: loadingExisting, isFetchedAfterMount } = useQuery({
     queryKey: ['anamnesis', anamnesisId],
     queryFn: () => anamnesisApi.getById(anamnesisId!),
     enabled: !isNew,
+    refetchOnMount: 'always',
   });
 
   const { data: packages = [] } = useQuery({
@@ -96,11 +99,11 @@ export default function AnamnesisEditorPage() {
   const effectiveId = savedId ?? (isNew ? null : anamnesisId ?? null);
 
   useEffect(() => {
-    if (!existing || hydratedId.current === existing.id) return;
+    if (!existing || !isFetchedAfterMount || hydratedId.current === existing.id) return;
     hydratedId.current = existing.id;
     setSections(getSections(existing.data));
     setAssessmentDate(existing.assessmentDate ? existing.assessmentDate.slice(0, 10) : todayIso());
-  }, [existing]);
+  }, [existing, isFetchedAfterMount]);
 
   const persist = async ({ finalize }: SaveRequest): Promise<Anamnesis> => {
     const content = { sections };
@@ -132,7 +135,13 @@ export default function AnamnesisEditorPage() {
       queryClient.invalidateQueries({ queryKey: ['patient-anamneses', patientId] });
       queryClient.invalidateQueries({ queryKey: ['anamnesis', result.id] });
     },
-    onError: () => toast.error('Erro ao salvar anamnese', { id: 'anamnesis-save-error' }),
+    onError: (error) => {
+      const message =
+        error instanceof Error && error.message && error.message !== 'Erro na requisição'
+          ? error.message
+          : undefined;
+      toast.error(message ?? 'Erro ao salvar anamnese', { id: 'anamnesis-save-error' });
+    },
   });
 
   const saveRequest = (finalize: boolean): SaveRequest => ({ finalize, version: editVersion.current });
@@ -219,7 +228,7 @@ export default function AnamnesisEditorPage() {
 
   if (isNew && !newType) return <Navigate to={`/patients/${patientId}`} replace />;
 
-  if (loadingPatient || (!isNew && loadingExisting && !savedId)) {
+  if (loadingPatient || (!isNew && !savedId && (loadingExisting || !isFetchedAfterMount))) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

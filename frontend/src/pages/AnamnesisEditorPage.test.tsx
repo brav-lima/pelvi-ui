@@ -20,6 +20,7 @@ vi.mock('@/contexts/SubscriptionContext', () => ({
   useFeature: (f: string) => features[f] ?? true,
 }));
 
+import { toast } from 'sonner';
 import { patientsApi, anamnesisApi, treatmentPackagesApi } from '@/lib/api';
 import AnamnesisEditorPage from './AnamnesisEditorPage';
 import type { Patient, Anamnesis } from '@/types/clinic';
@@ -313,6 +314,62 @@ describe('AnamnesisEditorPage', () => {
       expect(await screen.findByText(/Salvo às/)).toBeInTheDocument();
       expect(screen.queryByText('Alterações não salvas')).not.toBeInTheDocument();
     });
+  });
+
+  it('não hidrata a partir de cache desatualizado: usa o registro buscado após montar e nunca grava o texto velho', async () => {
+    const stale = existing({ data: { sections: { chiefComplaint: 'Texto VELHO do cache' } } });
+    const fresh = existing({ data: { sections: { chiefComplaint: 'Texto NOVO do servidor' } } });
+    vi.mocked(anamnesisApi.getById).mockResolvedValue(fresh);
+    vi.mocked(anamnesisApi.update).mockResolvedValue(fresh);
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(['anamnesis', 'anam-1'], stale);
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/patients/patient-1/anamnesis/anam-1']}>
+          <Routes>
+            <Route path="/patients/:patientId/anamnesis/:anamnesisId" element={<AnamnesisEditorPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const field = await screen.findByLabelText('Queixa principal');
+    expect(field).toHaveValue('Texto NOVO do servidor');
+    expect(screen.queryByDisplayValue('Texto VELHO do cache')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Histórico de saúde'), { target: { value: 'HP' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
+    await waitFor(() => expect(anamnesisApi.update).toHaveBeenCalledTimes(1));
+    const [, body] = vi.mocked(anamnesisApi.update).mock.calls[0];
+    expect(body.data).toEqual({
+      sections: { chiefComplaint: 'Texto NOVO do servidor', healthHistory: 'HP' },
+    });
+  });
+
+  it('mostra no toast a mensagem específica devolvida pelo backend ao falhar o salvamento', async () => {
+    vi.mocked(anamnesisApi.getById).mockResolvedValue(existing());
+    vi.mocked(anamnesisApi.update).mockRejectedValue(new Error('Seção desconhecida: foo'));
+    renderPage('/patients/patient-1/anamnesis/anam-1');
+
+    fireEvent.change(await screen.findByLabelText('Queixa principal'), { target: { value: 'x' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Seção desconhecida: foo', { id: 'anamnesis-save-error' }),
+    );
+  });
+
+  it('usa a mensagem genérica quando o erro não traz mensagem', async () => {
+    vi.mocked(anamnesisApi.getById).mockResolvedValue(existing());
+    vi.mocked(anamnesisApi.update).mockRejectedValue('falha');
+    renderPage('/patients/patient-1/anamnesis/anam-1');
+
+    fireEvent.change(await screen.findByLabelText('Queixa principal'), { target: { value: 'x' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Erro ao salvar anamnese', { id: 'anamnesis-save-error' }),
+    );
   });
 
   it('criar e navegar (/new -> /:anamnesisId, rotas separadas) preserva o texto digitado', async () => {
