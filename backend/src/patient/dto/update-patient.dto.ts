@@ -8,7 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { MARITAL_STATUSES, MaritalStatus } from '../marital-status';
+import { MARITAL_STATUSES, type MaritalStatus } from '../marital-status';
 
 export class UpdatePatientDto {
   @IsOptional()

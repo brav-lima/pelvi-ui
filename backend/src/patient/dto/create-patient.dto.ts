@@ -9,7 +9,7 @@ import {
   registerDecorator,
   ValidationOptions,
 } from 'class-validator';
-import { MARITAL_STATUSES, MaritalStatus } from '../marital-status';
+import { MARITAL_STATUSES, type MaritalStatus } from '../marital-status';
 
 function validateCpf(cpf: string): boolean {
   if (!/^\d{11}$/.test(cpf)) return false;
