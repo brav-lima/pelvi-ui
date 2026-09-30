@@ -85,9 +85,9 @@ type AnamnesisData = {
 
 - `guidance` e `placeholder` **não** são armazenados — pertencem à definição do formulário.
 - Identificação: nome, data de nascimento, telefone, **profissão e estado civil** vêm de `Patient` (somente exibição na ficha, com atalho para editar o cadastro; nunca copiados para o `data`). Somente "encaminhamento / profissional solicitante" é dado da avaliação, em `sections.identification.referral`. Se profissão/estado civil estiverem vazios no cadastro, a ficha mostra "Não informado" com o link de edição.
-- Gestacional estruturado (exemplos): `sections.gestationalData = { dum, dpp, dppSource, gestationalAge: { weeks, days, source, manualOverride }, pregnancyType, conception, obstetricRisk }`; `sections.ultrasound = { date, gaAtExam: { weeks, days }, estimatedFetalWeight, fetalPercentile, fetalPresentation, placentaLocation, cervicalLength, amnioticFluid }`.
+- Gestacional estruturado (exemplos): `sections.gestationalData = { dum, dpp, dppSource, gaSource (top-level), gestationalAge: { weeks, days, manualOverride }, pregnancyType, conception, obstetricRisk }`; `sections.ultrasound = { date, gaAtExam: { weeks, days }, estimatedFetalWeight, fetalPercentile, fetalPresentation, placentaLocation, cervicalLength, amnioticFluid }`.
 - `obstetricRisk`: `HABITUAL | ALTO_RISCO | NAO_INFORMADO` (select).
-- `source` da IG / `dppSource`: `DUM | ULTRASSONOGRAFIA | MANUAL`.
+- `gaSource` (IG) / `dppSource`: `DUM | ULTRASSONOGRAFIA | MANUAL`.
 
 ---
 
@@ -121,7 +121,8 @@ O backend mantém apenas a lista de `sectionId`s válidos por tipo (para validar
 - **Finalizar**: `status: COMPLETED` define `completedAt`. Editar uma anamnese `COMPLETED` mantém o status, atualiza `updatedAt` e grava uma `AnamnesisRevision` (snapshot do `data` **anterior** à edição + autor da edição) na mesma `$transaction`. Reabrir como rascunho não é suportado no MVP.
 - **Legado**: `PATCH` em registro com `type = null` → `409 Conflict` ("formato anterior, somente leitura").
 - **Isolamento**: todas as queries por `organizationId` via `@OrgId()`; revisões também filtradas por org. Autor da edição resolvido via `resolveOrgUser`.
-- **Sem cálculo de IG no backend.** A IG é calculada no frontend e persistida apenas como valor confirmado, com `source` e `manualOverride`.
+- **Sem cálculo de IG no backend.** A IG é calculada no frontend e persistida apenas como valor confirmado, com `gaSource` e `manualOverride`.
+- `POST` também valida que o paciente pertence à organização (antes não havia checagem).
 - `@RequireFeature('ANAMNESIS')` e auditoria inalterados.
 
 ---
@@ -135,17 +136,17 @@ O backend mantém apenas a lista de `sectionId`s válidos por tipo (para validar
   - **DUM** (informada manualmente) → **DPP = DUM + 280 dias** (regra de Naegele), preenchida automaticamente; IG = (data de referência − DUM), em "N semanas + D dias".
   - **Ultrassonografia** (data do exame e IG no exame, informadas manualmente) → DPP = data do exame + (280 − IG no exame em dias); IG atual derivada da mesma âncora. Usada como fonte quando a profissional seleciona `ULTRASSONOGRAFIA`.
   - A fonte usada é sempre exibida e escolhida pela profissional (padrão: `DUM` se houver DUM; senão `ULTRASSONOGRAFIA`).
-  - Correção manual de DPP ou IG → `source = MANUAL`, `manualOverride = true`; valores manuais **nunca** são sobrescritos por recálculo (alterar DUM depois apenas sugere o novo valor, sem aplicar).
+  - Correção manual de DPP ou IG → `gaSource = MANUAL`, `manualOverride = true`; valores manuais **nunca** são sobrescritos por recálculo (alterar DUM depois apenas sugere o novo valor, sem aplicar).
   - A DPP calculada é sugestão confirmada ao salvar, não conteúdo clínico escrito pelo sistema sem a profissional ver (aparece preenchida e editável).
 - **`ObstetricSummary`** — topo da ficha gestacional: IG atual (recalculada), DPP, apresentação fetal (da ultrassonografia mais recente registrada, com data), risco obstétrico (select `obstetricRisk`; "—" se não informado).
 - **`UltrasoundFields`** — todos os campos informados manualmente (sem integração com exames); apresentação fetal como select (cefálica, pélvica, transversa, oblíqua, não informado, outro) com entrada manual permitida.
-- **`SectionNav`** — navegação lateral por seções; no mobile, seções recolhíveis (breakpoints CSS, sem `useIsMobile`).
+- Navegação por seções expansíveis/recolhíveis (`CollapsibleSection`), sem `SectionNav` (breakpoints CSS, sem `useIsMobile`).
 
 ### Páginas
 
 - **`AnamnesisEditorPage`** vira shell: lê `type` (de `?type=` na criação, do registro na edição), carrega a definição e renderiza seções. Remove `HypothesisField`/`GroupedHypotheses` do fluxo novo (mantidos apenas para exibir legado).
-- **Criação**: o botão "Nova anamnese" na aba do paciente oferece escolha de tipo (Pélvica Geral / Gestacional).
-- **Salvamento**: "Salvar rascunho" manual; indicador "Salvo às HH:mm"; autosave a cada 30 s **somente em rascunho** e somente se houver alterações; `useBlocker` (React Router) avisa ao sair com alterações não salvas; "Finalizar" muda o status. Cabeçalho mostra criada em / última atualização / profissional.
+- **Criação**: o botão "Nova anamnese" na aba do paciente oferece escolha de tipo (Pélvica Geral / Gestacional). Seleção de tipo na aba do paciente são dois botões (Pélvica geral / Gestacional), não um menu.
+- **Salvamento**: "Salvar rascunho" manual; indicador "Salvo às HH:mm"; autosave a cada 30 s **somente em rascunho** e somente se houver alterações; `beforeunload` + interceptação de cliques em links internos (`useUnsavedChangesGuard`) avisam ao sair com alterações não salvas — `useBlocker` exige data router e o app usa `BrowserRouter`; o botão Voltar do navegador não é interceptado; "Finalizar" muda o status. Cabeçalho mostra criada em / última atualização / profissional.
 - **`PatientFormDialog` / `PatientProfile`**: novos campos *Profissão* (texto) e *Estado civil* (select) no cadastro; exibidos no perfil.
 - **`PatientProfile` (aba Anamnese)**: lista com tipo, status (badge), data e profissional. Registros legados exibidos com a visualização atual de hipóteses, etiquetados "Formato anterior", sem botão de editar.
 - **`api.ts` / `types/clinic.ts`**: `Anamnesis` ganha `type`, `status`, `assessmentDate`, `completedAt`.

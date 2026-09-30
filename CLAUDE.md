@@ -182,7 +182,7 @@ All pages are lazy-loaded via `React.lazy()` + `Suspense`. Two route groups:
 | Perfil Paciente | `PatientProfile.tsx` | Tabs: Consultas, Anamnese, Evolucoes, Avaliação Perineal, Pacotes |
 | Profissionais | `Professionals.tsx` | Card/list toggle, avatar, role badge |
 | Procedimentos | `Procedures.tsx` | Active toggle, formatted currency, delete confirmation |
-| Anamnese | `AnamnesisEditorPage.tsx` | Single-page 4-field form (queixa, impacto, história atual/pregressa) with grouped hypotheses; reached via the patient profile's Anamnese tab, not a standalone route |
+| Anamnese | `AnamnesisEditorPage.tsx` | Duas fichas (`PELVIC_GENERAL`, `PREGNANCY`) com seções narrativas opcionais e orientação "Investigar:" fora do registro; rascunho/finalizada, autosave (30 s, só rascunho), aviso ao sair; reached via patient profile's Anamnese tab (`/patients/:id/anamnesis/new?type=`), not a standalone route |
 | Evolucoes | `Evolutions.tsx` | Patient list + evolution timeline |
 | Financeiro | `Financial.tsx` | Stats cards, records table, "dar baixa" inline |
 | Configurações | `Settings.tsx` | Clinic settings (ADMIN only) |
@@ -241,7 +241,7 @@ Types in `frontend/src/types/clinic.ts`:
 - **User** — `{ id, name, email, cpf, role }` (roles: ADMIN, PROFESSIONAL, RECEPTIONIST)
 - **Clinic** — `{ id, name, cnpj?, settings? }`
 - **Professional** — `{ id, organizationId, personId, role, active, person: { id, name, email, phone, cpf } }`
-- **Patient** — `{ id, name, cpf?, birthDate?, email?, phone?, gender?, address?, notes?, createdAt, updatedAt }`
+- **Patient** — `{ id, name, cpf?, birthDate?, email?, phone?, gender?, address?, notes?, occupation?, maritalStatus? (`SINGLE|MARRIED|STABLE_UNION|DIVORCED|WIDOWED|OTHER`), createdAt, updatedAt }`
 - **PaginatedResponse<T>** — `{ data: T[], meta: { total, page, limit, totalPages } }`
 - **Procedure** — `{ id, name, durationMinutes, price, active, createdAt, updatedAt }`
 - **Appointment** — `{ id, patientId, professionalId, procedureId, startAt, endAt, status, notes?, patient?, professional?, procedure? }`
@@ -274,7 +274,7 @@ Each domain module follows `{name}.module.ts`, `{name}.controller.ts`, `{name}.s
 | `procedure` | `/api/procedures` | Clinic services CRUD (name, duration, price) |
 | `appointment` | `/api/appointments` | Schedule CRUD, conflict detection, status changes |
 | `agenda-block` | `/api/agenda-blocks` | Non-appointment agenda reservations (block a professional's time slot) |
-| `anamnesis` | `/api/anamneses` | Patient anamnesis (flexible JSON structure) |
+| `anamnesis` | `/api/anamneses` | Patient anamnesis (flexible JSON structure); tipos, status DRAFT/COMPLETED, merge por seção, revisões em `anamnesis_revisions`, legado (`type = null`) somente leitura, DELETE só de rascunho |
 | `perineal-assessment` | `/api/perineal-assessments` | Pelvic floor clinical evaluation (flexible JSON data) |
 | `evolution` | `/api/evolutions` | Clinical evolution notes (timeline) |
 | `treatment-package` | `/api/treatment-packages` | Session packages with procedure links |
@@ -439,8 +439,8 @@ All paths below are shown as `/api/...` for brevity — **actual paths carry the
 ### Prisma
 
 - Schema: `backend/prisma/schema.prisma`
-- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, AgendaBlock, Anamnesis, PerinealAssessment, Evolution, TreatmentPackage, TreatmentPackageProcedure, FinancialRecord, AuditLog, ClinicDocument, Task, RefreshToken (legacy — refresh tokens now live in Redis)
-- Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus, FinancialType, FinancialStatus, TreatmentPackageStatus (ACTIVE, COMPLETED, CANCELED), ClinicAccessStatus, PlanStatus, SensitiveLegalBasis (LGPD Art. 11), DocumentType, ClinicDocumentType, TaskStatus, TaskPriority
+- Models: Organization, Person, OrganizationUser, Patient, Procedure, Appointment, AgendaBlock, Anamnesis, AnamnesisRevision, PerinealAssessment, Evolution, TreatmentPackage, TreatmentPackageProcedure, FinancialRecord, AuditLog, ClinicDocument, Task, RefreshToken (legacy — refresh tokens now live in Redis)
+- Enums: Role (ADMIN, PROFESSIONAL, RECEPTIONIST), AppointmentStatus, FinancialType, FinancialStatus, TreatmentPackageStatus (ACTIVE, COMPLETED, CANCELED), ClinicAccessStatus, PlanStatus, SensitiveLegalBasis (LGPD Art. 11), DocumentType, ClinicDocumentType, AnamnesisType (PELVIC_GENERAL, PREGNANCY), AnamnesisStatus (DRAFT, COMPLETED), TaskStatus, TaskPriority
 - Config: `backend/prisma.config.ts` — loads `.env.{NODE_ENV}` (defaults to `.env.dev`)
 - `PrismaModule` is global — inject `PrismaService` in any service without importing the module
 - Prisma version: 7.x (connection URL in `prisma.config.ts`, NOT in `schema.prisma`)
@@ -476,7 +476,8 @@ All paths below are shown as `/api/...` for brevity — **actual paths carry the
 | `agenda-block.service.spec.ts` | CRUD, isolamento por org, permissão "só própria agenda", conflito bidirecional |
 | `procedure.service.spec.ts` | CRUD completo com isolamento por org |
 | `professional.service.spec.ts` | CRUD + shape de retorno sem campos internos |
-| `anamnesis.service.spec.ts` | resolveOrgUser, merge de JSON, isolamento por org |
+| `anamnesis.service.spec.ts` | Criação por tipo, merge por seção, revisões ao editar finalizada, legado 409, exclusão só de rascunho, isolamento por org |
+| `anamnesis-sections.spec.ts` | ids por tipo, validação, chaves de protótipo |
 | `evolution.service.spec.ts` | resolveOrgUser, vínculo com agendamento, isolamento por org |
 | `financial.service.spec.ts` | Registro único, parcelamento (valor/datas/descrição), filtros, summary |
 | `treatment-package.service.spec.ts` | Criação com transação, parcelamento, increment/decrementUsedSessions, remove com cascade |
