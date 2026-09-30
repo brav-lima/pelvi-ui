@@ -31,6 +31,10 @@ RUN chmod +x docker-entrypoint.sh
 
 ENV NODE_ENV=production
 
+# Force UTC: prisma.service.ts parses TIMESTAMP columns (no offset) with
+# `new Date(val)`, which reads them in the process's local timezone.
+ENV TZ=UTC
+
 # Version identification — read at runtime by GET /api/version.
 ARG APP_VERSION=dev
 ARG GIT_SHA=unknown
