@@ -9,7 +9,7 @@ import {
   ArrowLeft, Edit, Eye, Phone, Mail, MapPin, Calendar,
   TrendingUp, Plus, Loader2, CheckCircle, XCircle,
   CalendarCheck, Package, DollarSign, Wallet,
-  ClipboardList, Stethoscope, FileText, User, Trash2, Pencil,
+  ClipboardList, Stethoscope, FileText, User, Trash2, Pencil, Briefcase,
 } from 'lucide-react';
 import {
   patientsApi, appointmentsApi, anamnesisApi, evolutionsApi,
@@ -25,6 +25,7 @@ import { LinkedAppointmentLine } from '@/components/evolutions/LinkedAppointment
 import { TreatmentPackageFormDialog } from '@/components/treatment-packages/TreatmentPackageFormDialog';
 import { PatientPortalCard } from '@/components/patients/PatientPortalCard';
 import { useHasRole } from '@/components/auth/RoleGuard';
+import { describeOccupationAndMaritalStatus } from '@/lib/marital-status';
 import { formatCPFMasked, formatPhone, formatCurrency } from '@/lib/formatters';
 import type { AppointmentStatus, TreatmentPackage, FinancialRecord, PerinealAssessment, Evolution } from '@/types/clinic';
 import {
@@ -34,7 +35,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useFeature } from '@/contexts/SubscriptionContext';
 import { usePatientStatusMutation } from '@/components/patients/use-patient-status-mutation';
-import { ANAMNESIS_FIELDS, GroupedHypotheses, isAnamnesisData, formatAnamnesisKey } from '@/components/anamnesis/anamnesis-fields';
+import { AnamnesisTab } from '@/components/anamnesis/AnamnesisTab';
 
 const AVATAR_COLORS = [
   ['hsl(296 30% 94%)', 'hsl(296 28% 26%)'],
@@ -384,6 +385,12 @@ export default function PatientProfile() {
                 <span className="font-mono">{formatCPFMasked(patient.cpf)}</span>
               </div>
             )}
+            {describeOccupationAndMaritalStatus(patient) && (
+              <div className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                <Briefcase className="w-3.5 h-3.5 shrink-0" />
+                <span>{describeOccupationAndMaritalStatus(patient)}</span>
+              </div>
+            )}
           </div>
           {patient.status === 'INACTIVE' && (
             <p className="mt-2 text-[12px] text-muted-foreground">
@@ -543,114 +550,12 @@ export default function PatientProfile() {
             {/* === Anamnese === */}
             {hasAnamnesis && (
               <TabsContent value="anamnesis" className="mt-0">
-                <Card className="p-0 overflow-hidden">
-                  <div className="flex items-center justify-between p-4 border-b border-border">
-                    <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Anamnese</div>
-                    <Button size="sm" onClick={() => navigate(`/patients/${id}/anamnesis/new`)}>
-                      <Plus className="w-3.5 h-3.5 mr-1.5" />
-                      Nova avaliação
-                    </Button>
-                  </div>
-                  <CardContent className="p-4">
-                    {anamneses.length === 0 ? (
-                      <p className="text-[13.5px] text-muted-foreground text-center py-8">Nenhuma avaliação registrada</p>
-                    ) : (
-                      <div className="space-y-6">
-                        {anamneses.map((anamnesis) => (
-                          <div key={anamnesis.id} className="border border-border rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <p className="text-[12.5px] text-muted-foreground">
-                                {format(new Date(anamnesis.createdAt), 'dd/MM/yyyy')}
-                                {anamnesis.professional?.person?.name && ` · ${anamnesis.professional.person.name}`}
-                              </p>
-                              <div className="flex gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => navigate(`/patients/${id}/anamnesis/${anamnesis.id}`)}>
-                                  <Edit className="w-3.5 h-3.5 mr-1" />
-                                  Editar
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Excluir avaliação</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta ação não pode ser desfeita. A avaliação será permanentemente excluída.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        onClick={() => deleteAnamnesismutation.mutate(anamnesis.id)}
-                                      >
-                                        Excluir
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </div>
-                            <div className="space-y-4">
-                              {isAnamnesisData(anamnesis.data) ? (() => {
-                                const data = anamnesis.data;
-                                return (
-                                  <>
-                                    {ANAMNESIS_FIELDS.map(field => (
-                                      <div key={field.key} className="p-3 rounded-lg bg-secondary/50">
-                                        <p className="text-[12px] text-muted-foreground">{field.label}</p>
-                                        <p className="text-[13px] font-medium mt-1 whitespace-pre-wrap">
-                                          {data[field.key].texto.trim() !== '' ? data[field.key].texto : 'Não informado'}
-                                        </p>
-                                      </div>
-                                    ))}
-                                    <div className="border border-border rounded-lg p-4">
-                                      <GroupedHypotheses data={data} />
-                                    </div>
-                                  </>
-                                );
-                              })() : (
-                                Object.entries(anamnesis.data).map(([key, value]) => {
-                                  if (key === '_template') return null;
-                                  const sectionLabel = formatAnamnesisKey(key);
-                                  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                                    const section = value as Record<string, unknown>;
-                                    return (
-                                      <div key={key} className="border border-border rounded-lg p-4">
-                                        <h4 className="text-[13.5px] font-semibold text-foreground mb-3 pb-2 border-b border-border">{sectionLabel}</h4>
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                          {Object.entries(section).map(([fk, fv]) => (
-                                            <div key={fk} className="p-3 rounded-lg bg-secondary/50">
-                                              <p className="text-[12px] text-muted-foreground">{formatAnamnesisKey(fk)}</p>
-                                              <p className="text-[13px] font-medium mt-1">
-                                                {Array.isArray(fv) ? fv.join(', ') : (fv != null && String(fv).trim() !== '' ? String(fv) : 'Não informado')}
-                                              </p>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-                                  return (
-                                    <div key={key} className="p-3 rounded-lg bg-secondary/50">
-                                      <p className="text-[12px] text-muted-foreground">{sectionLabel}</p>
-                                      <p className="text-[13px] font-medium mt-1">
-                                        {Array.isArray(value) ? value.join(', ') : (value != null && String(value).trim() !== '' ? String(value) : 'Não informado')}
-                                      </p>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <AnamnesisTab
+                  anamneses={anamneses}
+                  onCreate={(type) => navigate(`/patients/${id}/anamnesis/new?type=${type}`)}
+                  onOpen={(anamnesisId) => navigate(`/patients/${id}/anamnesis/${anamnesisId}`)}
+                  onDelete={(anamnesisId) => deleteAnamnesismutation.mutate(anamnesisId)}
+                />
               </TabsContent>
             )}
 

@@ -209,6 +209,8 @@ model Patient {
   email               String?
   phone               String?
   gender              String?
+  occupation          String?
+  maritalStatus       String?       @map("marital_status")
   addressCep          String?       @map("address_cep")
   addressStreet       String?       @map("address_street")
   addressNumber       String?       @map("address_number")
@@ -326,25 +328,57 @@ model AgendaBlock {
 // Anamnesis
 // ──────────────────────────────────────────────
 
+enum AnamnesisType {
+  PELVIC_GENERAL
+  PREGNANCY
+}
+
+enum AnamnesisStatus {
+  DRAFT
+  COMPLETED
+}
+
 model Anamnesis {
   id              String              @id @default(uuid())
   organizationId  String              @map("organization_id")
   patientId       String              @map("patient_id")
   professionalId  String              @map("professional_id")
   data            Json
+  // null = legacy record (4-field "simplificada" format); read-only
+  type            AnamnesisType?
+  status          AnamnesisStatus     @default(DRAFT)
+  assessmentDate  DateTime?           @map("assessment_date")
+  completedAt     DateTime?           @map("completed_at")
   legalBasis      SensitiveLegalBasis @default(HEALTH_PROTECTION) @map("legal_basis")
   consentId       String?             @map("consent_id")
   legalBasisNotes String?             @map("legal_basis_notes")
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
 
-  organization Organization     @relation(fields: [organizationId], references: [id])
-  patient      Patient          @relation(fields: [patientId], references: [id])
-  professional OrganizationUser @relation(fields: [professionalId], references: [id])
+  organization Organization        @relation(fields: [organizationId], references: [id])
+  patient      Patient             @relation(fields: [patientId], references: [id])
+  professional OrganizationUser    @relation(fields: [professionalId], references: [id])
+  revisions    AnamnesisRevision[]
 
   @@index([organizationId, patientId])
   @@index([organizationId, createdAt])
   @@map("anamneses")
+}
+
+// Snapshot of Anamnesis.data taken BEFORE each edit of a COMPLETED anamnesis.
+model AnamnesisRevision {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  anamnesisId    String   @map("anamnesis_id")
+  professionalId String   @map("professional_id") // OrganizationUser.id of the editor
+  data           Json
+  assessmentDate DateTime? @map("assessment_date") // data da avaliação ANTES da edição
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  anamnesis Anamnesis @relation(fields: [anamnesisId], references: [id])
+
+  @@index([organizationId, anamnesisId])
+  @@map("anamnesis_revisions")
 }
 
 // ──────────────────────────────────────────────

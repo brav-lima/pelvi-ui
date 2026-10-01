@@ -33,6 +33,8 @@ export class PatientService {
         email: dto.email,
         phone: dto.phone,
         gender: dto.gender,
+        occupation: dto.occupation,
+        maritalStatus: dto.maritalStatus,
         addressCep: dto.addressCep,
         addressStreet: dto.addressStreet,
         addressNumber: dto.addressNumber,

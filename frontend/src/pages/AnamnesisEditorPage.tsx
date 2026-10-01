@@ -1,37 +1,76 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import {
-  ArrowLeft, Check, Download, Loader2,
-  Activity, ClipboardList, Package, AlertTriangle,
-} from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { patientsApi, anamnesisApi, treatmentPackagesApi } from '@/lib/api';
+import { useEffect, useRef, useState } from 'react';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCPFMasked } from '@/lib/formatters';
-import { useFeature } from '@/contexts/SubscriptionContext';
-import { toast } from 'sonner';
 import {
-  ANAMNESIS_FIELDS, emptyAnamnesisData, isAnamnesisData,
-  HypothesisField, GroupedHypotheses,
-  type AnamnesisData,
-} from '@/components/anamnesis/anamnesis-fields';
+  Activity, AlertTriangle, ArrowLeft, Check, ClipboardList, Download, Loader2, Package,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { anamnesisApi, patientsApi, treatmentPackagesApi } from '@/lib/api';
+import { useFeature } from '@/contexts/SubscriptionContext';
+import { useAutosave } from '@/hooks/use-autosave';
+import { useUnsavedChangesGuard } from '@/hooks/use-unsaved-changes-guard';
+import { todayIso } from '@/lib/gestational-age';
+import type { Anamnesis, AnamnesisStatus, AnamnesisType } from '@/types/clinic';
+import {
+  ANAMNESIS_FORMS, ANAMNESIS_TYPE_LABELS, asRecord, getSections, type SectionDef,
+} from '@/components/anamnesis/anamnesis-forms';
+import { AnamnesisPatientSidebar } from '@/components/anamnesis/AnamnesisPatientSidebar';
+import { ClinicalNarrativeField } from '@/components/anamnesis/ClinicalNarrativeField';
+import { CollapsibleSection } from '@/components/anamnesis/CollapsibleSection';
+import { GestationalDataFields } from '@/components/anamnesis/GestationalDataFields';
+import { IdentificationSection } from '@/components/anamnesis/IdentificationSection';
+import { LegacyAnamnesisView } from '@/components/anamnesis/LegacyAnamnesisView';
+import { ObstetricSummary } from '@/components/anamnesis/ObstetricSummary';
+import { UltrasoundFields } from '@/components/anamnesis/UltrasoundFields';
+import {
+  asGestationalData, asUltrasound, recomputeGestational, type UltrasoundData,
+} from '@/components/anamnesis/gestational-data';
+
+const VALID_TYPES: AnamnesisType[] = ['PELVIC_GENERAL', 'PREGNANCY'];
+const parseType = (raw: string | null): AnamnesisType | null =>
+  VALID_TYPES.includes(raw as AnamnesisType) ? (raw as AnamnesisType) : null;
+
+interface SaveRequest {
+  finalize: boolean;
+  version: number;
+}
 
 export default function AnamnesisEditorPage() {
   const { patientId, anamnesisId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isNew = !anamnesisId || anamnesisId === 'new';
 
-  const [formData, setFormData] = useState<AnamnesisData>(emptyAnamnesisData());
+  const [newType] = useState<AnamnesisType | null>(() => parseType(searchParams.get('type')));
+  const [sections, setSections] = useState<Record<string, unknown>>({});
+  const [assessmentDate, setAssessmentDate] = useState<string>(todayIso());
+  const [dirty, setDirty] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [savedStatus, setSavedStatus] = useState<AnamnesisStatus | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const hydratedId = useRef<string | null>(null);
+  // Bumped on every user edit; a save only clears `dirty` if nothing changed while it was in flight.
+  const editVersion = useRef(0);
+  const markDirty = () => {
+    editVersion.current += 1;
+    setDirty(true);
+  };
 
-  const hasPerineal   = useFeature('PERINEAL_ASSESSMENT');
+  const hasPerineal = useFeature('PERINEAL_ASSESSMENT');
   const hasEvolutions = useFeature('EVOLUTIONS');
-  const hasPackages   = useFeature('TREATMENT_PACKAGES');
+  const hasPackages = useFeature('TREATMENT_PACKAGES');
 
   const { data: patient, isLoading: loadingPatient } = useQuery({
     queryKey: ['patient', patientId],
@@ -39,10 +78,13 @@ export default function AnamnesisEditorPage() {
     enabled: !!patientId,
   });
 
-  const { data: allAnamneses = [] } = useQuery({
-    queryKey: ['patient-anamneses', patientId],
-    queryFn: () => anamnesisApi.list(patientId!),
-    enabled: !!patientId,
+  // Always refetch on mount and hydrate only from that fresh copy: a cached (stale) record would
+  // otherwise seed the form and the next PATCH would overwrite newer server content.
+  const { data: existing, isLoading: loadingExisting, isFetchedAfterMount } = useQuery({
+    queryKey: ['anamnesis', anamnesisId],
+    queryFn: () => anamnesisApi.getById(anamnesisId!),
+    enabled: !isNew,
+    refetchOnMount: 'always',
   });
 
   const { data: packages = [] } = useQuery({
@@ -51,48 +93,121 @@ export default function AnamnesisEditorPage() {
     enabled: !!patientId,
   });
 
-  const existing = isNew ? null : allAnamneses.find(a => a.id === anamnesisId);
-
-  // An existing anamnesis whose data isn't yet in the new 4-field shape means it
-  // hasn't been through the Task 6 migration script. The backend's PATCH does a
-  // shallow merge, so letting the user save here would silently overwrite the
-  // original (still-legacy) content with the blank form below.
-  const isLegacyUnmigrated = !isNew && !!existing && !isAnamnesisData(existing.data);
-
-  useEffect(() => {
-    if (existing?.data && isAnamnesisData(existing.data)) {
-      setFormData(existing.data);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existing?.id]);
-
+  const type: AnamnesisType | null = existing ? existing.type : newType;
+  const isLegacy = !isNew && !!existing && existing.type === null;
+  const status: AnamnesisStatus = savedStatus ?? existing?.status ?? 'DRAFT';
   const effectiveId = savedId ?? (isNew ? null : anamnesisId ?? null);
 
+  useEffect(() => {
+    if (!existing || !isFetchedAfterMount || hydratedId.current === existing.id) return;
+    hydratedId.current = existing.id;
+    setSections(getSections(existing.data));
+    setAssessmentDate(existing.assessmentDate ? existing.assessmentDate.slice(0, 10) : todayIso());
+  }, [existing, isFetchedAfterMount]);
+
+  const persist = async ({ finalize }: SaveRequest): Promise<Anamnesis> => {
+    const content = { sections };
+    if (!effectiveId) {
+      const created = await anamnesisApi.create({
+        patientId: patientId!,
+        type: type!,
+        assessmentDate,
+        data: content,
+      });
+      hydratedId.current = created.id;
+      setSavedId(created.id);
+      navigate(`/patients/${patientId}/anamnesis/${created.id}`, { replace: true });
+      return finalize ? anamnesisApi.update(created.id, { status: 'COMPLETED' }) : created;
+    }
+    return anamnesisApi.update(effectiveId, {
+      data: content,
+      assessmentDate,
+      ...(finalize && status === 'DRAFT' ? { status: 'COMPLETED' as const } : {}),
+    });
+  };
+
   const saveMutation = useMutation({
-    mutationFn: (data: AnamnesisData) =>
-      effectiveId
-        ? anamnesisApi.update(effectiveId, { data })
-        : anamnesisApi.create({ patientId: patientId!, data }),
-    onSuccess: (result) => {
-      if (!effectiveId) setSavedId(result.id);
+    mutationFn: (request: SaveRequest) => persist(request),
+    onSuccess: (result, request) => {
+      if (result.status) setSavedStatus(result.status);
+      if (editVersion.current === request.version) setDirty(false);
+      setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ['patient-anamneses', patientId] });
-      toast.success('Anamnese salva com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['anamnesis', result.id] });
     },
-    onError: () => toast.error('Erro ao salvar anamnese'),
+    onError: (error) => {
+      const message =
+        error instanceof Error && error.message && error.message !== 'Erro na requisição'
+          ? error.message
+          : undefined;
+      toast.error(message ?? 'Erro ao salvar anamnese', { id: 'anamnesis-save-error' });
+    },
   });
 
-  const setField = <K extends keyof AnamnesisData>(key: K, value: AnamnesisData[K]) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
+  const saveRequest = (finalize: boolean): SaveRequest => ({ finalize, version: editVersion.current });
+
+  const handleSave = () =>
+    saveMutation.mutate(saveRequest(false), {
+      onSuccess: () => toast.success(status === 'COMPLETED' ? 'Alterações salvas' : 'Rascunho salvo'),
+    });
+
+  const handleFinalize = async () => {
+    try {
+      await saveMutation.mutateAsync(saveRequest(true));
+      toast.success('Anamnese finalizada');
+      navigate(`/patients/${patientId}`);
+    } catch {
+      /* onError already toasted */
+    }
   };
 
-  const handleSave = () => saveMutation.mutate(formData);
-  const handleSaveAndExit = async () => {
-    await saveMutation.mutateAsync(formData);
-    navigate(`/patients/${patientId}`);
+  useAutosave({
+    enabled: !!type && !isLegacy && status === 'DRAFT' && dirty && !saveMutation.isPending,
+    onSave: () => saveMutation.mutate(saveRequest(false)),
+  });
+  useUnsavedChangesGuard(dirty, setPendingPath);
+
+  const requestNavigate = (path: string) => (dirty ? setPendingPath(path) : navigate(path));
+
+  const setSection = (id: string, value: unknown) => {
+    setSections((prev) => ({ ...prev, [id]: value }));
+    markDirty();
   };
 
-  const activePackage = packages.find(p => p.status === 'ACTIVE');
+  const handleUltrasoundChange = (next: UltrasoundData) => {
+    setSections((prev) => {
+      if (prev.gestationalData === undefined) return { ...prev, ultrasound: next };
+      return {
+        ...prev,
+        ultrasound: next,
+        gestationalData: recomputeGestational(asGestationalData(prev.gestationalData), {
+          assessmentDate,
+          ultrasound: next,
+        }),
+      };
+    });
+    markDirty();
+  };
 
+  const handleAssessmentDateChange = (value: string) => {
+    setAssessmentDate(value);
+    markDirty();
+    if (type === 'PREGNANCY') {
+      setSections((prev) =>
+        prev.gestationalData === undefined
+          ? prev
+          : {
+              ...prev,
+              gestationalData: recomputeGestational(asGestationalData(prev.gestationalData), {
+                assessmentDate: value,
+                ultrasound: asUltrasound(prev.ultrasound),
+              }),
+            },
+      );
+    }
+  };
+
+  const activePackage = packages.find((p) => p.status === 'ACTIVE');
   const shortcuts = [
     hasPerineal && {
       icon: <Activity className="w-4 h-4 shrink-0" />,
@@ -111,7 +226,9 @@ export default function AnamnesisEditorPage() {
     },
   ].filter(Boolean) as { icon: JSX.Element; label: string; to: string }[];
 
-  if (loadingPatient) {
+  if (isNew && !newType) return <Navigate to={`/patients/${patientId}`} replace />;
+
+  if (loadingPatient || (!isNew && !savedId && (loadingExisting || !isFetchedAfterMount))) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -119,142 +236,209 @@ export default function AnamnesisEditorPage() {
     );
   }
 
+  const backButton = (
+    <button
+      type="button"
+      onClick={() => requestNavigate(`/patients/${patientId}`)}
+      className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+    >
+      <ArrowLeft className="w-4 h-4" />
+      Voltar para perfil
+    </button>
+  );
+
+  const title = (
+    <div>
+      <h1
+        className="text-[24px] font-semibold leading-8"
+        style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}
+      >
+        {isLegacy ? 'Anamnese' : type ? ANAMNESIS_TYPE_LABELS[type] : 'Anamnese'}
+        {patient ? ` · ${patient.name}` : ''}
+      </h1>
+      <div className="text-[12.5px] text-muted-foreground">
+        {existing
+          ? [
+              `criada em ${format(new Date(existing.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`,
+              existing.professional?.person?.name && `por ${existing.professional.person.name}`,
+              `última atualização ${format(new Date(existing.updatedAt), 'dd/MM/yyyy HH:mm')}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : 'Nova avaliação'}
+      </div>
+    </div>
+  );
+
+  if (isLegacy && existing) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <div className="flex items-center justify-between gap-4">{backButton}</div>
+        {title}
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Formato anterior — somente leitura. Este registro foi preservado como foi salvo; para uma
+            nova avaliação, crie uma Anamnese Pélvica Geral ou Gestacional.
+          </AlertDescription>
+        </Alert>
+        <Card className="p-5">
+          <LegacyAnamnesisView data={existing.data} />
+        </Card>
+      </div>
+    );
+  }
+
+  const gestational = asGestationalData(sections.gestationalData);
+  const ultrasound = asUltrasound(sections.ultrasound);
+
+  const renderSection = (def: SectionDef) => {
+    if (def.component === 'identification') {
+      const identification = asRecord(sections.identification);
+      return (
+        <IdentificationSection
+          patient={patient}
+          referral={typeof identification.referral === 'string' ? identification.referral : ''}
+          onReferralChange={(v) => setSection('identification', { ...identification, referral: v })}
+          onEditPatient={() => requestNavigate(`/patients/${patientId}`)}
+        />
+      );
+    }
+    if (def.component === 'gestationalData') {
+      return (
+        <GestationalDataFields
+          value={gestational}
+          ultrasound={ultrasound}
+          assessmentDate={assessmentDate}
+          onChange={(v) => setSection('gestationalData', v)}
+        />
+      );
+    }
+    if (def.component === 'ultrasound') {
+      return <UltrasoundFields value={ultrasound} onChange={handleUltrasoundChange} />;
+    }
+    const raw = sections[def.id];
+    return (
+      <ClinicalNarrativeField
+        id={`field-${def.id}`}
+        title={def.title}
+        hideTitle
+        placeholder={def.placeholder}
+        guidance={def.guidance}
+        value={typeof raw === 'string' ? raw : ''}
+        onChange={(v) => setSection(def.id, v)}
+      />
+    );
+  };
+
+  const isCompleted = status === 'COMPLETED';
+
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Header actions */}
-      <div className="flex items-center justify-between gap-4">
-        <button
-          onClick={() => navigate(`/patients/${patientId}`)}
-          className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Voltar para perfil
-        </button>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        {backButton}
         <div className="flex items-center gap-2">
+          <span className="text-[12px] text-muted-foreground" aria-live="polite">
+            {dirty
+              ? 'Alterações não salvas'
+              : lastSavedAt
+                ? `Salvo às ${format(lastSavedAt, 'HH:mm')}`
+                : ''}
+          </span>
           <Button variant="outline" size="sm">
             <Download className="w-3.5 h-3.5 mr-1.5" />
             Exportar PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending || isLegacyUnmigrated}>
-            {saveMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-            ) : null}
-            Salvar rascunho
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSave}
+            disabled={saveMutation.isPending || (isCompleted && !dirty)}
+          >
+            {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+            {isCompleted ? 'Salvar alterações' : 'Salvar rascunho'}
           </Button>
-          <Button size="sm" onClick={handleSaveAndExit} disabled={saveMutation.isPending || isLegacyUnmigrated}>
-            <Check className="w-3.5 h-3.5 mr-1.5" />
-            Salvar e finalizar
-          </Button>
-        </div>
-      </div>
-
-      {/* Page title */}
-      <div>
-        <h1
-          className="text-[24px] font-semibold leading-8"
-          style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.018em' }}
-        >
-          Anamnese{patient ? ` · ${patient.name}` : ''}
-        </h1>
-        <div className="text-[12.5px] text-muted-foreground">
-          {isNew
-            ? 'Nova avaliação'
-            : existing
-            ? `criada em ${format(new Date(existing.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
-            : 'Editando avaliação'}
-        </div>
-      </div>
-
-      {/* 2-column layout: form + patient sidebar */}
-      <div className="grid gap-4 items-start" style={{ gridTemplateColumns: '1fr 280px' }}>
-        <Card className="p-5 space-y-6">
-          {isLegacyUnmigrated && (
-            <Alert variant="destructive" className="border-destructive/50">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                Esta avaliação está em um formato antigo e ainda não foi migrada. Salvar aqui vai
-                sobrescrever o conteúdo original. Entre em contato com o suporte antes de editar.
-              </AlertDescription>
-            </Alert>
+          {!isCompleted && (
+            <Button size="sm" onClick={handleFinalize} disabled={saveMutation.isPending}>
+              <Check className="w-3.5 h-3.5 mr-1.5" />
+              Salvar e finalizar
+            </Button>
           )}
-          {ANAMNESIS_FIELDS.map(field => (
-            <HypothesisField
-              key={field.key}
-              label={field.label}
-              question={field.question}
-              value={formData[field.key]}
-              onChange={v => setField(field.key, v)}
+        </div>
+      </div>
+
+      {title}
+
+      {isCompleted && (
+        <Alert>
+          <AlertDescription>
+            Esta anamnese foi finalizada. Você pode continuar editando; cada alteração fica registrada
+            no histórico.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-4 items-start lg:grid-cols-[1fr_280px]">
+        <Card className="p-5 space-y-4">
+          <div className="max-w-xs space-y-2">
+            <label htmlFor="assessment-date" className="block text-[12.5px] font-medium text-muted-foreground">
+              Data da avaliação
+            </label>
+            <Input
+              id="assessment-date"
+              type="date"
+              value={assessmentDate}
+              onChange={(e) => handleAssessmentDateChange(e.target.value || todayIso())}
             />
-          ))}
-          <div className="border-t border-border pt-5">
-            <GroupedHypotheses data={formData} />
           </div>
+
+          {type === 'PREGNANCY' && (
+            <ObstetricSummary
+              gestational={gestational}
+              ultrasound={ultrasound}
+              assessmentDate={assessmentDate}
+            />
+          )}
+
+          {type &&
+            ANAMNESIS_FORMS[type].map((def) => (
+              <CollapsibleSection key={def.id} id={def.id} title={def.title}>
+                {renderSection(def)}
+              </CollapsibleSection>
+            ))}
         </Card>
 
-        {/* Right sidebar */}
-        <div className="flex flex-col gap-4 sticky top-4">
-          <Card>
-            <div className="px-4 py-3 border-b border-border">
-              <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Paciente</div>
-            </div>
-            <div className="p-4 flex flex-col gap-3">
-              {patient && (
-                <>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-11 h-11 rounded-full flex items-center justify-center text-[15px] font-semibold shrink-0"
-                      style={{
-                        background: 'hsl(296 30% 94%)',
-                        color: 'hsl(296 28% 26%)',
-                        fontFamily: 'var(--font-display)',
-                      }}
-                    >
-                      {patient.name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-[13.5px] font-medium">{patient.name}</div>
-                      <div className="text-[11.5px] text-muted-foreground">
-                        {patient.birthDate
-                          ? `${Math.floor((Date.now() - new Date(patient.birthDate).getTime()) / (365.25 * 86400000))} anos`
-                          : '—'}
-                        {patient.cpf && ` · ${formatCPFMasked(patient.cpf)}`}
-                      </div>
-                    </div>
-                  </div>
-                  {activePackage && (
-                    <div className="border-t border-border pt-3 flex flex-col gap-0.5">
-                      <div className="text-[11.5px] text-muted-foreground">Pacote</div>
-                      <div className="text-[13px] font-medium">
-                        {activePackage.name} · {activePackage.usedSessions}/{activePackage.totalSessions}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </Card>
-
-          {shortcuts.length > 0 && (
-          <Card>
-            <div className="px-4 py-3 border-b border-border">
-              <div className="text-[14px] font-semibold" style={{ fontFamily: 'var(--font-display)' }}>Atalhos de avaliação</div>
-            </div>
-            <div className="p-3 flex flex-col gap-1">
-              {shortcuts.map(item => (
-                <button
-                  key={item.label}
-                  onClick={() => navigate(item.to)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left"
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </Card>
-          )}
-        </div>
+        <AnamnesisPatientSidebar
+          patient={patient}
+          activePackage={activePackage}
+          shortcuts={shortcuts}
+          onNavigate={requestNavigate}
+        />
       </div>
+
+      <AlertDialog open={pendingPath !== null} onOpenChange={(open) => !open && setPendingPath(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Há alterações que ainda não foram salvas nesta anamnese. Se sair agora, elas serão perdidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar editando</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const path = pendingPath;
+                setDirty(false);
+                setPendingPath(null);
+                if (path) navigate(path);
+              }}
+            >
+              Sair sem salvar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

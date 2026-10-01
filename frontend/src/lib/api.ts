@@ -13,6 +13,9 @@ import type {
   AgendaBlock,
   AppointmentStatus,
   Anamnesis,
+  AnamnesisContent,
+  AnamnesisStatus,
+  AnamnesisType,
   PerinealAssessment,
   Evolution,
   FinancialRecord,
@@ -281,10 +284,16 @@ export const agendaBlocksApi = {
 export const anamnesisApi = {
   list: (patientId: string) => api.get<Anamnesis[]>(`/anamneses?patientId=${patientId}`),
   getById: (id: string) => api.get<Anamnesis>(`/anamneses/${id}`),
-  create: (data: { patientId: string; data: Record<string, unknown> }) =>
-    api.post<Anamnesis>('/anamneses', data),
-  update: (id: string, data: { data: Record<string, unknown> }) =>
-    api.patch<Anamnesis>(`/anamneses/${id}`, data),
+  create: (data: {
+    patientId: string;
+    type: AnamnesisType;
+    assessmentDate?: string;
+    data?: AnamnesisContent;
+  }) => api.post<Anamnesis>('/anamneses', data),
+  update: (
+    id: string,
+    data: { data?: AnamnesisContent; assessmentDate?: string; status?: AnamnesisStatus },
+  ) => api.patch<Anamnesis>(`/anamneses/${id}`, data),
   remove: (id: string) => api.delete<void>(`/anamneses/${id}`),
 };
 

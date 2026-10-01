@@ -1,12 +1,28 @@
-import { IsEnum, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
-import { SensitiveLegalBasis } from '@prisma/client';
+import {
+  ValidateIf,
+  IsDateString,
+  IsEnum,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { AnamnesisType, SensitiveLegalBasis } from '@prisma/client';
 
 export class CreateAnamnesisDto {
   @IsUUID('4', { message: 'ID do paciente inválido' })
   patientId: string;
 
+  @IsEnum(AnamnesisType, { message: 'Tipo de anamnese inválido' })
+  type: AnamnesisType;
+
+  @ValidateIf((o) => o.assessmentDate !== undefined)
+  @IsDateString({}, { message: 'Data da avaliação inválida' })
+  assessmentDate?: string;
+
+  @ValidateIf((o) => o.data !== undefined)
   @IsObject({ message: 'Dados da anamnese devem ser um objeto JSON' })
-  data: Record<string, unknown>;
+  data?: Record<string, unknown>;
 
   @IsOptional()
   @IsEnum(SensitiveLegalBasis, { message: 'Base legal inválida' })

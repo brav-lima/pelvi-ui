@@ -80,6 +80,8 @@ export interface Patient {
   email?: string;
   phone?: string;
   gender?: string;
+  occupation?: string;
+  maritalStatus?: string;
   addressCep?: string;
   addressStreet?: string;
   addressNumber?: string;
@@ -105,6 +107,8 @@ export interface CreatePatientData {
   email?: string;
   phone?: string;
   gender?: string;
+  occupation?: string;
+  maritalStatus?: string;
   addressCep?: string;
   addressStreet?: string;
   addressNumber?: string;
@@ -165,11 +169,23 @@ export interface AgendaBlock {
   };
 }
 
+export type AnamnesisType = 'PELVIC_GENERAL' | 'PREGNANCY';
+export type AnamnesisStatus = 'DRAFT' | 'COMPLETED';
+
+export interface AnamnesisContent {
+  sections: Record<string, unknown>;
+}
+
 export interface Anamnesis {
   id: string;
   organizationId: string;
   patientId: string;
   professionalId: string;
+  /** null = legacy record (4-field format), read-only */
+  type: AnamnesisType | null;
+  status: AnamnesisStatus;
+  assessmentDate: string | null;
+  completedAt: string | null;
   data: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;

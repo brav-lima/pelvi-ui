@@ -40,10 +40,11 @@ export class AnamnesisController {
   @Patch(':id')
   update(
     @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
     @Body() dto: UpdateAnamnesisDto,
   ) {
-    return this.anamnesisService.update(orgId, id, dto);
+    return this.anamnesisService.update(orgId, user.sub, id, dto);
   }
 
   @Delete(':id')

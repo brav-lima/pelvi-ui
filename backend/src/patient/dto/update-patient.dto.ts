@@ -5,8 +5,10 @@ import {
   IsOptional,
   IsString,
   Matches,
+  MaxLength,
   MinLength,
 } from 'class-validator';
+import { MARITAL_STATUSES, type MaritalStatus } from '../marital-status';
 
 export class UpdatePatientDto {
   @IsOptional()
@@ -33,6 +35,15 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsString()
   gender?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  occupation?: string;
+
+  @IsOptional()
+  @IsIn(MARITAL_STATUSES, { message: 'Estado civil inválido' })
+  maritalStatus?: MaritalStatus;
 
   @IsOptional()
   @IsString()

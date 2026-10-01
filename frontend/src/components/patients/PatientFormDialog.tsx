@@ -27,6 +27,7 @@ import { Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { patientsApi } from '@/lib/api';
 import { maskCPF, maskPhone } from '@/lib/formatters';
+import { MARITAL_STATUS_OPTIONS } from '@/lib/marital-status';
 import type { Patient } from '@/types/clinic';
 
 const patientSchema = z.object({
@@ -36,6 +37,8 @@ const patientSchema = z.object({
   phone: z.string().optional(),
   birthDate: z.string().optional(),
   gender: z.string().optional(),
+  occupation: z.string().optional(),
+  maritalStatus: z.string().optional(),
   addressCep: z.string().optional(),
   addressStreet: z.string().optional(),
   addressNumber: z.string().optional(),
@@ -71,6 +74,8 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, mode
       phone: '',
       birthDate: '',
       gender: '',
+      occupation: '',
+      maritalStatus: '',
       addressCep: '',
       addressStreet: '',
       addressNumber: '',
@@ -91,6 +96,8 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, mode
         phone: patient?.phone ? maskPhone(patient.phone) : '',
         birthDate: patient?.birthDate ? patient.birthDate.slice(0, 10) : '',
         gender: patient?.gender ?? '',
+        occupation: patient?.occupation ?? '',
+        maritalStatus: patient?.maritalStatus ?? '',
         addressCep: patient?.addressCep ?? '',
         addressStreet: patient?.addressStreet ?? '',
         addressNumber: patient?.addressNumber ?? '',
@@ -259,6 +266,32 @@ export function PatientFormDialog({ open, onOpenChange, onSuccess, patient, mode
                   <SelectItem value="O">Outro</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Profissão + Estado civil — só em full */}
+          {mode !== 'quick' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="occupation">Profissão</Label>
+                <Input id="occupation" maxLength={120} {...form.register('occupation')} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maritalStatus">Estado civil</Label>
+                <Select
+                  value={form.watch('maritalStatus') || ''}
+                  onValueChange={(v) => form.setValue('maritalStatus', v)}
+                >
+                  <SelectTrigger id="maritalStatus">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MARITAL_STATUS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
