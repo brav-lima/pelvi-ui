@@ -334,7 +334,7 @@ export default function AnamnesisEditorPage() {
   const isCompleted = status === 'COMPLETED';
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="relative space-y-5 animate-fade-in">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         {backButton}
         <div className="flex items-center gap-2">
